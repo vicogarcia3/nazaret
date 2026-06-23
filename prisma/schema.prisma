@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  amount  Float
+  concept String?
+
+  status PaymentStatus @default(PENDING)
+
+  dueDate DateTime
+  paidAt  DateTime?
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  budgetId String?
+  budget   Budget? @relation(fields: [budgetId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model User {
+  id String @id @default(cuid())
+
+  name     String
+  email    String @unique
+  password String
+
+  role Role
+
+  doctor  Doctor?
+  patient Patient?
+}
+
+model Branch {
+  id String @id @default(cuid())
+
+  name    String
+  city    String
+  address String
+
+  phone  String?
+  mapUrl String?
+
+  active Boolean @default(true)
+
+  doctors       DoctorBranch[]
+  patients      Patient[]
+  appointments  Appointment[]
+  galleryImages GalleryImage[]
+}
+
+model Doctor {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id])
+
+  specialty   String?
+  description String?
+  photo       String?
+
+  active Boolean @default(true)
+
+  branches DoctorBranch[]
+
+  patients     Patient[]
+  appointments Appointment[]
+  budgets      Budget[]
+}
+
+model DoctorBranch {
+  doctorId String
+  branchId String
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@id([doctorId, branchId])
+}
+
+model Plan {
+  id String @id @default(cuid())
+
+  name        String
+  description String
+  price       Float?
+
+  discount Float   @default(0)
+  active   Boolean @default(true)
+
+  patients Patient[]
+}
+
+model Patient {
+  id String @id @default(cuid())
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
+
+  firstName String
+  lastName  String
+
+  dni   String?
+  phone String
+  email String?
+
+  birthDate DateTime?
+
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+
+  doctorId String?
+  doctor   Doctor? @relation(fields: [doctorId], references: [id])
+
+  planId String?
+  plan   Plan?   @relation(fields: [planId], references: [id])
+
+  appointments Appointment[]
+  budgets      Budget[]
+  histories    ClinicalHistory[]
+  payments     Payment[]
+
+  createdAt  DateTime    @default(now())
+  odontogram Odontogram?
+}
+
+model Appointment {
+  id String @id @default(cuid())
+
+  date DateTime
+
+  status AppointmentStatus @default(PENDING)
+
+  notes String?
+
+  patientId String
+  doctorId  String
+  branchId  String
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+  branch  Branch  @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Budget {
+  id String @id @default(cuid())
+
+  description String?
+
+  patientId String
+  doctorId  String
+  subtotal  Float
+  discount  Float  @default(0)
+  total     Float
+
+  patient  Patient      @relation(fields: [patientId], references: [id])
+  doctor   Doctor       @relation(fields: [doctorId], references: [id])
+  payments Payment[]
+  items    BudgetItem[]
+
+  createdAt DateTime @default(now())
+}
+
+model ClinicalHistory {
+  id String @id @default(cuid())
+
+  diagnosis String
+  treatment String?
+
+  patientId String
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model SiteConfig {
+  id Int @id @default(1)
+
+  clinicName   String
+  heroTitle    String
+  heroSubtitle String
+
+  logo      String?
+  heroImage String?
+
+  whatsapp  String?
+  instagram String?
+  facebook  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Service {
+  id String @id @default(cuid())
+
+  title       String
+  description String
+  image       String?
+
+  active Boolean @default(true)
+}
+
+model GalleryImage {
+  id String @id @default(cuid())
+
+  imageUrl String
+
+  branchId String?
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+}
+
+model BudgetItem {
+  id String @id @default(cuid())
+
+  budgetId String
+  budget   Budget @relation(fields: [budgetId], references: [id])
+
+  serviceName String
+
+  quantity Int @default(1)
+
+  unitPrice Float
+
+  total Float
+}
+
+model Odontogram {
+  id String @id @default(cuid())
+
+  patientId String @unique
+
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  data Json
+
+  updatedAt DateTime @updatedAt
+}
