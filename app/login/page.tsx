@@ -56,7 +56,7 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          className="w-full rounded bg-teal-600 p-3 text-white hover:bg-teal-700"
+          className="w-full rounded bg-[#A2B38B] px-4 p-3 text-white hover:bg-[#8FA178] transition"
         >
           Ingresar
         </button>
@@ -66,7 +66,7 @@ export default function LoginPage() {
             ¿Sos paciente y todavía no tenés cuenta?
           </p>
 
-          <Link href="/registro" className="text-teal-600 hover:underline">
+          <Link href="/registro" className="text-teal-000 hover:underline">
             Crear cuenta
           </Link>
         </div>

@@ -9,22 +9,22 @@ export async function GET() {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const payments = await prisma.payment.findMany({
+  const appointments = await prisma.appointment.findMany({
     include: {
-      patient: {
+      patient: true,
+      doctor: {
         include: {
-          branch: true,
-          plan: true,
+          user: true,
         },
       },
-      budget: true,
+      branch: true,
     },
     orderBy: {
-      dueDate: "asc",
+      date: "asc",
     },
   });
 
-  return NextResponse.json(payments);
+  return NextResponse.json(appointments);
 }
 
 export async function POST(req: Request) {
@@ -36,17 +36,16 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
-  const payment = await prisma.payment.create({
+  const appointment = await prisma.appointment.create({
     data: {
       patientId: body.patientId,
-      budgetId: body.budgetId || null,
-      amount: Number(body.amount),
-      concept: body.concept || null,
-      dueDate: new Date(body.dueDate),
-      status: body.status || "PENDING",
-      paidAt: body.status === "PAID" ? new Date() : null,
+      doctorId: body.doctorId,
+      branchId: body.branchId,
+      date: new Date(body.date),
+      notes: body.notes || null,
+      status: body.status || "CONFIRMED",
     },
   });
 
-  return NextResponse.json(payment);
+  return NextResponse.json(appointment);
 }

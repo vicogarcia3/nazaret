@@ -7,6 +7,7 @@ export default function ConfiguracionPage() {
     clinicName: "",
     heroTitle: "",
     heroSubtitle: "",
+    heroImage: "",
     whatsapp: "",
     instagram: "",
     facebook: "",
@@ -119,6 +120,44 @@ export default function ConfiguracionPage() {
             })
           }
         />
+
+        <div className="space-y-3">
+          <label className="font-medium">Imagen principal del inicio</label>
+
+          <input
+            type="file"
+            accept="image/*"
+            className="w-full rounded border p-3"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+
+              if (!file) return;
+
+              const formData = new FormData();
+              formData.append("file", file);
+
+              const res = await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+
+              const data = await res.json();
+
+              setForm({
+                ...form,
+                heroImage: data.url,
+              });
+            }}
+          />
+
+          {form.heroImage && (
+            <img
+              src={form.heroImage}
+              alt="Imagen principal"
+              className="h-56 w-full rounded-xl object-cover"
+            />
+          )}
+        </div>
 
         <button className="rounded bg-[#A2B38B] hover:bg-[#8FA178] px-4 py-2 text-white">
           Guardar

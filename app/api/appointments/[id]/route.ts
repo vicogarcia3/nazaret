@@ -15,16 +15,14 @@ export async function PUT(
   const { id } = await context.params;
   const body = await req.json();
 
-  const payment = await prisma.payment.update({
+  const appointment = await prisma.appointment.update({
     where: { id },
     data: {
-      amount: body.amount ? Number(body.amount) : undefined,
-      concept: body.concept ?? undefined,
-      dueDate: body.dueDate ? new Date(body.dueDate) : undefined,
-      status: body.status,
-      paidAt: body.status === "PAID" ? new Date() : undefined,
+      ...(body.date && { date: new Date(body.date) }),
+      ...(body.status && { status: body.status }),
+      ...(body.notes !== undefined && { notes: body.notes }),
     },
   });
 
-  return NextResponse.json(payment);
+  return NextResponse.json(appointment);
 }

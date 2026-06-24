@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import ClinicalHistoryEditor from "./ClinicalHistoryEditor";
 
 type Props = {
   params: Promise<{
@@ -20,7 +21,12 @@ export default async function PacienteDetallePage({ params }: Props) {
       appointments: true,
       budgets: true,
       payments: true,
-      histories: true,
+      histories: {
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
+
       odontogram: true,
     },
   });
@@ -71,6 +77,13 @@ export default async function PacienteDetallePage({ params }: Props) {
           </div>
         </section>
 
+        <Link
+          href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`}
+          className="inline-block rounded bg-[#A2B38B] px-5 py-3 text-white hover:bg-[#8FA178]"
+        >
+          Completar historia clínica
+        </Link>
+
         <section className="rounded-xl border bg-white p-6 shadow-sm">
           <h2 className="text-2xl font-bold">Pagos</h2>
 
@@ -93,24 +106,6 @@ export default async function PacienteDetallePage({ params }: Props) {
 
           <p className="mt-4">
             Total de presupuestos: {patient.budgets.length}
-          </p>
-        </section>
-
-        <section className="rounded-xl border bg-white p-6 shadow-sm md:col-span-2">
-          <h2 className="text-2xl font-bold">Historial médico</h2>
-
-          <p className="mt-4 text-gray-600">
-            {patient.histories.length > 0
-              ? patient.histories[0].notes
-              : "Sin historial médico cargado."}
-          </p>
-        </section>
-
-        <section className="rounded-xl border bg-white p-6 shadow-sm md:col-span-2">
-          <h2 className="text-2xl font-bold">Odontograma</h2>
-
-          <p className="mt-4 text-gray-500">
-            Próximamente se cargará el odontograma del paciente.
           </p>
         </section>
       </div>

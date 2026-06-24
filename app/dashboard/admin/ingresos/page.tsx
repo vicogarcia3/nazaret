@@ -106,7 +106,11 @@ export default function IngresosPage() {
   function getWhatsappLink(payment: Payment) {
     const phone = payment.patient.phone.replace(/\D/g, "");
 
-    const message = `Hola ${payment.patient.firstName}, te recordamos que tenés un pago pendiente en el consultorio odontológico por $${payment.amount}. Por favor, regularizalo cuando puedas. Muchas gracias.`;
+    const month = new Date(payment.dueDate).toLocaleDateString("es-AR", {
+      month: "long",
+    });
+
+    const message = `Hola ${payment.patient.firstName}, te recordamos que tenés un pago pendiente en Consultorios Nazaret por $${payment.amount}. Por favor, regularizalo cuando puedas. Muchas gracias.`;
 
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }

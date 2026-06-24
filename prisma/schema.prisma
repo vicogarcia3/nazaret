@@ -193,14 +193,16 @@ model Budget {
 model ClinicalHistory {
   id String @id @default(cuid())
 
-  diagnosis String
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id])
+
+  diagnosis String?
   treatment String?
 
-  patientId String
-
-  patient Patient @relation(fields: [patientId], references: [id])
+  data Json?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SiteConfig {
@@ -266,4 +268,13 @@ model Odontogram {
   data Json
 
   updatedAt DateTime @updatedAt
+}
+
+model OdontogramCondition {
+  id String @id @default(cuid())
+
+  name  String
+  color String
+
+  createdAt DateTime @default(now())
 }
