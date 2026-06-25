@@ -241,7 +241,7 @@ function PrintableOdontogram({
   odontogramData,
   setOdontogramData,
 }: {
-  odontogramData: Record<String, ToothMark>;
+  odontogramData: Record<string, ToothMark>;
   setOdontogramData: React.Dispatch<
     React.SetStateAction<Record<string, ToothMark>>
   >;

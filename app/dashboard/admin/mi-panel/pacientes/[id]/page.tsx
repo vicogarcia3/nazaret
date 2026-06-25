@@ -68,7 +68,7 @@ export default async function PacienteDetallePage({ params }: Props) {
 
           <div className="mt-4 space-y-2">
             <p>DNI: {patient.dni}</p>
-            <p>Email: {patient.user.email}</p>
+            <p>Email: {patient.user?.email || patient.email || "No cargado"}</p>
             <p>Teléfono: {patient.phone}</p>
             <p>
               Sucursal: {patient.branch.name} — {patient.branch.address}
