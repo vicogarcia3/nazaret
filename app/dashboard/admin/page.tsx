@@ -1,13 +1,5 @@
-export default function AdminPage() {
-  return (
-    <>
-      <h1 className="text-4xl font-bold">
-        Panel de administración
-      </h1>
+import { redirect } from "next/navigation";
 
-      <p className="mt-4 text-gray-500">
-        Bienvenido al sistema.
-      </p>
-    </>
-  );
+export default function AdminPage() {
+  redirect("/dashboard/admin/mi-panel");
 }

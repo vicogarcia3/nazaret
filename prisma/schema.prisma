@@ -36,6 +36,9 @@ model Payment {
   dueDate DateTime
   paidAt  DateTime?
 
+  whatsappReminderSent    Boolean   @default(false)
+  whatsappReminderSentAt  DateTime?
+
   patientId String
   patient   Patient @relation(fields: [patientId], references: [id])
 
@@ -56,6 +59,7 @@ model User {
 
   doctor  Doctor?
   patient Patient?
+  lastLoginAt  DateTime?
 }
 
 model Branch {
@@ -68,12 +72,18 @@ model Branch {
   phone  String?
   mapUrl String?
 
+  mondayToFridayHours String?
+  saturdayHours       String?
+  sundayHours         String?
+
   active Boolean @default(true)
 
-  doctors       DoctorBranch[]
-  patients      Patient[]
-  appointments  Appointment[]
-  galleryImages GalleryImage[]
+  doctors        DoctorBranch[]
+  patients       Patient[]
+  appointments   Appointment[]
+  galleryImages  GalleryImage[]
+  availabilities DoctorAvailability[]
+  expenses       Expense[]
 }
 
 model Doctor {
@@ -88,11 +98,11 @@ model Doctor {
 
   active Boolean @default(true)
 
-  branches DoctorBranch[]
-
-  patients     Patient[]
-  appointments Appointment[]
-  budgets      Budget[]
+  branches       DoctorBranch[]
+  patients       Patient[]
+  appointments   Appointment[]
+  budgets        Budget[]
+  availabilities DoctorAvailability[]
 }
 
 model DoctorBranch {
@@ -157,6 +167,7 @@ model Appointment {
   date DateTime
 
   status AppointmentStatus @default(PENDING)
+  reminderSent Boolean @default(false)
 
   notes String?
 
@@ -178,9 +189,10 @@ model Budget {
 
   patientId String
   doctorId  String
-  subtotal  Float
-  discount  Float  @default(0)
-  total     Float
+  subtotal  Decimal
+  discount  Decimal  @default(0)
+  total     Decimal
+  status    String   @default("DRAFT")
 
   patient  Patient      @relation(fields: [patientId], references: [id])
   doctor   Doctor       @relation(fields: [doctorId], references: [id])
@@ -208,9 +220,12 @@ model ClinicalHistory {
 model SiteConfig {
   id Int @id @default(1)
 
-  clinicName   String
-  heroTitle    String
-  heroSubtitle String
+  clinicName            String
+  heroTitle             String
+  heroSubtitle          String
+  businessHoursWeek     String?
+  businessHoursSaturday String?
+  businessHoursSunday   String?
 
   logo      String?
   heroImage String?
@@ -275,6 +290,46 @@ model OdontogramCondition {
 
   name  String
   color String
+
+  createdAt DateTime @default(now())
+}
+
+model DoctorAvailability {
+  id String @id @default(cuid())
+
+  doctorId String
+  branchId String
+
+  date      DateTime
+  startTime String
+  endTime   String
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  concept   String
+  category  String
+  amount    Float
+  date      DateTime
+
+  branchId  String?
+  branch    Branch? @relation(fields: [branchId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Treatment {
+  id String @id @default(cuid())
+
+  name        String
+  description String?
+  price       Float?
+  active      Boolean @default(true)
 
   createdAt DateTime @default(now())
 }

@@ -42,11 +42,76 @@ export async function POST(req: Request) {
       budgetId: body.budgetId || null,
       amount: Number(body.amount),
       concept: body.concept || null,
-      dueDate: new Date(body.dueDate),
-      status: body.status || "PENDING",
+      dueDate: new Date(`${body.dueDate}T12:00:00`),      status: body.status || "PENDING",
       paidAt: body.status === "PAID" ? new Date() : null,
     },
   });
+
+  if (body.budgetId) {
+  const paidPayments = await prisma.payment.findMany({
+    where: {
+      budgetId: body.budgetId,
+      status: "PAID",
+    },
+  });
+
+  const totalPaid = paidPayments.reduce((acc, payment) => {
+    return acc + Number(payment.amount);
+  }, 0);
+
+  const budget = await prisma.budget.findUnique({
+    where: {
+      id: body.budgetId,
+    },
+  });
+
+  if (budget) {
+    await prisma.budget.update({
+      where: {
+        id: body.budgetId,
+      },
+      data: {
+        status:
+          totalPaid >= Number(budget.total)
+            ? "COMPLETED"
+            : "IN_PROGRESS",
+      },
+    });
+  }
+}
+
+  if (body.budgetId) {
+    const paidPayments = await prisma.payment.findMany({
+      where: {
+        budgetId: body.budgetId,
+        status: "PAID",
+      },
+    });
+
+    const totalPaid = paidPayments.reduce((acc, payment) => {
+      return acc + Number(payment.amount);
+    }, 0);
+
+    const budget = await prisma.budget.findUnique({
+      where: {
+        id: body.budgetId,
+      },
+    });
+
+    if (budget) {
+      await prisma.budget.update({
+        where: {
+          id: body.budgetId,
+        },
+        data: {
+          status:
+            totalPaid >= Number(budget.total)
+              ? "COMPLETED"
+              : "IN_PROGRESS",
+        },
+      });
+    }
+  }
 
   return NextResponse.json(payment);
 }

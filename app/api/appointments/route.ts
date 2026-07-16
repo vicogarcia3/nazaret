@@ -41,9 +41,9 @@ export async function POST(req: Request) {
       patientId: body.patientId,
       doctorId: body.doctorId,
       branchId: body.branchId,
-      date: new Date(body.date),
+      date: new Date(`${body.date}T${body.time}:00`),
       notes: body.notes || null,
-      status: body.status || "CONFIRMED",
+      status: "PENDING",
     },
   });
 

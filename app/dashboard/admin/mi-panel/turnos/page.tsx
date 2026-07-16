@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { CalendarDays, MoreVertical, Check, X, Clock, Trash2 } from "lucide-react";
+import NewGeneralAppointmentForm from "./NewGeneralAppointmentForm";
 
 type Branch = {
   id: string;
@@ -9,74 +11,68 @@ type Branch = {
   city: string;
 };
 
-type Patient = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  branchId: string;
-};
-
-type Doctor = {
-  id: string;
-  user: {
-    name: string;
-  };
-};
-
 type Appointment = {
   id: string;
   date: string;
   status: "PENDING" | "CONFIRMED" | "COMPLETED" | "CANCELED";
-  notes: string | null;
-  patient: Patient;
-  doctor: Doctor;
+  reminderSent: boolean;
+  notes?: string | null;
+  patient: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+  };
+  doctor: {
+    user: {
+      name: string;
+    };
+  };
   branch: Branch;
 };
 
 export default function TurnosPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-
   const [selectedBranchId, setSelectedBranchId] = useState("");
-
-  const [currentDate, setCurrentDate] = useState(new Date());
-
-  const [rescheduleAppointment, setRescheduleAppointment] =
-  useState<Appointment | null>(null);
-
-  const [rescheduleForm, setRescheduleForm] = useState({
-    date: "",
-    time: "",
-  });
-
-  const [form, setForm] = useState({
-    patientId: "",
-    doctorId: "",
-    date: "",
-    time: "",
-    notes: "",
-  });
+  const [currentDate] = useState(new Date());
+  const [view, setView] = useState<"mes" | "semana" | "dia">("mes");
+  const [patients, setPatients] = useState([]);
+  const [doctors, setDoctors] = useState([]);
 
   async function loadData() {
-    const [branchesRes, patientsRes, doctorsRes, appointmentsRes] =
-      await Promise.all([
-        fetch("/api/branches"),
-        fetch("/api/patients"),
-        fetch("/api/doctors"),
-        fetch("/api/appointments"),
-      ]);
+    try {
+      const [branchesRes, appointmentsRes, patientsRes, doctorsRes] =
+        await Promise.all([
+          fetch("/api/branches"),
+          fetch("/api/appointments"),
+          fetch("/api/patients"),
+          fetch("/api/doctors"),
+        ]);
 
-    const branchesData = await branchesRes.json();
+      const branchesData = await branchesRes.json();
+      const appointmentsData = await appointmentsRes.json();
+      console.log("TURNOS:", appointmentsData);
+      const patientsData = await patientsRes.json();
+      const doctorsData = await doctorsRes.json();
 
-    setBranches(branchesData);
-    setPatients(await patientsRes.json());
-    setDoctors(await doctorsRes.json());
-    setAppointments(await appointmentsRes.json());
+      setBranches(Array.isArray(branchesData) ? branchesData : []);
+      setAppointments(Array.isArray(appointmentsData) ? appointmentsData : []);
+      setPatients(Array.isArray(patientsData) ? patientsData : []);
+      setDoctors(Array.isArray(doctorsData) ? doctorsData : []);
 
-    if (branchesData.length > 0 && !selectedBranchId) {
-      setSelectedBranchId(branchesData[0].id);
+      if (
+        Array.isArray(branchesData) &&
+        branchesData.length > 0 &&
+        !selectedBranchId
+      ) {
+        setSelectedBranchId(branchesData[0].id);
+      }
+    } catch (error) {
+      console.error("ERROR CARGANDO DATOS", error);
+      setBranches([]);
+      setAppointments([]);
+      setPatients([]);
+      setDoctors([]);
     }
   }
 
@@ -84,17 +80,13 @@ export default function TurnosPage() {
     loadData();
   }, []);
 
-  const selectedBranch = branches.find(
-    (branch) => branch.id === selectedBranchId
-  );
+  const selectedBranch = branches.find((branch) => branch.id === selectedBranchId);
 
-  const patientsFromSelectedBranch = patients.filter(
-    (patient) => patient.branchId === selectedBranchId
-  );
-
-  const appointmentsFromSelectedBranch = appointments.filter(
-    (appointment) => appointment.branch.id === selectedBranchId
-  );
+  const filteredAppointments = Array.isArray(appointments)
+    ? appointments.filter(
+        (appointment) => appointment.branch?.id === selectedBranchId
+      )
+    : [];
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -109,12 +101,10 @@ export default function TurnosPage() {
     const lastDay = new Date(year, month + 1, 0);
 
     const days: (Date | null)[] = [];
-
     const startWeekDay = firstDay.getDay();
+    const startOffset = startWeekDay === 0 ? 6 : startWeekDay - 1;
 
-    for (let i = 0; i < startWeekDay; i++) {
-      days.push(null);
-    }
+    for (let i = 0; i < startOffset; i++) days.push(null);
 
     for (let day = 1; day <= lastDay.getDate(); day++) {
       days.push(new Date(year, month, day));
@@ -123,8 +113,20 @@ export default function TurnosPage() {
     return days;
   }, [year, month]);
 
+  const weekStart = new Date(currentDate);
+  const weekDay = weekStart.getDay();
+  const weekOffset = weekDay === 0 ? -6 : 1 - weekDay;
+  weekStart.setDate(currentDate.getDate() + weekOffset);
+  weekStart.setHours(0, 0, 0, 0);
+
+  const weekDays = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + index);
+    return date;
+  });
+
   function getAppointmentsForDay(day: Date) {
-    return appointmentsFromSelectedBranch.filter((appointment) => {
+    return filteredAppointments.filter((appointment) => {
       const appointmentDate = new Date(appointment.date);
 
       return (
@@ -133,47 +135,6 @@ export default function TurnosPage() {
         appointmentDate.getDate() === day.getDate()
       );
     });
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (!selectedBranchId) {
-      alert("Seleccioná una sucursal.");
-      return;
-    }
-
-    const fullDate = new Date(`${form.date}T${form.time}`);
-
-    const res = await fetch("/api/appointments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        patientId: form.patientId,
-        doctorId: form.doctorId,
-        branchId: selectedBranchId,
-        date: fullDate,
-        notes: form.notes,
-        status: "CONFIRMED",
-      }),
-    });
-
-    if (!res.ok) {
-      alert("No se pudo crear el turno.");
-      return;
-    }
-
-    setForm({
-      patientId: "",
-      doctorId: "",
-      date: "",
-      time: "",
-      notes: "",
-    });
-
-    loadData();
   }
 
   async function updateStatus(
@@ -191,370 +152,308 @@ export default function TurnosPage() {
     loadData();
   }
 
-  function openRescheduleModal(appointment: Appointment) {
-    const appointmentDate = new Date(appointment.date);
+  async function deleteAppointment(appointmentId: string) {
+    if (!confirm("¿Seguro que querés eliminar este turno?")) return;
 
-    setRescheduleAppointment(appointment);
-    setRescheduleForm({
-      date: appointmentDate.toISOString().split("T")[0],
-      time: appointmentDate.toTimeString().slice(0, 5),
+    await fetch(`/api/appointments/${appointmentId}`, {
+      method: "DELETE",
     });
+
+    loadData();
   }
 
-  async function saveReschedule(e: React.FormEvent) {
-    e.preventDefault();
+  function AppointmentCard({ appointment }: { appointment: Appointment }) {
+    const [open, setOpen] = useState(false);
 
-    if (!rescheduleAppointment) return;
+    return (
+      <article className="border border-[#DED9CD] bg-[#FFFCF7] p-3 shadow-sm">
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <p className="text-sm font-semibold text-[#A2B38B]">
+            {new Date(appointment.date).toLocaleTimeString("es-AR", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </p>
 
-    const newDate = new Date(
-      `${rescheduleForm.date}T${rescheduleForm.time}`
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setOpen(!open)}
+              className="text-[#6B7774] hover:text-[#263F3B]"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+
+            {open && (
+              <div className="absolute right-0 z-20 mt-2 w-36 border border-[#DED9CD] bg-white shadow-sm">
+                {(appointment.status === "PENDING" ||
+                  appointment.status === "CONFIRMED") && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(appointment.id, "COMPLETED")}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[#F7F5EF]"
+                    >
+                      <Check className="h-3.5 w-3.5 text-green-600" />
+                      Completar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(appointment.id, "CANCELED")}
+                      className="flex w-full items-center gap-2 px-3 py-2 text-xs hover:bg-[#F7F5EF]"
+                    >
+                      <X className="h-3.5 w-3.5 text-[#D97A7A]" />
+                      Cancelar
+                    </button>
+                  </>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => deleteAppointment(appointment.id)}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[#D97A7A] hover:bg-[#F8ECEC]"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  Eliminar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <p className="text-sm font-semibold">
+          {appointment.patient.lastName}, {appointment.patient.firstName}
+        </p>
+
+        <p className="mt-1 text-sm text-[#6B7774]">
+          {appointment.doctor.user.name}
+        </p>
+
+        <p className="mt-1 text-sm text-[#6B7774]">
+          {appointment.notes || "Sin concepto"}
+        </p>
+
+        {appointment.status === "COMPLETED" && (
+          <span className="mt-3 flex w-full justify-center rounded bg-green-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-green-700">
+            Completado
+          </span>
+        )}
+
+        {appointment.status === "CANCELED" && (
+          <span className="mt-3 flex w-full justify-center rounded bg-red-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-red-700">
+            Cancelado
+          </span>
+        )}
+
+        {(appointment.status === "PENDING" || appointment.status === "CONFIRMED") && (
+          <span className="mt-3 flex w-full justify-center rounded bg-yellow-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-yellow-700">
+            Pendiente
+          </span>
+        )}
+      </article>
     );
-
-    const res = await fetch(`/api/appointments/${rescheduleAppointment.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        date: newDate.toISOString(),
-      }),
-    });
-
-    if (!res.ok) {
-      alert("No se pudo reprogramar el turno.");
-      return;
-    }
-
-    setRescheduleAppointment(null);
-    setRescheduleForm({
-      date: "",
-      time: "",
-    });
-
-    await loadData();
   }
 
-  function previousMonth() {
-    setCurrentDate(new Date(year, month - 1, 1));
-  }
-
-  function nextMonth() {
-  setCurrentDate(new Date(year, month + 1, 1));
-  }
+  const todayAppointments = getAppointmentsForDay(currentDate);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold">Mis turnos</h1>
-        <p className="mt-2 text-gray-500">
-          Calendario mensual por sucursal.
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
+      <div className="space-y-8">
+        <header>
+          <h1 className="font-serif text-4xl font-medium">
+            Mis turnos
+          </h1>
 
-      <section className="rounded-xl border bg-white p-6 shadow-sm">
-        <label className="mb-2 block font-medium">
-          Seleccionar sucursal
-        </label>
+          <p className="mt-3 text-sm text-[#6B7774]">
+            Calendario general de turnos filtrado por sucursal.
+          </p>
+        </header>
 
-        <select
-          className="w-full rounded border p-3"
-          value={selectedBranchId}
-          onChange={(e) => {
-            setSelectedBranchId(e.target.value);
-            setForm({
-              patientId: "",
-              doctorId: "",
-              date: "",
-              time: "",
-              notes: "",
-            });
-          }}
-        >
-          <option value="">Seleccionar sucursal</option>
+        <section className="border border-[#DED9CD] bg-white p-6">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+            Seleccionar sucursal
+          </p>
 
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name} — {branch.address}, {branch.city}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      {selectedBranch && (
-        <>
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-xl bg-white p-6 shadow space-y-4"
+          <select
+            className="w-full border border-[#DED9CD] bg-white p-3 text-[#263F3B] outline-none focus:border-[#263F3B]"
+            value={selectedBranchId}
+            onChange={(e) => setSelectedBranchId(e.target.value)}
           >
-            <h2 className="text-2xl font-bold">
-              Agendar turno en {selectedBranch.name}
-            </h2>
+            <option value="">Seleccionar sucursal</option>
 
-            <p className="text-gray-500">
-              {selectedBranch.address}, {selectedBranch.city}
-            </p>
+            {branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name} — {branch.address}, {branch.city}
+              </option>
+            ))}
+          </select>
+        </section>
 
-            <select
-              className="w-full rounded border p-3"
-              value={form.patientId}
-              onChange={(e) =>
-                setForm({ ...form, patientId: e.target.value })
-              }
-              required
-            >
-              <option value="">Seleccionar paciente</option>
+        <NewGeneralAppointmentForm
+          selectedBranchId={selectedBranchId}
+          branches={branches}
+          doctors={doctors}
+          patients={patients}
+          onCreated={loadData}
+        />
 
-              {patientsFromSelectedBranch.map((patient) => (
-                <option key={patient.id} value={patient.id}>
-                  {patient.lastName}, {patient.firstName}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="w-full rounded border p-3"
-              value={form.doctorId}
-              onChange={(e) =>
-                setForm({ ...form, doctorId: e.target.value })
-              }
-              required
-            >
-              <option value="">Seleccionar odontólogo</option>
-
-              {doctors.map((doctor) => (
-                <option key={doctor.id} value={doctor.id}>
-                  {doctor.user.name}
-                </option>
-              ))}
-            </select>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <input
-                type="date"
-                className="w-full rounded border p-3"
-                value={form.date}
-                onChange={(e) =>
-                  setForm({ ...form, date: e.target.value })
-                }
-                required
-              />
-
-              <input
-                type="time"
-                className="w-full rounded border p-3"
-                value={form.time}
-                onChange={(e) =>
-                  setForm({ ...form, time: e.target.value })
-                }
-                required
-              />
-            </div>
-
-            <textarea
-              className="w-full rounded border p-3"
-              placeholder="Notas opcionales"
-              value={form.notes}
-              onChange={(e) =>
-                setForm({ ...form, notes: e.target.value })
-              }
-            />
-
-            <button className="rounded bg-[#A2B38B] px-5 py-3 text-white hover:bg-[#8FA178]">
-              Crear turno
-            </button>
-          </form>
-
-          <section className="rounded-xl bg-white p-6 shadow">
-            <div className="mb-6 flex items-center justify-between">
-              <button
-                onClick={previousMonth}
-                className="rounded bg-gray-100 px-4 py-2"
-              >
-                ← Anterior
-              </button>
-
-              <div className="text-center">
-                <h2 className="text-2xl font-bold capitalize">
-                  {monthName}
-                </h2>
-                <p className="text-sm text-gray-500">
-                  {selectedBranch.name} — {selectedBranch.address}
-                </p>
+        {selectedBranch && (
+          <section className="border border-[#DED9CD] bg-white">
+            <div className="flex items-center justify-between border-b border-[#DED9CD] px-6 py-4">
+              <div className="flex items-center gap-3">
+                <CalendarDays className="h-5 w-5 text-[#A2B38B]" />
+                <div>
+                  <h2 className="font-[var(--font-cormorant)] text-2xl font-medium capitalize">
+                    {view === "mes"
+                      ? monthName
+                      : view === "semana"
+                      ? "Semana actual"
+                      : "Día de hoy"}
+                  </h2>
+                  <p className="text-xs text-[#6B7774]">
+                    {selectedBranch.name} — {selectedBranch.address}
+                  </p>
+                </div>
               </div>
 
-              <button
-                onClick={nextMonth}
-                className="rounded bg-gray-100 px-4 py-2"
-              >
-                Siguiente →
-              </button>
+              <div className="flex border border-[#DED9CD] text-xs font-semibold uppercase tracking-[0.18em]">
+                {(["mes", "semana", "dia"] as const).map((item) => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setView(item)}
+                    className={`px-5 py-2 ${
+                      view === item
+                        ? "bg-[#263F3B] text-white"
+                        : "text-[#263F3B]"
+                    }`}
+                  >
+                    {item === "dia" ? "Día" : item}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="grid grid-cols-7 border-t border-l text-sm">
-              {["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"].map((day) => (
-                <div
-                  key={day}
-                  className="border-r border-b bg-gray-50 p-3 text-center font-semibold"
-                >
-                  {day}
+            {view === "mes" && (
+              <>
+                <div className="grid grid-cols-7 border-b border-[#DED9CD] text-center text-xs font-semibold uppercase tracking-[0.2em] text-[#6B7774]">
+                  {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map(
+                    (day) => (
+                      <div
+                        key={day}
+                        className="border-r border-[#DED9CD] py-3 last:border-r-0"
+                      >
+                        {day}
+                      </div>
+                    )
+                  )}
                 </div>
-              ))}
 
-              {calendarDays.map((day, index) => (
-                <div
-                  key={index}
-                  className="min-h-36 border-r border-b p-2"
-                >
-                  {day && (
-                    <>
-                      <p className="mb-2 font-semibold">
+                <div className="grid grid-cols-7">
+                  {calendarDays.map((day, index) => (
+                    <div
+                      key={index}
+                      className="min-h-[145px] border-r border-b border-[#DED9CD] p-3 last:border-r-0"
+                    >
+                      {day && (
+                        <>
+                          <div
+                            className={`mb-2 text-sm ${
+                              day.toDateString() === currentDate.toDateString()
+                                ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#A2B38B] font-semibold text-white"
+                                : "text-[#263F3B]"
+                            }`}
+                          >
+                            {day.getDate()}
+                          </div>
+
+                          <div className="space-y-2">
+                            {getAppointmentsForDay(day).map((appointment) => (
+                              <AppointmentCard
+                                key={appointment.id}
+                                appointment={appointment}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {view === "semana" && (
+              <div className="grid grid-cols-7">
+                {weekDays.map((day) => {
+                  const dayAppointments = getAppointmentsForDay(day);
+
+                  return (
+                    <div
+                      key={day.toISOString()}
+                      className="min-h-[320px] border-r border-[#DED9CD] p-4 last:border-r-0"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                        {day.toLocaleDateString("es-AR", {
+                          weekday: "short",
+                        })}
+                      </p>
+
+                      <p className="mt-1 text-lg font-semibold">
                         {day.getDate()}
                       </p>
 
-                      <div className="space-y-2">
-                        {getAppointmentsForDay(day).map((appointment) => (
-                          <div
+                      <div className="mt-4 space-y-2">
+                        {dayAppointments.map((appointment) => (
+                          <AppointmentCard
                             key={appointment.id}
-                            className="rounded-lg border bg-slate-50 p-2 text-xs"
-                          >
-                            <p className="font-semibold">
-                              {new Date(appointment.date).toLocaleTimeString(
-                                "es-AR",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                }
-                              )}
-                            </p>
-
-                            <p>
-                              {appointment.patient.lastName},{" "}
-                              {appointment.patient.firstName}
-                            </p>
-
-                            <p className="text-gray-500">
-                              {appointment.doctor.user.name}
-                            </p>
-
-                            <p
-                              className={
-                                appointment.status === "COMPLETED"
-                                  ? "text-green-600"
-                                  : appointment.status === "CANCELED"
-                                  ? "text-red-600"
-                                  : "text-yellow-600"
-                              }
-                            >
-                              {appointment.status === "COMPLETED"
-                                ? "Completado"
-                                : appointment.status === "CANCELED"
-                                ? "Cancelado"
-                                : appointment.status === "CONFIRMED"
-                                ? "Confirmado"
-                                : "Pendiente"}
-                            </p>
-
-                            {appointment.status !== "COMPLETED" &&
-                              appointment.status !== "CANCELED" && (
-                                <div className="mt-2 flex flex-wrap gap-1">
-                                  <button
-                                    onClick={() =>
-                                      updateStatus(
-                                        appointment.id,
-                                        "COMPLETED"
-                                      )
-                                    }
-                                    className="rounded bg-[#A2B38B] px-2 py-1 text-white"
-                                  >
-                                    Completar
-                                  </button>
-
-                                  <button
-                                    onClick={() => openRescheduleModal(appointment)}
-                                    className="rounded bg-gray-300 px-2 py-1"
-                                  >
-                                    Reprogramar
-                                  </button>
-
-                                  <button
-                                    onClick={() =>
-                                      updateStatus(
-                                        appointment.id,
-                                        "CANCELED"
-                                      )
-                                    }
-                                    className="rounded bg-[#D97A7A] px-2 py-1 text-white"
-                                  >
-                                    Cancelar
-                                  </button>
-                                </div>
-                              )}
-                          </div>
+                            appointment={appointment}
+                          />
                         ))}
+
+                        {dayAppointments.length === 0 && (
+                          <p className="text-xs text-[#6B7774]">Sin turnos</p>
+                        )}
                       </div>
-                    </>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {view === "dia" && (
+              <div className="p-6">
+                <h3 className="font-[var(--font-cormorant)] text-2xl font-medium">
+                  {currentDate.toLocaleDateString("es-AR", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })}
+                </h3>
+
+                <div className="mt-6 grid gap-4">
+                  {todayAppointments.map((appointment) => (
+                    <AppointmentCard
+                      key={appointment.id}
+                      appointment={appointment}
+                    />
+                  ))}
+
+                  {todayAppointments.length === 0 && (
+                    <article className="border border-[#DED9CD] bg-[#FFFCF7] p-6">
+                      <Clock className="mb-3 h-4 w-4 text-[#A2B38B]" />
+                      <p className="text-sm text-[#6B7774]">
+                        No hay turnos para este día en esta sucursal.
+                      </p>
+                    </article>
                   )}
                 </div>
-              ))}
-            </div>
+              </div>
+            )}
           </section>
-        </>
-      )}
-      {rescheduleAppointment && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <form
-            onSubmit={saveReschedule}
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4"
-          >
-            <h2 className="text-2xl font-bold">Reprogramar turno</h2>
-
-            <p className="text-gray-500">
-              {rescheduleAppointment.patient.lastName},{" "}
-              {rescheduleAppointment.patient.firstName}
-            </p>
-
-            <input
-              type="date"
-              className="w-full rounded border p-3"
-              value={rescheduleForm.date}
-              onChange={(e) =>
-                setRescheduleForm({
-                ...rescheduleForm,
-                date: e.target.value,
-              })
-            }
-            required
-          />
-
-          <input
-            type="time"
-            className="w-full rounded border p-3"
-            value={rescheduleForm.time}
-            onChange={(e) =>
-              setRescheduleForm({
-                ...rescheduleForm,
-                time: e.target.value,
-              })
-            }
-            required
-          />
-
-          <div className="flex gap-3">
-            <button className="rounded bg-[#A2B38B] px-5 py-3 text-white hover:bg-[#8FA178]">
-              Guardar
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setRescheduleAppointment(null)}
-              className="rounded bg-gray-300 px-5 py-3 text-black"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
+        )}
       </div>
-    )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import ClinicalHistoryEditor from "../ClinicalHistoryEditor";
+import { ArrowLeft } from "lucide-react";
 
 type Props = {
   params: Promise<{
@@ -29,9 +30,10 @@ export default async function HistoriaClinicaPage({ params }: Props) {
     <div className="space-y-8">
       <Link
         href={`/dashboard/admin/mi-panel/pacientes/${patient.id}`}
-        className="text-sm text-[#A2B38B] hover:underline"
+        className="inline-flex items-center gap-2 text-sm font-medium text-[#A2B38B] transition hover:text-[#8FA178]"
       >
-        ← Volver al paciente
+        <ArrowLeft className="h-4 w-4" />
+        Volver al paciente
       </Link>
 
       <ClinicalHistoryEditor patientId={patient.id} />

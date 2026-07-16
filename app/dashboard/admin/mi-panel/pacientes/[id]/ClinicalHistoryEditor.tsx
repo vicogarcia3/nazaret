@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { Save } from "lucide-react";
 
 type Props = {
   patientId: string;
@@ -622,7 +623,7 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
           <Link
             href={`/print/historia-clinica/${patientId}`}
             target="_blank"
-            className="rounded bg-gray-700 px-5 py-3 text-white"
+            className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"          
           >
             Ver PDF
           </Link>
@@ -630,8 +631,9 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
           <button
             type="button"
             onClick={saveHistory}
-            className="rounded bg-[#A2B38B] px-5 py-3 text-white hover:bg-[#8FA178]"
+            className="inline-flex items-center gap-2 bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
           >
+            <Save className="h-4 w-4" />
             Guardar
           </button>
         </div>

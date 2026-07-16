@@ -11,6 +11,22 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
+  const { doctorId, date, time, treatmentName } = body;
+
+  if (!doctorId) {
+    return NextResponse.json(
+      { error: "Tenés que seleccionar un especialista." },
+      { status: 400 }
+    );
+  }
+
+  if (!date || !time) {
+    return NextResponse.json(
+      { error: "Tenés que seleccionar fecha y horario." },
+      { status: 400 }
+    );
+  }
+
   const patient = await prisma.patient.findUnique({
     where: {
       userId: session.user.id,
@@ -24,11 +40,32 @@ export async function POST(req: Request) {
     );
   }
 
+  const doctorInBranch = await prisma.doctor.findFirst({
+    where: {
+      id: doctorId,
+      active: true,
+      branches: {
+        some: {
+          branchId: patient.branchId,
+        },
+      },
+    },
+  });
+
+  if (!doctorInBranch) {
+    return NextResponse.json(
+      { error: "El especialista no pertenece a tu sucursal." },
+      { status: 400 }
+    );
+  }
+
+  const appointmentDate = new Date(`${date}T${time}:00-03:00`);
+
   const existingAppointment = await prisma.appointment.findFirst({
     where: {
-      doctorId: body.doctorId,
-      branchId: body.branchId,
-      date: new Date(body.date),
+      doctorId,
+      branchId: patient.branchId,
+      date: appointmentDate,
       status: {
         not: "CANCELED",
       },
@@ -45,10 +82,10 @@ export async function POST(req: Request) {
   const appointment = await prisma.appointment.create({
     data: {
       patientId: patient.id,
-      doctorId: body.doctorId,
-      branchId: body.branchId,
-      date: new Date(body.date),
-      notes: body.notes || null,
+      doctorId,
+      branchId: patient.branchId,
+      date: appointmentDate,
+      notes: treatmentName || "Turno solicitado",
       status: "PENDING",
     },
   });

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import AdminSidebar from "@/components/dashboard/AdminSidebar";
 
 export default function AdminLayout({
@@ -5,11 +8,20 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex min-h-screen">
-      <AdminSidebar />
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
-      <main className="flex-1 p-8 bg-slate-50">
+  return (
+    <div className="min-h-screen bg-[#F7F5EF]">
+      <AdminSidebar
+        open={sidebarOpen}
+        setOpen={setSidebarOpen}
+      />
+
+      <main
+        className={`min-h-screen bg-[#F7F5EF] p-13 transition-all duration-300 ${
+          sidebarOpen ? "ml-72" : "pl-24"
+        }`}
+      >
         {children}
       </main>
     </div>

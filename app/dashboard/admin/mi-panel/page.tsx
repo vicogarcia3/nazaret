@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { Palette, FileText, Users, Calendar, ListChecks, BarChart3 } from "lucide-react";
 
 export default async function MiPanelPage() {
   const session = await auth();
@@ -10,168 +10,86 @@ export default async function MiPanelPage() {
     redirect("/login");
   }
 
-  const now = new Date();
-
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-
-  const [
-    totalPatients,
-    todayAppointments,
-    pendingAppointments,
-    monthlyPayments,
-    pendingPayments,
-    latePayments,
-  ] = await Promise.all([
-    prisma.patient.count(),
-
-    prisma.appointment.count({
-      where: {
-        date: {
-          gte: startOfToday,
-          lt: endOfToday,
-        },
-      },
-    }),
-
-    prisma.appointment.count({
-      where: {
-        status: {
-          in: ["PENDING", "CONFIRMED"],
-        },
-      },
-    }),
-
-    prisma.payment.aggregate({
-      where: {
-        status: "PAID",
-        paidAt: {
-          gte: startOfMonth,
-          lt: endOfMonth,
-        },
-      },
-      _sum: {
-        amount: true,
-      },
-    }),
-
-    prisma.payment.aggregate({
-      where: {
-        status: "PENDING",
-      },
-      _sum: {
-        amount: true,
-      },
-    }),
-
-    prisma.payment.count({
-      where: {
-        status: "PENDING",
-        dueDate: {
-          lt: now,
-        },
-      },
-    }),
-  ]);
-
-  const incomeThisMonth = monthlyPayments._sum.amount || 0;
-  const pendingAmount = pendingPayments._sum.amount || 0;
-
   const cards = [
     {
-      title: "Pacientes totales",
-      value: totalPatients,
+      title: "Identidad del consultorio",
+      description:
+        "Nombre del consultorio, lema, descripción e imagen principal.",
+      href: "/dashboard/admin/configuracion",
+      icon: Palette,
+    },
+    {
+      title: "Contenido del sitio",
+      description:
+        "Servicios, tratamientos, especialistas, testimonios, datos de contacto y sucursales.",
+      href: "/dashboard/admin/configuracion/servicios",
+      icon: FileText,
+    },
+    {
+      title: "Pacientes",
+      description:
+        "Pacientes registrados, sus datos personales e historial clínico.",
       href: "/dashboard/admin/mi-panel/pacientes",
+      icon: Users,
     },
     {
-      title: "Turnos de hoy",
-      value: todayAppointments,
+      title: "Planes",
+      description: "Administración de planes, beneficios y descuentos para pacientes.",
+      href: "/dashboard/admin/configuracion/planes",
+      icon: ListChecks,
+    },
+    {
+      title: "Agenda",
+      description:
+        "Calendario de turnos y profesionales",
       href: "/dashboard/admin/mi-panel/turnos",
+      icon: Calendar,
     },
     {
-      title: "Turnos pendientes",
-      value: pendingAppointments,
-      href: "/dashboard/admin/mi-panel/turnos",
-    },
-    {
-      title: "Ingresos del mes",
-      value: `$${incomeThisMonth.toLocaleString("es-AR")}`,
-      href: "/dashboard/admin/mi-panel/ingresos",
-    },
-    {
-      title: "Pagos pendientes",
-      value: `$${pendingAmount.toLocaleString("es-AR")}`,
-      href: "/dashboard/admin/mi-panel/ingresos",
-    },
-    {
-      title: "Pagos demorados",
-      value: latePayments,
-      href: "/dashboard/admin/mi-panel/ingresos",
+      title: "Balance",
+      description: "Ingresos, pagos pendientes, gastos y resumen financiero del consultorio.",
+      href: "/dashboard/admin/mi-panel/balance",
+      icon: BarChart3,
     },
   ];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold">Mi panel odontológico</h1>
-        <p className="mt-2 text-gray-500">
-          Vista general de pacientes, turnos, presupuestos e ingresos.
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
+      <div className="space-y-10">
+        <div>
+          <h1 className="font-serif text-4xl font-medium leading-tight">
+            Panel del consultorio
+          </h1>
 
-      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-        {cards.map((card) => (
-          <Link
-            key={card.title}
-            href={card.href}
-            className="rounded-2xl border bg-white p-6 shadow-sm transition hover:shadow-md"
-          >
-            <p className="text-sm font-medium text-gray-500">
-              {card.title}
-            </p>
-
-            <p className="mt-3 text-3xl font-bold text-gray-900">
-              {card.value}
-            </p>
-          </Link>
-        ))}
-      </div>
-
-      <div className="rounded-2xl border bg-white p-6 shadow-sm">
-        <h2 className="text-2xl font-bold">Accesos rápidos</h2>
-
-        <div className="mt-4 flex flex-wrap gap-3">
-          <Link
-            href="/dashboard/admin/mi-panel/pacientes"
-            className="rounded bg-[#A2B38B] px-4 py-2 text-white hover:bg-[#8FA178]"
-          >
-            Ver pacientes
-          </Link>
-
-          <Link
-            href="/dashboard/admin/mi-panel/turnos"
-            className="rounded bg-[#A2B38B] px-4 py-2 text-white hover:bg-[#8FA178]"
-          >
-            Ver turnos
-          </Link>
-
-          <Link
-            href="/dashboard/admin/mi-panel/presupuestos"
-            className="rounded bg-[#A2B38B] px-4 py-2 text-white hover:bg-[#8FA178]"
-          >
-            Crear presupuesto
-          </Link>
-
-          <Link
-            href="/dashboard/admin/mi-panel/ingresos"
-            className="rounded bg-[#A2B38B] px-4 py-2 text-white hover:bg-[#8FA178]"
-          >
-            Ver ingresos
-          </Link>
+          <p className="mt-2 max-w-4xl text-sm leading-6 text-[#6B7774]">
+            Desde acá controlás todo lo que ven tus pacientes en el sitio público y
+            gestionás la operación interna del consultorio.
+          </p>
         </div>
+
+        <section className="grid border border-[#DED9CD] bg-white md:grid-cols-2">
+          {cards.map((card) => {
+            const Icon = card.icon;
+
+            return (
+              <Link
+                key={card.title}
+                href={card.href}
+                className="border-b border-[#DED9CD] p-10 transition hover:bg-[#F7F5EF] md:border-r"
+              >
+                <Icon className="mb-4 h-5 w-7 text-[#A2B38B]" />
+
+                <h2 className="font-serif text-xl font-medium">
+                  {card.title}
+                </h2>
+
+                <p className="mt-2 max-w-md text-[13px] leading-5 text-[#6B7774]">
+                  {card.description}
+                </p>
+              </Link>
+            );
+          })}
+        </section>
       </div>
     </div>
   );

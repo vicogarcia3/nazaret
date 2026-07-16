@@ -5,7 +5,7 @@ export default function PrintButton() {
     <button
       type="button"
       onClick={() => window.print()}
-      className="rounded bg-[#A2B38B] px-5 py-3 text-white print:hidden"
+      className="bg-[#263F3B] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
     >
       Descargar / Guardar PDF
     </button>

@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 type Branch = {
   id: string;
@@ -64,17 +65,26 @@ export default function RegistroPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100">
+    <main className="min-h-screen bg-[#F7F5EF] px-6 py-12">
+      
+      <div className="mx-auto max-w-md">
+        <Link
+          href="/"
+          className="mb-6 inline-block text-xs uppercase tracking-widest text-[var(--brand-primary)]/60 hover:text-[var(--brand-secondary)]"
+        >
+          ← VOLVER AL INICIO
+        </Link>
+      
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg"
+        className="border border-gray-400 bg-white px-10 py-12"
       >
-        <h1 className="mb-6 text-center text-3xl font-bold">
+        <h1 className="mb-6 text-center text-4xl font-serif">
           Crear cuenta
         </h1>
 
         <input
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="Nombre"
           value={form.firstName}
           onChange={(e) =>
@@ -84,7 +94,7 @@ export default function RegistroPage() {
         />
 
         <input
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="Apellido"
           value={form.lastName}
           onChange={(e) =>
@@ -94,7 +104,7 @@ export default function RegistroPage() {
         />
 
         <input
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="DNI"
           value={form.dni}
           onChange={(e) =>
@@ -104,7 +114,7 @@ export default function RegistroPage() {
         />
 
         <input
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="Teléfono"
           value={form.phone}
           onChange={(e) =>
@@ -114,7 +124,7 @@ export default function RegistroPage() {
         />
 
         <select
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           value={form.branchId}
           onChange={(e) =>
             setForm({ ...form, branchId: e.target.value })
@@ -132,7 +142,7 @@ export default function RegistroPage() {
 
         <input
           type="email"
-          className="mb-4 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="Correo electrónico"
           value={form.email}
           onChange={(e) =>
@@ -143,7 +153,7 @@ export default function RegistroPage() {
 
         <input
           type="password"
-          className="mb-6 w-full rounded border p-3"
+          className="text-sm font-semibold tracking-[0.15em] mb-4 w-full rounded border p-3"
           placeholder="Contraseña"
           value={form.password}
           onChange={(e) =>
@@ -160,11 +170,12 @@ export default function RegistroPage() {
 
         <button
           type="submit"
-          className="w-full rounded bg-[#A2B38B] p-3 text-white hover:bg-[#8FA178]"
+          className="w-full bg-[#A2B38B] py-4 text-sm font-semibold uppercase tracking-[0.25em] text-white transition hover:bg-[#8E9E7A]"
         >
           Crear cuenta
         </button>
       </form>
+      </div>
     </main>
   );
 }

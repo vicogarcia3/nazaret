@@ -15,6 +15,12 @@ export default async function HomePage() {
     orderBy: { id: "desc" },
   });
 
+  const branches = await prisma.branch.findMany({
+    orderBy: {
+      name: "asc",
+    },
+  });
+
   return (
     <main className="min-h-screen bg-[#F7F5EF] text-[#1f1f1f]">
       <header className="flex items-center justify-between px-8 py-5 md:px-16">
@@ -22,7 +28,7 @@ export default async function HomePage() {
           {config?.clinicName || "Consultorios Nazaret"}
         </h1>
 
-        <nav className="hidden gap-8 text-sm text-gray-800 md:flex">
+        <nav className="hidden space-x-10 text-xs font-medium uppercase tracking-widest md:flex">
           <a href="#servicios">Servicios</a>
           <a href="#equipo">Equipo</a>
           <a href="#contacto">Contacto</a>
@@ -31,7 +37,7 @@ export default async function HomePage() {
         <div className="flex gap-3 text-sm">
           <Link
             href="/login"
-            className="rounded-full border border-[#A2B38B] px-4 py-2.5 text-[#6f7f5f] hover:bg-white"
+            className="rounded-full border border-[#A2B38B] px-4 py-2.5 text-[#6f7f5f] hover:bg-[#FFFCF7]"
           >
             Iniciar sesión
           </Link>
@@ -40,7 +46,7 @@ export default async function HomePage() {
             href="/dashboard/patient/turnos"
             className="rounded-full bg-[#A2B38B] px-5 py-2.5 text-white hover:bg-[#8FA178]"
           >
-            Reservar cita
+            Reservar turno
           </Link>
         </div>
       </header>
@@ -58,10 +64,10 @@ export default async function HomePage() {
 
           <div className="mt-8 flex flex-wrap gap-4">
             <a
-              href="#contacto"
+              href="/dashboard/patient/turnos"
               className="rounded-full bg-[#A2B38B] px-6 py-3 text-sm font-medium text-white hover:bg-[#8FA178]"
             >
-              Conocé nuestra clínica
+              Reservar un turno
             </a>
 
             <a
@@ -90,9 +96,9 @@ export default async function HomePage() {
             )}
           </div>
 
-          <div className="absolute -bottom-7 -left-7 hidden max-w-[210px] bg-white p-7 shadow-xl lg:block">
-            <p className="text-sm text-[#A2B38B]">Atención de excelencia</p>
-            <p className="text-[12px] leading-relaxed text-[var(--brand-primary)]/60 text-gray-500">
+          <div className="absolute -bottom-7 -left-7 hidden max-w-[240px] bg-white p-7 shadow-xl lg:block">
+            <p className="text-base text-[#A2B38B]">Atención de excelencia</p>
+            <p className="text-sm leading-relaxed text-[var(--brand-primary)]/60 text-gray-500">
               {config?.heroTitle || "Tu sonrisa, nuestra prioridad"}
             </p>
           </div>
@@ -172,20 +178,71 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section id="contacto" className="px-8 py-16 md:px-16 lg:px-24">
-        <div className="rounded-[2rem] bg-[#A2B38B] p-8 text-white md:p-12">
-          <h2 className="font-serif text-3xl font-semibold md:text-4xl">
+      
+      <section id="contacto" className="px-8 py-10 md:px-16 lg:px-24">
+        <div className="relative bg-[#A2B38B] px-8 py-16 text-white md:px-20 md:py-16">
+          <h2 className="font-serif text-3xl md:text-4xl">
             Tu primera visita comienza con una conversación.
           </h2>
 
-          <p className="mt-4 max-w-xl text-base leading-7">
-            Escribinos o reservá tu turno desde el portal.
+          <p className="mt-4 max-w-xl text-base leading-6 text-white/70">
+            Escribinos o pasá a conocernos. Estamos para ayudarte.
           </p>
 
-          <div className="mt-7 flex flex-wrap gap-4">
+          <div className="mt-10 grid gap-12 md:grid-cols-2">
+            <div>
+              <h3 className="mb-4 text-base font-semibold uppercase tracking-[0.25em] text-white/50">
+                Horarios
+              </h3>
+
+              <div className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
+                <p>
+                  <span className="font-semibold uppercase tracking-wider">
+                    LUNES A VIERNES:
+                  </span>{" "}
+                  {config?.businessHoursWeek || "09:00 — 19:00"}
+                </p>
+
+                <p>
+                  <span className="font-semibold uppercase tracking-wider">
+                    SÁBADOS:
+                  </span>{" "}
+                  {config?.businessHoursSaturday || "09:00 — 13:00"}
+                </p>
+
+                <p>
+                  <span className="font-semibold uppercase tracking-wider">
+                    DOMINGOS:
+                  </span>{" "}
+                  {config?.businessHoursSunday || "Cerrado"}
+                </p>
+              </div>
+            </div>
+
+            <div>
+              <h3 className="mb-4 text-base font-semibold uppercase tracking-[0.25em] text-white/50">
+                Sucursales
+              </h3>
+
+              <div className="space-y-4 text-xs text-white/70">
+                {branches.map((branch) => (
+                  <div key={branch.id}>
+                    <p className="font-semibold text-white">{branch.name}</p>
+
+                    <p>
+                      {branch.address}
+                      {branch.city ? ` — ${branch.city}` : ""}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex flex-wrap gap-4">
             <Link
               href="/login"
-              className="rounded-full bg-white px-6 py-3 text-sm font-medium text-[#6f7f5f]"
+              className="rounded-full bg-white px-6 py-3 text-sm font-medium text-[#263F3B]"
             >
               Iniciar sesión
             </Link>
@@ -197,6 +254,17 @@ export default async function HomePage() {
               Crear cuenta paciente
             </Link>
           </div>
+              <a
+                href={`https://wa.me/${(config?.whatsapp || "3517049724").replace(
+                  /\D/g,
+                  ""
+                )}?text=${encodeURIComponent("Hola! Quiero hacer una consulta")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute bottom-10 right-12 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#1EBE5D]"
+              >
+                WhatsApp
+              </a>
         </div>
       </section>
 

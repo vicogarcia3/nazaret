@@ -28,7 +28,7 @@ export default function OdontologosPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-
+  
   const [form, setForm] = useState({
     name: "",
     email: "",

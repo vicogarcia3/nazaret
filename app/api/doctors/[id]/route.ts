@@ -20,33 +20,43 @@ export async function PUT(
   });
 
   if (!doctor) {
-    return NextResponse.json({ error: "Odontólogo no encontrado" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Odontólogo no encontrado" },
+      { status: 404 }
+    );
   }
 
-  await prisma.user.update({
-    where: { id: doctor.userId },
-    data: {
-      name: body.name,
-      email: body.email,
-    },
-  });
+  if (body.name !== undefined || body.email !== undefined) {
+    await prisma.user.update({
+      where: { id: doctor.userId },
+      data: {
+        ...(body.name !== undefined && { name: body.name }),
+        ...(body.email !== undefined && { email: body.email }),
+      },
+    });
+  }
 
-  await prisma.doctorBranch.deleteMany({
-    where: { doctorId: id },
-  });
+  if (Array.isArray(body.branchIds)) {
+    await prisma.doctorBranch.deleteMany({
+      where: { doctorId: id },
+    });
+  }
 
   const updatedDoctor = await prisma.doctor.update({
     where: { id },
     data: {
-      specialty: body.specialty,
-      description: body.description,
-      photo: body.photo || null,
-      active: body.active,
-      branches: {
-        create: body.branchIds.map((branchId: string) => ({
-          branchId,
-        })),
-      },
+      ...(body.specialty !== undefined && { specialty: body.specialty }),
+      ...(body.description !== undefined && { description: body.description }),
+      ...(body.photo !== undefined && { photo: body.photo || null }),
+      ...(body.active !== undefined && { active: body.active }),
+
+      ...(Array.isArray(body.branchIds) && {
+        branches: {
+          create: body.branchIds.map((branchId: string) => ({
+            branchId,
+          })),
+        },
+      }),
     },
   });
 
@@ -70,7 +80,24 @@ export async function DELETE(
   });
 
   if (!doctor) {
-    return NextResponse.json({ error: "Odontólogo no encontrado" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Odontólogo no encontrado" },
+      { status: 404 }
+    );
+  }
+
+  const appointmentsCount = await prisma.appointment.count({
+    where: { doctorId: id },
+  });
+
+  if (appointmentsCount > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "No se puede eliminar este odontólogo porque tiene turnos asociados. Podés marcarlo como no visible.",
+      },
+      { status: 400 }
+    );
   }
 
   await prisma.doctorBranch.deleteMany({

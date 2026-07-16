@@ -32,14 +32,38 @@ export async function POST(req: Request) {
 
   const body = await req.json();
 
-  const hashedPassword = await bcrypt.hash(body.password, 10);
+  console.log("BODY DOCTOR:", body);
+
+  const password = body.password || "nazaret123";
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      email: body.email,
+    },
+  });
+
+  if (existingUser) {
+    return NextResponse.json(
+      { error: "Ya existe un usuario con ese email." },
+      { status: 400 }
+    );
+  }
+
+
+  const branchIds =
+  Array.isArray(body.branchIds)
+    ? body.branchIds
+    : Array.isArray(body.branches)
+    ? body.branches
+    : [];
 
   const doctor = await prisma.doctor.create({
     data: {
       specialty: body.specialty,
       description: body.description,
       photo: body.photo || null,
-      active: body.active,
+      active: body.active ?? true,
       user: {
         create: {
           name: body.name,
@@ -48,11 +72,14 @@ export async function POST(req: Request) {
           role: "DOCTOR",
         },
       },
-      branches: {
-        create: body.branchIds.map((branchId: string) => ({
-          branchId,
-        })),
-      },
+      branches:
+        branchIds.length > 0
+          ? {
+              create: branchIds.map((branchId: string) => ({
+                branchId,
+              })),
+            }
+          : undefined,
     },
   });
 

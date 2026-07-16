@@ -22,3 +22,26 @@ export async function GET() {
 
   return NextResponse.json(patients);
 }
+
+export async function POST(req: Request) {
+  const session = await auth();
+
+  if (!session || session.user.role !== "ADMIN") {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
+  const body = await req.json();
+
+  const patient = await prisma.patient.create({
+    data: {
+      firstName: body.firstName,
+      lastName: body.lastName,
+      dni: body.dni,
+      phone: body.phone,
+      branchId: body.branchId,
+      PlanId: body.PlanId || null,
+    },
+  });
+
+  return NextResponse.json(patient);
+}
