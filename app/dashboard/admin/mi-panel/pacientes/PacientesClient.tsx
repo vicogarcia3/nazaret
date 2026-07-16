@@ -16,7 +16,7 @@ type Patient = {
   id: string;
   firstName: string;
   lastName: string;
-  dni: string;
+  dni: string | null;
   phone: string;
   branch: Branch;
   plan: {
@@ -91,7 +91,7 @@ export default function PacientesClient({
     setForm({
       firstName: patient.firstName,
       lastName: patient.lastName,
-      dni: patient.dni,
+      dni: patient.dni || "",
       phone: patient.phone,
       branchId: patient.branch.id,
       planId: patient.plan?.id || "",

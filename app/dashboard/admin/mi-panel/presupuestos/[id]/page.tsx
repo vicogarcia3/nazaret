@@ -33,9 +33,11 @@ export default async function PresupuestoDetallePage({ params }: Props) {
     notFound();
   }
 
-  const whatsappMessage = `Hola ${budget.patient.firstName}, te enviamos tu presupuesto odontológico por un total de $${budget.total.toLocaleString(
-    "es-AR"
-  )}.`;
+  const whatsappMessage = `Hola ${
+    budget.patient.firstName
+  }, te enviamos tu presupuesto odontológico por un total de $${Number(
+    budget.total
+  ).toLocaleString("es-AR")}.`;
 
   const phone = budget.patient.phone.replace(/\D/g, "");
 

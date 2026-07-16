@@ -45,22 +45,26 @@ export default async function PacienteDetallePage({ params }: Props) {
     (payment) => payment.status === "PAID"
   );
 
-  const pendingPayments = patient.payments.filter(
-    (payment) => payment.status === "PENDING"
-  );
-
   const latestHistory = patient.histories[0];
 
 
   const nextAppointment = patient.appointments
-    .filter((a) => new Date(a.start) > new Date())
+    .filter((appointemnt) => new Date(appointemnt.date) > new Date())
     .sort(
       (a, b) =>
-        new Date(a.start).getTime() - new Date(b.start).getTime()
+        new Date(a.date).getTime() - new Date(b.date).getTime()
     )[0];
 
   const delayedPayments = patient.payments.filter(
-    (p) => p.status === "OVERDUE"
+    (payment) =>
+      payment.status === "PENDING" &&
+      new Date(payment.dueDate) < new Date()
+  );
+
+  const pendingPayments = patient.payments.filter(
+    (payment) =>
+      payment.status === "PENDING" &&
+      new Date(payment.dueDate) >= new Date()
   );
 
   const totalPaid = paidPayments.reduce(
@@ -272,7 +276,7 @@ export default async function PacienteDetallePage({ params }: Props) {
 
                 <p className="mt-2 text-[15px]">
                   {nextAppointment
-                    ? new Date(nextAppointment.start).toLocaleDateString("es-AR")
+                    ? new Date(nextAppointment.date).toLocaleDateString("es-AR")
                     : "Sin turnos"}
                 </p>
               </div>

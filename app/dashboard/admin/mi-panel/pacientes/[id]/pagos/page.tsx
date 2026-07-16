@@ -70,6 +70,10 @@ export default async function PagosPacientePage({
     amount: any;
     createdAt: Date;
   }) {
+    if (!patient) {
+      return "";
+    }
+
     const month = new Date(payment.createdAt).toLocaleDateString("es-AR", {
       month: "long",
       year: "numeric",
@@ -77,7 +81,9 @@ export default async function PagosPacientePage({
 
     return `Hola ${patient.firstName}, te recordamos que tenés un pago pendiente de $${Number(
       payment.amount
-    ).toLocaleString("es-AR")} correspondiente al mes de ${month}. El mismo debe abonarse entre el 1 y el 10 de cada mes.\n\nSaludos, ${clinicName}.`;
+    ).toLocaleString(
+      "es-AR"
+    )} correspondiente al mes de ${month}. El mismo debe abonarse entre el 1 y el 10 de cada mes.\n\nSaludos, ${clinicName}.`;
   }
 
   const paidPayments = patient.payments.filter((p) => p.status === "PAID");

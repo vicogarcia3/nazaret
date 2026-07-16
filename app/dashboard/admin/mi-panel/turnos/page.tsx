@@ -30,14 +30,32 @@ type Appointment = {
   branch: Branch;
 };
 
+type Patient = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  dni: string | null;
+  branchId: string;
+};
+
+type Doctor = {
+  id: string;
+  user: {
+    name: string | null;
+  };
+  branches: {
+    branchId: string;
+  }[];
+};
+
 export default function TurnosPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [currentDate] = useState(new Date());
   const [view, setView] = useState<"mes" | "semana" | "dia">("mes");
-  const [patients, setPatients] = useState([]);
-  const [doctors, setDoctors] = useState([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   async function loadData() {
     try {
