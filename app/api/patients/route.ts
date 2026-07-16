@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       dni: body.dni,
       phone: body.phone,
       branchId: body.branchId,
-      PlanId: body.PlanId || null,
+      planId: body.PlanId || null,
     },
   });
 
