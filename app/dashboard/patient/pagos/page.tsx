@@ -63,26 +63,26 @@ export default function PatientPagosPage() {
           </p>
         </div>
 
-        <div className="flex border border-[#d8d2c4] bg-white">
-          {[
-            { key: "ALL", label: "Todos" },
-            { key: "PENDING", label: "Pendientes" },
-            { key: "PAID", label: "Pagados" },
-          ].map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setFilter(item.key as Filter)}
-              className={`px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] ${
-                filter === item.key
-                  ? "bg-[#263F3B] text-white"
-                  : "text-[#263F3B] hover:bg-[#F7F5EF]"
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
+        <div className="flex w-fit border border-[#D8D2C4] bg-white">
+            {[
+              { key: "ALL", label: "Todos" },
+              { key: "PENDING", label: "Pendientes" },
+              { key: "PAID", label: "Pagados" },
+            ].map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setFilter(item.key as Filter)}
+                className={`px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+                  filter === item.key
+                    ? "bg-[#6F855F] text-white"
+                    : "text-[#263F3B] hover:bg-[#F0EDE6]"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
       </div>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2">

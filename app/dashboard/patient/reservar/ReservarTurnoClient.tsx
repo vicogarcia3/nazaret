@@ -1,8 +1,21 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, Clock, UserRound } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import {
+  useRouter,
+  useSearchParams,
+} from "next/navigation";
+import {
+  AlertCircle,
+  ArrowLeft,
+  CalendarDays,
+  Clock,
+  UserRound,
+} from "lucide-react";
 
 type Treatment = {
   id: string;
@@ -23,64 +36,257 @@ type AvailableTime = {
   available: boolean;
 };
 
+type AppointmentToReschedule = {
+  id: string;
+  date: string;
+  notes: string | null;
+  status: string;
+  doctorId: string;
+  doctor: {
+    id: string;
+    user: {
+      name: string | null;
+    };
+  };
+  branch: {
+    name: string;
+    address: string;
+  };
+};
+
 type Props = {
   treatments: Treatment[];
 };
 
-export default function ReservarTurnoClient({ treatments }: Props) {
+function formatDateForInput(dateValue: string | Date) {
+  const date = new Date(dateValue);
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(
+    2,
+    "0"
+  );
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function formatTimeForInput(dateValue: string | Date) {
+  const date = new Date(dateValue);
+
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(
+    2,
+    "0"
+  );
+
+  return `${hours}:${minutes}`;
+}
+
+export default function ReservarTurnoClient({
+  treatments,
+}: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const appointmentId =
+    searchParams.get("reprogramar");
+
+  const isRescheduling = Boolean(appointmentId);
 
   const [step, setStep] = useState(1);
 
-  const [selectedTreatment, setSelectedTreatment] = useState("");
-  const [selectedDoctorId, setSelectedDoctorId] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const [selectedTreatment, setSelectedTreatment] =
+    useState("");
+  const [selectedDoctorId, setSelectedDoctorId] =
+    useState("");
+  const [selectedDate, setSelectedDate] =
+    useState("");
+  const [selectedTime, setSelectedTime] =
+    useState("");
 
-  const [availableDates, setAvailableDates] = useState<string[]>([]);
+  const [availableDates, setAvailableDates] =
+    useState<string[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [availableTimes, setAvailableTimes] = useState<AvailableTime[]>([]);
+  const [availableTimes, setAvailableTimes] =
+    useState<AvailableTime[]>([]);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [loadingTimes, setLoadingTimes] = useState(false);
+  const [currentMonth, setCurrentMonth] =
+    useState(new Date());
+
+  const [loadingDoctors, setLoadingDoctors] =
+    useState(true);
+  const [loadingAppointment, setLoadingAppointment] =
+    useState(Boolean(appointmentId));
+  const [loadingTimes, setLoadingTimes] =
+    useState(false);
   const [saving, setSaving] = useState(false);
 
-  const steps = ["Tratamiento", "Especialista", "Fecha", "Horario"];
+  const [errorMessage, setErrorMessage] =
+    useState("");
+
+  const steps = [
+    "Tratamiento",
+    "Especialista",
+    "Fecha",
+    "Horario",
+  ];
 
   useEffect(() => {
     async function loadDoctors() {
-      const res = await fetch("/api/patient/doctors");
-      const data = await res.json();
+      try {
+        setLoadingDoctors(true);
 
-      if (!res.ok || !Array.isArray(data)) {
-        console.error("Error cargando doctores:", data);
+        const response = await fetch(
+          "/api/patient/doctors"
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !Array.isArray(data)) {
+          console.error(
+            "Error cargando doctores:",
+            data
+          );
+
+          setDoctors([]);
+          return;
+        }
+
+        setDoctors(data);
+      } catch (error) {
+        console.error(
+          "Error cargando doctores:",
+          error
+        );
+
         setDoctors([]);
-        return;
+      } finally {
+        setLoadingDoctors(false);
       }
-
-      setDoctors(data);
     }
 
     loadDoctors();
   }, []);
 
   useEffect(() => {
+    async function loadAppointment() {
+      if (!appointmentId) {
+        setLoadingAppointment(false);
+        return;
+      }
+
+      try {
+        setLoadingAppointment(true);
+        setErrorMessage("");
+
+        const response = await fetch(
+          `/api/appointments/${appointmentId}`
+        );
+
+        const data: AppointmentToReschedule =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            (data as unknown as { error?: string })
+              .error ||
+              "No se pudo cargar el turno."
+          );
+        }
+
+        const originalDate = new Date(data.date);
+
+        setSelectedTreatment(
+          data.notes || "Turno odontológico"
+        );
+
+        setSelectedDoctorId(data.doctorId);
+        setSelectedDate(
+          formatDateForInput(originalDate)
+        );
+        setSelectedTime(
+          formatTimeForInput(originalDate)
+        );
+
+        setCurrentMonth(
+          new Date(
+            originalDate.getFullYear(),
+            originalDate.getMonth(),
+            1
+          )
+        );
+
+        setStep(3);
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el turno."
+        );
+      } finally {
+        setLoadingAppointment(false);
+      }
+    }
+
+    loadAppointment();
+  }, [appointmentId]);
+
+  useEffect(() => {
     async function loadTimes() {
-      if (!selectedDoctorId || !selectedDate) return;
+      if (!selectedDoctorId || !selectedDate) {
+        setAvailableTimes([]);
+        return;
+      }
 
-      setLoadingTimes(true);
+      try {
+        setLoadingTimes(true);
 
-      const res = await fetch(
-        `/api/patient/available-times?doctorId=${selectedDoctorId}&date=${selectedDate}`
-      );
+        const response = await fetch(
+          `/api/patient/available-times?doctorId=${selectedDoctorId}&date=${selectedDate}`
+        );
 
-      const data = await res.json();
-      setAvailableTimes(data);
-      setLoadingTimes(false);
+        const data = await response.json();
+
+        if (!response.ok || !Array.isArray(data)) {
+          setAvailableTimes([]);
+          return;
+        }
+
+        const times = data as AvailableTime[];
+
+        if (
+          isRescheduling &&
+          selectedTime &&
+          !times.some(
+            (slot) => slot.time === selectedTime
+          )
+        ) {
+          times.push({
+            time: selectedTime,
+            available: true,
+          });
+
+          times.sort((a, b) =>
+            a.time.localeCompare(b.time)
+          );
+        }
+
+        setAvailableTimes(times);
+      } catch {
+        setAvailableTimes([]);
+      } finally {
+        setLoadingTimes(false);
+      }
     }
 
     loadTimes();
-  }, [selectedDoctorId, selectedDate]);
+  }, [
+    selectedDoctorId,
+    selectedDate,
+    isRescheduling,
+    selectedTime,
+  ]);
 
   useEffect(() => {
     async function loadAvailableDates() {
@@ -92,26 +298,54 @@ export default function ReservarTurnoClient({ treatments }: Props) {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth() + 1;
 
-      const res = await fetch(
-        `/api/patient/available-dates?doctorId=${selectedDoctorId}&year=${year}&month=${month}`
-      );
+      try {
+        const response = await fetch(
+          `/api/patient/available-dates?doctorId=${selectedDoctorId}&year=${year}&month=${month}`
+        );
 
-      const data = await res.json();
+        const data = await response.json();
 
-      setAvailableDates(Array.isArray(data) ? data : []);
+        const dates = Array.isArray(data)
+          ? data
+          : [];
+
+        if (
+          isRescheduling &&
+          selectedDate &&
+          selectedDate.startsWith(
+            `${year}-${String(month).padStart(2, "0")}`
+          ) &&
+          !dates.includes(selectedDate)
+        ) {
+          dates.push(selectedDate);
+        }
+
+        setAvailableDates(dates);
+      } catch {
+        setAvailableDates([]);
+      }
     }
 
     loadAvailableDates();
-  }, [selectedDoctorId, currentMonth]);
+  }, [
+    selectedDoctorId,
+    currentMonth,
+    isRescheduling,
+    selectedDate,
+  ]);
 
-  const selectedDoctor = Array.isArray(doctors)
-    ? doctors.find((doctor) => doctor.id === selectedDoctorId)
-    : undefined;
+  const selectedDoctor = doctors.find(
+    (doctor) => doctor.id === selectedDoctorId
+  );
 
   const sortedTreatments = useMemo(() => {
     return [...treatments].sort((a, b) => {
-      const priceA = a.price ?? 999999999;
-      const priceB = b.price ?? 999999999;
+      const priceA =
+        a.price ?? Number.MAX_SAFE_INTEGER;
+
+      const priceB =
+        b.price ?? Number.MAX_SAFE_INTEGER;
+
       return priceA - priceB;
     });
   }, [treatments]);
@@ -128,17 +362,25 @@ export default function ReservarTurnoClient({ treatments }: Props) {
     1
   ).getDay();
 
-  const monthName = currentMonth.toLocaleDateString("es-AR", {
-    month: "long",
-    year: "numeric",
-  });
+  const monthName =
+    currentMonth.toLocaleDateString("es-AR", {
+      month: "long",
+      year: "numeric",
+    });
 
   function formatDate(day: number) {
     const year = currentMonth.getFullYear();
-    const month = String(currentMonth.getMonth() + 1).padStart(2, "0");
-    const dayFormatted = String(day).padStart(2, "0");
 
-    return `${year}-${month}-${dayFormatted}`;
+    const month = String(
+      currentMonth.getMonth() + 1
+    ).padStart(2, "0");
+
+    const formattedDay = String(day).padStart(
+      2,
+      "0"
+    );
+
+    return `${year}-${month}-${formattedDay}`;
   }
 
   function isPastDate(day: number) {
@@ -156,90 +398,179 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
   function previousMonth() {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)
+      new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth() - 1,
+        1
+      )
     );
   }
 
   function nextMonth() {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)
+      new Date(
+        currentMonth.getFullYear(),
+        currentMonth.getMonth() + 1,
+        1
+      )
     );
   }
 
   async function confirmAppointment() {
     if (!selectedTreatment) {
-      alert("Tenés que seleccionar un tratamiento.");
+      setErrorMessage(
+        "Tenés que seleccionar un tratamiento."
+      );
       return;
     }
 
     if (!selectedDoctorId) {
-      alert("Tenés que seleccionar un especialista.");
+      setErrorMessage(
+        "Tenés que seleccionar un especialista."
+      );
       return;
     }
 
     if (!selectedDate || !selectedTime) {
-      alert("Tenés que seleccionar fecha y horario.");
+      setErrorMessage(
+        "Tenés que seleccionar una fecha y un horario."
+      );
       return;
     }
 
-    setSaving(true);
+    try {
+      setSaving(true);
+      setErrorMessage("");
 
-    const res = await fetch("/api/patient/appointments", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        doctorId: selectedDoctorId,
-        date: selectedDate,
-        time: selectedTime,
-        treatmentName: selectedTreatment,
-      }),
-    });
+      const endpoint =
+        isRescheduling && appointmentId
+          ? `/api/appointments/${appointmentId}`
+          : "/api/patient/appointments";
 
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error || "No se pudo reservar el turno.");
+      const method = isRescheduling
+        ? "PUT"
+        : "POST";
+
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          doctorId: selectedDoctorId,
+          date: selectedDate,
+          time: selectedTime,
+          treatmentName: selectedTreatment,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "No se pudo guardar el turno."
+        );
+      }
+
+      router.push(
+        isRescheduling
+          ? "/dashboard/patient/turnos?reprogramado=1"
+          : "/dashboard/patient/turnos?reservado=1"
+      );
+
+      router.refresh();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el turno."
+      );
+    } finally {
       setSaving(false);
-      return;
     }
+  }
 
-    router.push("/dashboard/patient/turnos");
+  if (loadingAppointment || loadingDoctors) {
+    return (
+      <div className="mx-auto max-w-6xl">
+        <div className="border border-[#D8D2C4] bg-white p-8 text-[#6C7B72]">
+          {isRescheduling
+            ? "Cargando turno..."
+            : "Cargando información..."}
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="mx-auto max-w-6xl">
       <button
+        type="button"
         onClick={() => router.back()}
-        className="flex items-center gap-2 text-sm text-[#6c7b72] mb-6"
+        className="mb-6 flex items-center gap-2 text-sm text-[#6C7B72]"
       >
         <ArrowLeft size={16} />
         Volver
       </button>
 
       <div className="mb-8">
-        <h1 className="text-4xl font-serif text-[#173b33]">
-          Reservar turno
+        <h1 className="font-serif text-4xl text-[#173B33]">
+          {isRescheduling
+            ? "Reprogramar turno"
+            : "Reservar turno"}
         </h1>
-        <p className="text-[#6c7b72] mt-2">
-          Elegí el tratamiento, especialista, fecha y horario para tu atención.
+
+        <p className="mt-2 text-[#6C7B72]">
+          {isRescheduling
+            ? "Elegí una nueva fecha u horario para tu atención."
+            : "Elegí el tratamiento, especialista, fecha y horario para tu atención."}
         </p>
       </div>
 
-      <div className="border border-[#d8d2c4] bg-white p-8">
-        <div className="grid grid-cols-4 gap-4 mb-10">
+      {isRescheduling && (
+        <div className="mb-6 flex items-start gap-3 border border-[#D7DFC9] bg-[#F0F4E9] px-5 py-4 text-sm text-[#536847]">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+
+          <div>
+            <p className="font-semibold">
+              Estás reprogramando un turno
+              existente.
+            </p>
+
+            <p className="mt-1 leading-6">
+              El turno anterior será actualizado
+              cuando confirmes los cambios. No se
+              creará una reserva nueva.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {errorMessage && (
+        <div className="mb-6 flex items-start gap-3 border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      <div className="border border-[#D8D2C4] bg-white p-5 md:p-8">
+        <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4">
           {steps.map((item, index) => {
             const number = index + 1;
             const active = step === number;
             const completed = step > number;
 
             return (
-              <div key={item} className="flex items-center gap-3">
+              <div
+                key={item}
+                className="flex items-center gap-3"
+              >
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold ${
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${
                     active || completed
-                      ? "bg-[#1f3f36] text-white"
-                      : "bg-[#eef0e8] text-[#6c7b72]"
+                      ? "bg-[#6F855F] text-white"
+                      : "bg-[#EEF0E8] text-[#6C7B72]"
                   }`}
                 >
                   {number}
@@ -247,7 +578,9 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
                 <span
                   className={`text-sm font-medium ${
-                    active ? "text-[#1f3f36]" : "text-[#6c7b72]"
+                    active
+                      ? "text-[#263F3B]"
+                      : "text-[#6C7B72]"
                   }`}
                 >
                   {item}
@@ -259,64 +592,78 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
         {step === 1 && (
           <div>
-            <h2 className="text-2xl font-serif text-[#173b33] mb-6">
+            <h2 className="mb-6 font-serif text-2xl text-[#173B33]">
               Elegí el tratamiento
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-4">
-              {sortedTreatments.map((treatment) => (
-                <button
-                  key={treatment.id}
-                  onClick={() => {
-                    setSelectedTreatment(treatment.name);
-                    setSelectedDoctorId("");
-                    setSelectedDate("");
-                    setSelectedTime("");
-                    setStep(2);
-                  }}
-                  className={`border p-5 text-left transition ${
-                    selectedTreatment === treatment.name
-                      ? "bg-[#1f3f36] text-white border-[#1f3f36]"
-                      : "bg-white text-[#173b33] border-[#d8d2c4] hover:border-[#1f3f36]"
-                  }`}
-                >
-                  <h3 className="font-semibold">
-                    {treatment.name}
-                  </h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              {sortedTreatments.map(
+                (treatment) => (
+                  <button
+                    key={treatment.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedTreatment(
+                        treatment.name
+                      );
+                      setSelectedDoctorId("");
+                      setSelectedDate("");
+                      setSelectedTime("");
+                      setStep(2);
+                    }}
+                    className={`border p-5 text-left transition ${
+                      selectedTreatment ===
+                      treatment.name
+                        ? "border-[#6F855F] bg-[#6F855F] text-white"
+                        : "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
+                    }`}
+                  >
+                    <h3 className="font-semibold">
+                      {treatment.name}
+                    </h3>
 
-                  {treatment.description && (
-                    <p className="text-sm opacity-70 mt-1">
-                      {treatment.description}
+                    {treatment.description && (
+                      <p className="mt-1 text-sm opacity-70">
+                        {treatment.description}
+                      </p>
+                    )}
+
+                    <p className="mt-3 text-sm font-medium">
+                      {treatment.price
+                        ? `$${treatment.price.toLocaleString(
+                            "es-AR"
+                          )}`
+                        : "Consultar precio"}
                     </p>
-                  )}
-
-                  <p className="text-sm font-medium mt-3">
-                    {treatment.price
-                      ? `$${treatment.price.toLocaleString("es-AR")}`
-                      : "Consultar precio"}
-                  </p>
-                </button>
-              ))}
+                  </button>
+                )
+              )}
 
               <button
+                type="button"
                 onClick={() => {
-                  setSelectedTreatment("Otro servicio");
+                  setSelectedTreatment(
+                    "Otro servicio"
+                  );
                   setSelectedDoctorId("");
                   setSelectedDate("");
                   setSelectedTime("");
                   setStep(2);
                 }}
                 className={`border p-5 text-left transition ${
-                  selectedTreatment === "Otro servicio"
-                    ? "bg-[#1f3f36] text-white border-[#1f3f36]"
-                    : "bg-white text-[#173b33] border-[#d8d2c4] hover:border-[#1f3f36]"
+                  selectedTreatment ===
+                  "Otro servicio"
+                    ? "border-[#6F855F] bg-[#6F855F] text-white"
+                    : "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
                 }`}
               >
                 <h3 className="font-semibold">
                   Otro servicio
                 </h3>
-                <p className="text-sm opacity-70 mt-1">
-                  No encontré el tratamiento que necesito.
+
+                <p className="mt-1 text-sm opacity-70">
+                  No encontré el tratamiento que
+                  necesito.
                 </p>
               </button>
             </div>
@@ -325,14 +672,15 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
         {step === 2 && (
           <div>
-            <h2 className="text-2xl font-serif text-[#173b33] mb-6">
+            <h2 className="mb-6 font-serif text-2xl text-[#173B33]">
               Elegí el especialista
             </h2>
 
-            <div className="grid md:grid-cols-2 gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {doctors.map((doctor) => (
                 <button
                   key={doctor.id}
+                  type="button"
                   onClick={() => {
                     setSelectedDoctorId(doctor.id);
                     setSelectedDate("");
@@ -342,17 +690,17 @@ export default function ReservarTurnoClient({ treatments }: Props) {
                   }}
                   className={`border p-5 text-left transition ${
                     selectedDoctorId === doctor.id
-                      ? "bg-[#1f3f36] text-white border-[#1f3f36]"
-                      : "bg-white text-[#173b33] border-[#d8d2c4] hover:border-[#1f3f36]"
+                      ? "border-[#6F855F] bg-[#6F855F] text-white"
+                      : "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
                   }`}
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-full bg-[#eef0e8] overflow-hidden flex items-center justify-center">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full bg-[#EEF0E8]">
                       {doctor.imageUrl ? (
                         <img
                           src={doctor.imageUrl}
                           alt={doctor.name}
-                          className="w-full h-full object-cover"
+                          className="h-full w-full object-cover"
                         />
                       ) : (
                         <UserRound size={24} />
@@ -365,7 +713,8 @@ export default function ReservarTurnoClient({ treatments }: Props) {
                       </p>
 
                       <p className="text-sm opacity-70">
-                        {doctor.specialty || "Especialista"}
+                        {doctor.specialty ||
+                          "Especialista"}
                       </p>
                     </div>
                   </div>
@@ -374,8 +723,9 @@ export default function ReservarTurnoClient({ treatments }: Props) {
             </div>
 
             {doctors.length === 0 && (
-              <p className="text-sm text-[#6c7b72]">
-                No hay especialistas disponibles para tu sucursal.
+              <p className="text-sm text-[#6C7B72]">
+                No hay especialistas disponibles
+                para tu sucursal.
               </p>
             )}
           </div>
@@ -383,41 +733,43 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
         {step === 3 && (
           <div>
-            <h2 className="text-2xl font-serif text-[#173b33] mb-6">
+            <h2 className="mb-6 font-serif text-2xl text-[#173B33]">
               Elegí la fecha
             </h2>
 
             {selectedDoctor && (
-              <div className="mb-5 text-sm text-[#6c7b72]">
+              <div className="mb-5 text-sm text-[#6C7B72]">
                 Especialista seleccionado:{" "}
-                <span className="font-semibold text-[#173b33]">
+                <span className="font-semibold text-[#173B33]">
                   {selectedDoctor.name}
                 </span>
               </div>
             )}
 
-            <div className="border border-[#d8d2c4] p-6">
-              <div className="flex items-center justify-between mb-6">
+            <div className="border border-[#D8D2C4] p-4 md:p-6">
+              <div className="mb-6 flex items-center justify-between gap-3">
                 <button
+                  type="button"
                   onClick={previousMonth}
-                  className="border border-[#d8d2c4] px-4 py-2 text-sm uppercase tracking-[0.2em]"
+                  className="border border-[#D8D2C4] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] md:px-4 md:text-xs"
                 >
                   Anterior
                 </button>
 
-                <h3 className="text-xl font-serif text-[#173b33] capitalize">
+                <h3 className="text-center font-serif text-lg capitalize text-[#173B33] md:text-xl">
                   {monthName}
                 </h3>
 
                 <button
+                  type="button"
                   onClick={nextMonth}
-                  className="border border-[#d8d2c4] px-4 py-2 text-sm uppercase tracking-[0.2em]"
+                  className="border border-[#D8D2C4] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] md:px-4 md:text-xs"
                 >
                   Siguiente
                 </button>
               </div>
 
-              <div className="grid grid-cols-7 text-center text-xs tracking-[0.2em] uppercase text-[#9caf88] mb-3">
+              <div className="mb-3 grid grid-cols-7 text-center text-[10px] uppercase tracking-[0.1em] text-[#7B916A] md:text-xs md:tracking-[0.2em]">
                 <div>Dom</div>
                 <div>Lun</div>
                 <div>Mar</div>
@@ -427,32 +779,44 @@ export default function ReservarTurnoClient({ treatments }: Props) {
                 <div>Sáb</div>
               </div>
 
-              <div className="grid grid-cols-7 gap-2">
-                {Array.from({ length: firstDayOfMonth }).map((_, index) => (
-                  <div key={`empty-${index}`} />
+              <div className="grid grid-cols-7 gap-1.5 md:gap-2">
+                {Array.from({
+                  length: firstDayOfMonth,
+                }).map((_, index) => (
+                  <div
+                    key={`empty-${index}`}
+                  />
                 ))}
 
-                {Array.from({ length: daysInMonth }).map((_, index) => {
+                {Array.from({
+                  length: daysInMonth,
+                }).map((_, index) => {
                   const day = index + 1;
                   const date = formatDate(day);
-                  const hasAvailability = availableDates.includes(date);
-                  const disabled = isPastDate(day) || !hasAvailability;
+
+                  const hasAvailability =
+                    availableDates.includes(date);
+
+                  const disabled =
+                    isPastDate(day) ||
+                    !hasAvailability;
 
                   return (
                     <button
                       key={day}
+                      type="button"
                       disabled={disabled}
                       onClick={() => {
                         setSelectedDate(date);
                         setSelectedTime("");
                         setStep(4);
                       }}
-                      className={`h-12 border text-sm transition ${
+                      className={`h-10 border text-xs transition md:h-12 md:text-sm ${
                         selectedDate === date
-                          ? "bg-[#1f3f36] text-white border-[#1f3f36]"
+                          ? "border-[#6F855F] bg-[#6F855F] text-white"
                           : disabled
-                          ? "bg-gray-100 text-gray-300 border-gray-100 cursor-not-allowed"
-                          : "bg-white text-[#173b33] border-[#d8d2c4] hover:border-[#1f3f36]"
+                          ? "cursor-not-allowed border-gray-100 bg-gray-100 text-gray-300"
+                          : "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
                       }`}
                     >
                       {day}
@@ -466,58 +830,58 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
         {step === 4 && (
           <div>
-            <h2 className="text-2xl font-serif text-[#173b33] mb-6">
+            <h2 className="mb-6 font-serif text-2xl text-[#173B33]">
               Elegí el horario
             </h2>
 
-            <div className="mb-5 grid md:grid-cols-3 gap-4 text-sm text-[#6c7b72]">
-              <div className="border border-[#d8d2c4] p-4">
-                <CalendarDays size={18} className="mb-2" />
-                <p className="font-semibold text-[#173b33]">
-                  Fecha
-                </p>
-                <p>{selectedDate}</p>
-              </div>
+            <div className="mb-5 grid gap-4 text-sm text-[#6C7B72] md:grid-cols-3">
+              <SummaryCard
+                icon={<CalendarDays size={18} />}
+                title="Fecha"
+                value={selectedDate}
+              />
 
-              <div className="border border-[#d8d2c4] p-4">
-                <UserRound size={18} className="mb-2" />
-                <p className="font-semibold text-[#173b33]">
-                  Especialista
-                </p>
-                <p>{selectedDoctor?.name}</p>
-              </div>
+              <SummaryCard
+                icon={<UserRound size={18} />}
+                title="Especialista"
+                value={
+                  selectedDoctor?.name ||
+                  "Especialista"
+                }
+              />
 
-              <div className="border border-[#d8d2c4] p-4">
-                <Clock size={18} className="mb-2" />
-                <p className="font-semibold text-[#173b33]">
-                  Tratamiento
-                </p>
-                <p>{selectedTreatment}</p>
-              </div>
+              <SummaryCard
+                icon={<Clock size={18} />}
+                title="Tratamiento"
+                value={selectedTreatment}
+              />
             </div>
 
-            <div className="border border-[#d8d2c4] p-6">
-              <p className="text-xs tracking-[0.35em] uppercase text-[#9caf88] font-bold mb-5">
+            <div className="border border-[#D8D2C4] p-6">
+              <p className="mb-5 text-xs font-bold uppercase tracking-[0.3em] text-[#7B916A]">
                 Horarios disponibles
               </p>
 
               {loadingTimes ? (
-                <p className="text-sm text-[#6c7b72]">
+                <p className="text-sm text-[#6C7B72]">
                   Cargando horarios...
                 </p>
               ) : (
-                <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
                   {availableTimes.map((slot) => (
                     <button
                       key={slot.time}
+                      type="button"
                       disabled={!slot.available}
-                      onClick={() => setSelectedTime(slot.time)}
+                      onClick={() =>
+                        setSelectedTime(slot.time)
+                      }
                       className={`border py-3 font-semibold transition ${
                         selectedTime === slot.time
-                          ? "bg-[#1f3f36] text-white border-[#1f3f36]"
+                          ? "border-[#6F855F] bg-[#6F855F] text-white"
                           : slot.available
-                          ? "bg-white text-[#173b33] border-[#d8d2c4] hover:border-[#1f3f36]"
-                          : "bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed"
+                          ? "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
+                          : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
                       }`}
                     >
                       {slot.time}
@@ -526,20 +890,26 @@ export default function ReservarTurnoClient({ treatments }: Props) {
                 </div>
               )}
 
-              {!loadingTimes && availableTimes.length === 0 && (
-                <p className="text-sm text-[#6c7b72]">
-                  No hay horarios cargados para este especialista en esta fecha.
-                </p>
-              )}
+              {!loadingTimes &&
+                availableTimes.length === 0 && (
+                  <p className="text-sm text-[#6C7B72]">
+                    No hay horarios cargados para
+                    este especialista en esta fecha.
+                  </p>
+                )}
             </div>
           </div>
         )}
 
-        <div className="flex justify-between mt-10">
+        <div className="mt-10 flex justify-between gap-4">
           {step > 1 ? (
             <button
-              onClick={() => setStep(step - 1)}
-              className="border border-[#d8d2c4] px-8 py-3 text-xs font-bold tracking-[0.25em] uppercase text-[#173b33]"
+              type="button"
+              onClick={() => {
+                setErrorMessage("");
+                setStep(step - 1);
+              }}
+              className="border border-[#D8D2C4] px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-[#173B33] md:px-8"
             >
               Volver
             </button>
@@ -549,15 +919,46 @@ export default function ReservarTurnoClient({ treatments }: Props) {
 
           {step === 4 && (
             <button
+              type="button"
               onClick={confirmAppointment}
               disabled={!selectedTime || saving}
-              className="bg-[#1f3f36] text-white px-8 py-3 text-xs font-bold tracking-[0.25em] uppercase disabled:opacity-50"
+              className="bg-[#6F855F] px-6 py-3 text-xs font-bold uppercase tracking-[0.2em] text-white transition hover:bg-[#5F7450] disabled:cursor-not-allowed disabled:opacity-50 md:px-8"
             >
-              {saving ? "Confirmando..." : "Confirmar turno"}
+              {saving
+                ? isRescheduling
+                  ? "Guardando..."
+                  : "Confirmando..."
+                : isRescheduling
+                ? "Guardar cambios"
+                : "Confirmar turno"}
             </button>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SummaryCard({
+  icon,
+  title,
+  value,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  value: string;
+}) {
+  return (
+    <div className="border border-[#D8D2C4] p-4">
+      <div className="mb-2 text-[#7B916A]">
+        {icon}
+      </div>
+
+      <p className="font-semibold text-[#173B33]">
+        {title}
+      </p>
+
+      <p className="mt-1">{value}</p>
     </div>
   );
 }

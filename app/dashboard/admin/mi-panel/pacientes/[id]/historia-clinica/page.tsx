@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import ClinicalHistoryEditor from "../ClinicalHistoryEditor";
+import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 import { ArrowLeft } from "lucide-react";
 
 type Props = {

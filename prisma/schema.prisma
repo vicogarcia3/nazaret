@@ -52,14 +52,16 @@ model User {
   id String @id @default(cuid())
 
   name     String
-  email    String @unique
-  password String
+  email    String  @unique
+  password String?
+  image    String?
 
   role Role
 
   doctor  Doctor?
   patient Patient?
-  lastLoginAt  DateTime?
+
+  lastLoginAt DateTime?
 }
 
 model Branch {

@@ -1,5 +1,6 @@
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import PrintButton from "./PrintButton";
 
 type Props = {
@@ -7,23 +8,105 @@ type Props = {
 };
 
 export default async function HistoriaClinicaPrintPage({ params }: Props) {
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    redirect("/login");
+  }
+
+  if (
+    session.user.role !== "ADMIN" &&
+    session.user.role !== "DOCTOR"
+  ) {
+    notFound();
+  }
+
   const { id } = await params;
 
-  const patient = await prisma.patient.findUnique({
-    where: { id },
-    include: {
-      branch: true,
-      histories: {
-        orderBy: { updatedAt: "desc" },
-        take: 1,
-      },
-    },
-  });
+  let patient;
 
-  if (!patient) notFound();
+  if (session.user.role === "ADMIN") {
+    patient = await prisma.patient.findUnique({
+      where: {
+        id,
+      },
+      include: {
+        branch: true,
+        histories: {
+          orderBy: {
+            updatedAt: "desc",
+          },
+          take: 1,
+        },
+      },
+    });
+  } else {
+    const doctor = await prisma.doctor.findUnique({
+      where: {
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
+        branches: {
+          select: {
+            branchId: true,
+          },
+        },
+      },
+    });
+
+    if (!doctor) {
+      notFound();
+    }
+
+    const doctorBranchIds = doctor.branches.map(
+      (doctorBranch) => doctorBranch.branchId
+    );
+
+    patient = await prisma.patient.findFirst({
+      where: {
+        id,
+        OR: [
+          {
+            branchId: {
+              in: doctorBranchIds,
+            },
+          },
+          {
+            appointments: {
+              some: {
+                doctorId: doctor.id,
+              },
+            },
+          },
+          {
+            budgets: {
+              some: {
+                doctorId: doctor.id,
+              },
+            },
+          },
+        ],
+      },
+      include: {
+        branch: true,
+        histories: {
+          orderBy: {
+            updatedAt: "desc",
+          },
+          take: 1,
+        },
+      },
+    });
+  }
+
+  if (!patient) {
+    notFound();
+  }
 
   const history = patient.histories[0];
-  const data = (history?.data || {}) as Record<string, string>;
+
+  const data = (history?.data || {}) as Record<string, any>;
 
   return (
     <main className="min-h-screen bg-white p-6 text-[12px] text-black print:p-0">

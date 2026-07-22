@@ -8,6 +8,10 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
+  if (session.user.needsRegistration) {
+    redirect("/registro/google");
+  }
+
   if (session.user.role === "ADMIN") {
     redirect("/dashboard/admin");
   }

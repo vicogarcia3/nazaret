@@ -1,11 +1,17 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import Google from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
+    Google({
+      clientId: process.env.AUTH_GOOGLE_ID!,
+      clientSecret: process.env.AUTH_GOOGLE_SECRET!,
+    }),
+
     Credentials({
       credentials: {
         email: {},
@@ -17,26 +23,30 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
+        const email = String(credentials.email)
+          .trim()
+          .toLowerCase();
+
+        const password = String(credentials.password);
+
         const user = await prisma.user.findUnique({
           where: {
-            email: credentials.email as string,
+            email,
           },
         });
 
-        if (!user) {
+        if (!user || !user.password) {
           return null;
         }
 
         const validPassword = await bcrypt.compare(
-          credentials.password as string,
+          password,
           user.password
         );
 
         if (!validPassword) {
           return null;
         }
-
-        console.log("Actualizando último acceso de:", user.email);
 
         const updatedUser = await prisma.user.update({
           where: {
@@ -66,18 +76,115 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 
   callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        token.role = user.role;
+    async signIn({ user, account }) {
+      if (account?.provider !== "google") {
+        return true;
+      }
+
+      if (!user.email) {
+        return false;
+      }
+
+      const email = user.email.trim().toLowerCase();
+
+      const existingUser = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      // Si ya existe, actualizamos su último acceso.
+      if (existingUser) {
+        await prisma.user.update({
+          where: {
+            id: existingUser.id,
+          },
+          data: {
+            lastLoginAt: new Date(),
+          },
+        });
+      }
+
+      // Si no existe, también permitimos el acceso.
+      // Después lo enviaremos a completar DNI, teléfono y sucursal.
+      return true;
+    },
+
+    async jwt({ token, user }) {
+      if (user?.email) {
+        token.email = user.email.trim().toLowerCase();
+      }
+
+      if (user?.name) {
+        token.name = user.name;
+      }
+
+      if (!token.email) {
+        token.id = "";
+        token.role = "";
+        token.needsRegistration = false;
+        return token;
+      }
+
+      const databaseUser = await prisma.user.findUnique({
+        where: {
+          email: token.email.trim().toLowerCase(),
+        },
+        select: {
+          id: true,
+          role: true,
+          patient: {
+            select: {
+              id: true,
+            },
+          },
+          doctor: {
+            select: {
+              id: true,
+            },
+          },
+        },
+      });
+
+      if (!databaseUser) {
+        // Usuario autenticado por Google que todavía
+        // no fue registrado en Nazaret.
+        token.id = "";
+        token.role = "PENDING";
+        token.needsRegistration = true;
+
+        return token;
+      }
+
+      token.id = databaseUser.id;
+      token.role = databaseUser.role;
+
+      if (
+        databaseUser.role === "PATIENT" &&
+        !databaseUser.patient
+      ) {
+        token.needsRegistration = true;
+      } else {
+        token.needsRegistration = false;
       }
 
       return token;
     },
 
     session({ session, token }) {
-      session.user.id = token.id as string;
-      session.user.role = token.role as string;
+      if (session.user) {
+        session.user.id =
+          typeof token.id === "string" ? token.id : "";
+
+        session.user.role =
+          typeof token.role === "string" ? token.role : "";
+
+        session.user.needsRegistration =
+          Boolean(token.needsRegistration);
+      }
 
       return session;
     },
