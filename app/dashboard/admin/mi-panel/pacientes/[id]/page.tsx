@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import DeleteClinicalHistoryButton from "@/components/DeleteClinicalHistoryButton";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -189,12 +190,20 @@ export default async function PacienteDetallePage({ params }: Props) {
               </p>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex justify-end gap-3">
+              {latestHistory && (
+                <DeleteClinicalHistoryButton
+                  patientId={patient.id}
+                />
+              )}
+
               <Link
                 href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`}
                 className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
               >
-                {latestHistory ? "Editar historia" : "Completar historia"}
+                {latestHistory
+                  ? "Editar historia"
+                  : "Completar historia"}
               </Link>
             </div>
           </article>
