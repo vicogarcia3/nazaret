@@ -37,11 +37,15 @@ export async function PUT(
 
     return NextResponse.json(patient);
   } catch (error) {
-    console.error("Error al actualizar paciente:", error);
+    console.error(
+      "Error al actualizar paciente:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: "No se pudieron guardar los cambios del paciente.",
+        error:
+          "No se pudieron guardar los cambios del paciente.",
       },
       { status: 500 }
     );
@@ -49,7 +53,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  req: Request,
+  _req: Request,
   context: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -64,11 +68,31 @@ export async function DELETE(
   const { id } = await context.params;
 
   try {
-    const appointmentsCount = await prisma.appointment.count({
+    const patient = await prisma.patient.findUnique({
       where: {
-        patientId: id,
+        id,
+      },
+      select: {
+        id: true,
       },
     });
+
+    if (!patient) {
+      return NextResponse.json(
+        {
+          error:
+            "El paciente ya fue eliminado o no existe.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const appointmentsCount =
+      await prisma.appointment.count({
+        where: {
+          patientId: id,
+        },
+      });
 
     if (appointmentsCount > 0) {
       return NextResponse.json(
@@ -80,24 +104,65 @@ export async function DELETE(
       );
     }
 
-    await prisma.patient.delete({
-      where: {
-        id,
-      },
+    await prisma.$transaction(async (tx) => {
+      await tx.testimonial.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
+
+      await tx.notification.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
+
+      const deletedPatient =
+        await tx.patient.deleteMany({
+          where: {
+            id,
+          },
+        });
+
+      if (deletedPatient.count === 0) {
+        throw new Error("PATIENT_NOT_FOUND");
+      }
     });
 
     return NextResponse.json({
       message: "Paciente eliminado correctamente.",
     });
   } catch (error) {
-    console.error("Error al eliminar paciente:", error);
-
-    const errorMessage =
-      error instanceof Error ? error.message : String(error);
+    console.error(
+      "Error al eliminar paciente:",
+      error
+    );
 
     if (
-      errorMessage.includes("Budget_patientId_fkey") ||
-      errorMessage.includes('referenced from table "Budget"')
+      error instanceof Error &&
+      error.message === "PATIENT_NOT_FOUND"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "El paciente ya fue eliminado o no existe.",
+        },
+        { status: 404 }
+      );
+    }
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : String(error);
+
+    if (
+      errorMessage.includes(
+        "Budget_patientId_fkey"
+      ) ||
+      errorMessage.includes(
+        'referenced from table "Budget"'
+      )
     ) {
       return NextResponse.json(
         {
@@ -109,8 +174,12 @@ export async function DELETE(
     }
 
     if (
-      errorMessage.includes("Payment_patientId_fkey") ||
-      errorMessage.includes('referenced from table "Payment"')
+      errorMessage.includes(
+        "Payment_patientId_fkey"
+      ) ||
+      errorMessage.includes(
+        'referenced from table "Payment"'
+      )
     ) {
       return NextResponse.json(
         {
@@ -122,8 +191,12 @@ export async function DELETE(
     }
 
     if (
-      errorMessage.includes("Appointment_patientId_fkey") ||
-      errorMessage.includes('referenced from table "Appointment"')
+      errorMessage.includes(
+        "Appointment_patientId_fkey"
+      ) ||
+      errorMessage.includes(
+        'referenced from table "Appointment"'
+      )
     ) {
       return NextResponse.json(
         {
@@ -149,7 +222,8 @@ export async function DELETE(
 
     return NextResponse.json(
       {
-        error: "Ocurrió un error al eliminar el paciente.",
+        error:
+          "Ocurrió un error al eliminar el paciente.",
       },
       { status: 500 }
     );
