@@ -53,7 +53,7 @@ export default async function HomePage() {
     id: testimonial.id,
     rating: testimonial.rating,
     comment: testimonial.comment,
-    patientName: testimonial.patient.user.name || "Paciente",
+    patientName: testimonial.patient.user?.name ?? "Paciente",
   }));
 
   return (

@@ -275,6 +275,10 @@ export default async function PagosPacientePage({
       year: "numeric",
     });
 
+    if (!patient) {
+      return "";
+    }
+
     return `Hola ${
       patient.firstName
     }, te recordamos que tenés un pago pendiente de ${formatCurrency(
