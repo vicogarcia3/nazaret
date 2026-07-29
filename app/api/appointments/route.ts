@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { notifyAppointmentCreated } from "@/lib/notifications";
 
 export async function GET() {
   const session = await auth();
@@ -141,6 +142,15 @@ export async function POST(req: Request) {
         },
         branch: true,
       },
+    });
+
+    await notifyAppointmentCreated({
+      patientId: appointment.patientId,
+      appointmentId: appointment.id,
+      doctorName:
+        appointment.doctor.user?.name ??
+        `Dr. ${appointment.doctor.user?.name ?? ""}`.trim(),
+      date: appointment.date,
     });
 
     return NextResponse.json(appointment, {

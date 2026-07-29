@@ -1,25 +1,60 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
+
+const GOOGLE_REVIEWS_URL =
+  "https://www.google.com/maps/place/CONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)/@-31.3915773,-64.2255825,17z/data=!4m18!1m9!3m8!1s0x943298c48f0d390b:0x61d7bfb34430fa99!2sCONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728!3m7!1s0x943298c48f0d390b:0x61d7bfb34430fa99!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
 
 export default async function HomePage() {
-  const config = await prisma.siteConfig.findFirst();
+  const [config, services, doctors, branches, testimonials] =
+    await Promise.all([
+      prisma.siteConfig.findFirst(),
 
-  const services = await prisma.service.findMany({
-    where: { active: true },
-    orderBy: { id: "desc" },
-  });
+      prisma.service.findMany({
+        where: { active: true },
+        orderBy: { id: "desc" },
+      }),
 
-  const doctors = await prisma.doctor.findMany({
-    where: { active: true },
-    include: { user: true },
-    orderBy: { id: "desc" },
-  });
+      prisma.doctor.findMany({
+        where: { active: true },
+        include: { user: true },
+        orderBy: { id: "desc" },
+      }),
 
-  const branches = await prisma.branch.findMany({
-    orderBy: {
-      name: "asc",
-    },
-  });
+      prisma.branch.findMany({
+        orderBy: {
+          name: "asc",
+        },
+      }),
+
+      prisma.testimonial.findMany({
+        where: {
+          approved: true,
+          visible: true,
+        },
+        include: {
+          patient: {
+            include: {
+              user: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      }),
+    ]);
+
+  const publicTestimonials = testimonials.map((testimonial) => ({
+    id: testimonial.id,
+    rating: testimonial.rating,
+    comment: testimonial.comment,
+    patientName: testimonial.patient.user.name || "Paciente",
+  }));
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] text-[#1f1f1f]">
@@ -31,6 +66,7 @@ export default async function HomePage() {
         <nav className="hidden space-x-10 text-xs font-medium uppercase tracking-widest md:flex">
           <a href="#servicios">Servicios</a>
           <a href="#equipo">Equipo</a>
+          <a href="#testimonios">Testimonios</a>
           <a href="#contacto">Contacto</a>
         </nav>
 
@@ -53,7 +89,7 @@ export default async function HomePage() {
 
       <section className="grid min-h-[78vh] items-center gap-12 px-8 py-12 md:grid-cols-2 md:px-16 lg:px-24">
         <div>
-          <h2 className="font-serif text-5xl leading-[1.1] md:text-7xl lg:text-6xl text-gray-800">
+          <h2 className="font-serif text-5xl leading-[1.1] text-gray-800 md:text-7xl lg:text-6xl">
             {config?.heroTitle || "Tu sonrisa, nuestra prioridad"}
           </h2>
 
@@ -63,12 +99,12 @@ export default async function HomePage() {
           </p>
 
           <div className="mt-8 flex flex-wrap gap-4">
-            <a
+            <Link
               href="/dashboard/patient/turnos"
               className="rounded-full bg-[#A2B38B] px-6 py-3 text-sm font-medium text-white hover:bg-[#8FA178]"
             >
               Reservar un turno
-            </a>
+            </Link>
 
             <a
               href="#servicios"
@@ -86,7 +122,7 @@ export default async function HomePage() {
             {config?.heroImage ? (
               <img
                 src={config.heroImage}
-                alt={config?.clinicName || "Consultorio odontológico"}
+                alt={config.clinicName || "Consultorio odontológico"}
                 className="aspect-[3/4] w-full rounded-[2rem] object-cover outline outline-1 -outline-offset-1 outline-black/5"
               />
             ) : (
@@ -97,15 +133,21 @@ export default async function HomePage() {
           </div>
 
           <div className="absolute -bottom-7 -left-7 hidden max-w-[240px] bg-white p-7 shadow-xl lg:block">
-            <p className="text-base text-[#A2B38B]">Atención de excelencia</p>
-            <p className="text-sm leading-relaxed text-[var(--brand-primary)]/60 text-gray-500">
+            <p className="text-base text-[#A2B38B]">
+              Atención de excelencia
+            </p>
+
+            <p className="text-sm leading-relaxed text-gray-500">
               {config?.heroTitle || "Tu sonrisa, nuestra prioridad"}
             </p>
           </div>
         </div>
       </section>
 
-      <section id="servicios" className="bg-white px-8 py-16 md:px-16 lg:px-24">
+      <section
+        id="servicios"
+        className="scroll-mt-8 bg-white px-8 py-16 md:px-16 lg:px-24"
+      >
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
           Especialidades
         </p>
@@ -130,12 +172,17 @@ export default async function HomePage() {
               </div>
             ))
           ) : (
-            <p className="text-gray-500">Todavía no hay servicios cargados.</p>
+            <p className="text-gray-500">
+              Todavía no hay servicios cargados.
+            </p>
           )}
         </div>
       </section>
 
-      <section id="equipo" className="px-8 py-16 md:px-16 lg:px-24">
+      <section
+        id="equipo"
+        className="scroll-mt-8 px-8 py-16 md:px-16 lg:px-24"
+      >
         <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
           Equipo profesional
         </p>
@@ -151,13 +198,13 @@ export default async function HomePage() {
                 key={doctor.id}
                 className="rounded-3xl border bg-white p-6 shadow-sm"
               >
-                {doctor.photo && (
+                {doctor.photo ? (
                   <img
                     src={doctor.photo}
                     alt={doctor.user.name || "Odontólogo"}
                     className="mb-4 h-24 w-24 rounded-full object-cover"
                   />
-                )}
+                ) : null}
 
                 <h3 className="text-lg font-semibold">{doctor.user.name}</h3>
 
@@ -166,7 +213,8 @@ export default async function HomePage() {
                 </p>
 
                 <p className="mt-3 text-sm leading-6 text-gray-600">
-                  {doctor.description || "Profesional del equipo odontológico."}
+                  {doctor.description ||
+                    "Profesional del equipo odontológico."}
                 </p>
               </div>
             ))
@@ -178,9 +226,31 @@ export default async function HomePage() {
         </div>
       </section>
 
-      
-      <section id="contacto" className="px-8 py-10 md:px-16 lg:px-24">
-        <div className="relative bg-[#A2B38B] px-8 py-16 text-white md:px-20 md:py-16">
+      <section
+        id="testimonios"
+        className="scroll-mt-8 bg-white px-8 py-16 md:px-16 lg:px-24"
+      >
+        <div className="mx-auto max-w-7xl">
+          <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
+            Testimonios
+          </p>
+
+          <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
+            Lo que opinan nuestros pacientes
+          </h2>
+
+          <TestimonialsCarousel
+            testimonials={publicTestimonials}
+            googleReviewsUrl={GOOGLE_REVIEWS_URL}
+          />
+        </div>
+      </section>
+
+      <section
+        id="contacto"
+        className="scroll-mt-8 px-8 py-10 md:px-16 lg:px-24"
+      >
+        <div className="relative bg-[#A2B38B] px-8 py-16 text-white md:px-20">
           <h2 className="font-serif text-3xl md:text-4xl">
             Tu primera visita comienza con una conversación.
           </h2>
@@ -197,23 +267,17 @@ export default async function HomePage() {
 
               <div className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 <p>
-                  <span className="font-semibold uppercase tracking-wider">
-                    LUNES A VIERNES:
-                  </span>{" "}
+                  LUNES A VIERNES:{" "}
                   {config?.businessHoursWeek || "09:00 — 19:00"}
                 </p>
 
                 <p>
-                  <span className="font-semibold uppercase tracking-wider">
-                    SÁBADOS:
-                  </span>{" "}
+                  SÁBADOS:{" "}
                   {config?.businessHoursSaturday || "09:00 — 13:00"}
                 </p>
 
                 <p>
-                  <span className="font-semibold uppercase tracking-wider">
-                    DOMINGOS:
-                  </span>{" "}
+                  DOMINGOS:{" "}
                   {config?.businessHoursSunday || "Cerrado"}
                 </p>
               </div>
@@ -254,17 +318,40 @@ export default async function HomePage() {
               Crear cuenta paciente
             </Link>
           </div>
-              <a
-                href={`https://wa.me/${(config?.whatsapp || "3517049724").replace(
-                  /\D/g,
-                  ""
-                )}?text=${encodeURIComponent("Hola! Quiero hacer una consulta")}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="absolute bottom-10 right-12 rounded-full bg-[#25D366] px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:scale-105 hover:bg-[#1EBE5D]"
-              >
-                WhatsApp
-              </a>
+
+          <a
+            href={`https://wa.me/${(
+              config?.whatsapp || "3517049724"
+            ).replace(/\D/g, "")}?text=${encodeURIComponent(
+              "Hola! Quiero hacer una consulta"
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="
+            mt-6
+            inline-flex
+            w-full
+            justify-center
+            rounded-full
+            bg-[#25D366]
+            px-6
+            py-3
+            text-sm
+            font-semibold
+            text-white
+            shadow-lg
+            transition
+            hover:bg-[#1EBE5D]
+            md:absolute
+            md:bottom-10
+            md:right-12
+            md:mt-0
+            md:w-auto
+            md:hover:scale-105
+            "
+          >
+            WhatsApp
+          </a>
         </div>
       </section>
 

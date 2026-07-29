@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Search, User, Phone, MapPin, BadgeCheck } from "lucide-react";
+import { Plus, Trash2, User, Phone, MapPin, BadgeCheck } from "lucide-react";
+import { toast } from "sonner";
 
 type Branch = {
   id: string;
@@ -123,19 +124,36 @@ export default function PacientesClient({
   }
 
   async function handleDeletePatient(id: string) {
-    if (!confirm("¿Seguro que querés eliminar este paciente?")) return;
-
-    const res = await fetch(`/api/patients/${id}`, {
-      method: "DELETE",
-    });
-
-    if (!res.ok) {
-      const data = await res.json();
-      alert(data.error || "No se pudo eliminar el paciente.");
+    if (!confirm("¿Seguro que querés eliminar este paciente?")) {
       return;
     }
 
-    router.refresh();
+    try {
+      const res = await fetch(`/api/patients/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(
+          data.error || "No se pudo eliminar el paciente."
+        );
+        return;
+      }
+
+      toast.success(
+        data.message || "Paciente eliminado correctamente."
+      );
+
+      router.refresh();
+    } catch (error) {
+      console.error("Error al eliminar el paciente:", error);
+
+      toast.error(
+        "No se pudo eliminar el paciente. Intentá nuevamente."
+      );
+    }
   }
 
   return (
@@ -364,20 +382,20 @@ export default function PacientesClient({
                     Editar
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => handleDeletePatient(patient.id)}
-                    className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D97A7A] hover:underline"
-                  >
-                    Eliminar
-                  </button>
-
                   <Link
                     href={`/dashboard/admin/mi-panel/pacientes/${patient.id}`}
                     className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#6B7774] hover:underline"
                   >
                     Ver ficha
                   </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeletePatient(patient.id)}
+                    className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#D97A7A] hover:underline"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
 

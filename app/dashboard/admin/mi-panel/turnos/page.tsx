@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CalendarDays, MoreVertical, Check, X, Clock, Trash2 } from "lucide-react";
+import { CalendarDays, MoreVertical, Check, X, Clock, Trash2, ChevronLeft, ChevronRight, } from "lucide-react";
 import NewGeneralAppointmentForm from "./NewGeneralAppointmentForm";
 
 type Branch = {
@@ -52,7 +52,7 @@ export default function TurnosPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedBranchId, setSelectedBranchId] = useState("");
-  const [currentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"mes" | "semana" | "dia">("mes");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
@@ -142,6 +142,80 @@ export default function TurnosPage() {
     date.setDate(weekStart.getDate() + index);
     return date;
   });
+
+  function previousPeriod() {
+    if (view === "mes") {
+      setCurrentDate(
+        (current) =>
+          new Date(
+            current.getFullYear(),
+            current.getMonth() - 1,
+            1
+          )
+      );
+      return;
+    }
+
+    if (view === "semana") {
+      setCurrentDate(
+        (current) =>
+          new Date(
+            current.getFullYear(),
+            current.getMonth(),
+            current.getDate() - 7
+          )
+      );
+      return;
+    }
+
+    setCurrentDate(
+      (current) =>
+        new Date(
+          current.getFullYear(),
+          current.getMonth(),
+          current.getDate() - 1
+        )
+    );
+  }
+
+  function nextPeriod() {
+    if (view === "mes") {
+      setCurrentDate(
+        (current) =>
+          new Date(
+            current.getFullYear(),
+            current.getMonth() + 1,
+            1
+          )
+      );
+      return;
+    }
+
+    if (view === "semana") {
+      setCurrentDate(
+        (current) =>
+          new Date(
+            current.getFullYear(),
+            current.getMonth(),
+            current.getDate() + 7
+          )
+      );
+      return;
+    }
+
+    setCurrentDate(
+      (current) =>
+        new Date(
+          current.getFullYear(),
+          current.getMonth(),
+          current.getDate() + 1
+        )
+    );
+  }
+
+  function goToToday() {
+    setCurrentDate(new Date());
+  }
 
   function getAppointmentsForDay(day: Date) {
     return filteredAppointments.filter((appointment) => {
@@ -319,20 +393,47 @@ export default function TurnosPage() {
         {selectedBranch && (
           <section className="border border-[#DED9CD] bg-white">
             <div className="flex items-center justify-between border-b border-[#DED9CD] px-6 py-4">
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <CalendarDays className="h-5 w-5 text-[#A2B38B]" />
+
+                <button
+                  onClick={previousPeriod}
+                  className="flex h-9 w-9 items-center justify-center border border-[#DED9CD] transition hover:bg-[#F7F5EF]"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
                 <div>
                   <h2 className="font-[var(--font-cormorant)] text-2xl font-medium capitalize">
                     {view === "mes"
                       ? monthName
                       : view === "semana"
                       ? "Semana actual"
-                      : "Día de hoy"}
+                      : currentDate.toLocaleDateString("es-AR", {
+                        weekday: "long",
+                        day: "numeric",
+                        month: "long",
+                      })}
                   </h2>
+
                   <p className="text-xs text-[#6B7774]">
                     {selectedBranch.name} — {selectedBranch.address}
                   </p>
                 </div>
+
+                <button
+                  onClick={nextPeriod}
+                  className="flex h-9 w-9 items-center justify-center border border-[#DED9CD] transition hover:bg-[#F7F5EF]"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+
+                <button
+                  onClick={goToToday}
+                  className="ml-3 border border-[#DED9CD] px-3 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition hover:bg-[#F7F5EF]"
+                >
+                  Hoy
+                </button>
               </div>
 
               <div className="flex border border-[#DED9CD] text-xs font-semibold uppercase tracking-[0.18em]">

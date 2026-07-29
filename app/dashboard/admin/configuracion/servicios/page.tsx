@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   FileText,
   Users,
@@ -69,6 +69,25 @@ type Availability = {
   };
 };
 
+type Testimonial = {
+  id: string;
+  rating: number;
+  comment: string | null;
+  visible: boolean;
+  approved: boolean;
+  createdAt: string;
+  updatedAt: string;
+  patient: {
+    firstName: string;
+    lastName: string;
+    user: {
+      id: string;
+      name: string | null;
+      image: string | null;
+    } | null;
+  };
+};
+
 type Tab =
   | "servicios"
   | "tratamientos"
@@ -83,8 +102,14 @@ export default function ServiciosPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [editingDoctorId, setEditingDoctorId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [showDoctorForm, setShowDoctorForm] = useState(false);
+  const doctorFormRef = useRef<HTMLFormElement>(null);
   
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(false);
+  const [updatingTestimonialId, setUpdatingTestimonialId] =
+    useState<string | null>(null);
 
   const [availabilityForm, setAvailabilityForm] = useState({
     doctorId: "",
@@ -123,6 +148,7 @@ export default function ServiciosPage() {
     whatsapp: "",
     instagram: "",
     facebook: "",
+    googleReviewsUrl: "",
     businessHoursWeek: "",
     businessHoursSaturday: "",
     businessHoursSunday: "",
@@ -223,6 +249,7 @@ export default function ServiciosPage() {
     loadBranches();
     loadContact();
     loadAvailabilities();
+    loadTestimonials();
   }, []);
 
   function resetForm() {
@@ -246,6 +273,14 @@ export default function ServiciosPage() {
       photo: doctor.photo || "",
       active: doctor.active,
       branchIds: doctor.branches.map((b: any) => b.branchId),
+    });
+    setShowDoctorForm(true);
+
+    requestAnimationFrame(() => {
+      doctorFormRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }
 
@@ -330,7 +365,10 @@ async function handleDoctorSubmit(e: React.FormEvent) {
     branchIds: [],
   });
 
-  loadDoctors();
+  // 👇 Cerrar el formulario después de guardar
+  setShowDoctorForm(false);
+
+  await loadDoctors();
 }
 
 async function loadContact() {
@@ -342,10 +380,79 @@ async function loadContact() {
       whatsapp: data.whatsapp || "",
       instagram: data.instagram || "",
       facebook: data.facebook || "",
+      googleReviewsUrl: data.googleReviewsUrl || "",
       businessHoursWeek: data.businessHoursWeek || "",
       businessHoursSaturday: data.businessHoursSaturday || "",
       businessHoursSunday: data.businessHoursSunday || "",
     });
+  }
+}
+
+async function loadTestimonials() {
+  try {
+    setLoadingTestimonials(true);
+
+    const res = await fetch("/api/testimonials", {
+      cache: "no-store",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudieron cargar los testimonios.");
+      setTestimonials([]);
+      return;
+    }
+
+    setTestimonials(Array.isArray(data) ? data : []);
+  } catch (error) {
+    console.error("Error al cargar testimonios:", error);
+    setTestimonials([]);
+  } finally {
+    setLoadingTestimonials(false);
+  }
+}
+
+async function updateTestimonial(
+  id: string,
+  changes: {
+    approved?: boolean;
+    visible?: boolean;
+  }
+) {
+  try {
+    setUpdatingTestimonialId(id);
+
+    const res = await fetch(`/api/testimonials/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(changes),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo actualizar el testimonio.");
+      return;
+    }
+
+    setTestimonials((currentTestimonials) =>
+      currentTestimonials.map((testimonial) =>
+        testimonial.id === id
+          ? {
+              ...testimonial,
+              ...data,
+            }
+          : testimonial
+      )
+    );
+  } catch (error) {
+    console.error("Error al actualizar testimonio:", error);
+    alert("No se pudo actualizar el testimonio.");
+  } finally {
+    setUpdatingTestimonialId(null);
   }
 }
 
@@ -410,6 +517,36 @@ async function handleContactSubmit(e: React.FormEvent) {
       icon: Phone,
     },
   ];
+
+  const approvedTestimonials = testimonials.filter(
+    (testimonial) => testimonial.approved
+  ).length;
+
+  const pendingTestimonials = testimonials.filter(
+    (testimonial) => !testimonial.approved
+  ).length;
+
+  const visibleTestimonials = testimonials.filter(
+    (testimonial) => testimonial.visible
+  ).length;
+
+  const averageRating =
+    testimonials.length > 0
+      ? testimonials.reduce(
+          (total, testimonial) => total + testimonial.rating,
+          0
+        ) / testimonials.length
+      : 0;
+
+  function getInitials(name: string) {
+    return name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((word) => word[0]?.toUpperCase())
+      .join("");
+  }
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
@@ -673,201 +810,274 @@ async function handleContactSubmit(e: React.FormEvent) {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={resetForm}
+                onClick={() => {
+
+                  if (showDoctorForm) {
+
+                    setEditingDoctorId(null);
+
+                    setDoctorForm({
+                      name: "",
+                      email: "",
+                      specialty: "",
+                      description: "",
+                      photo: "",
+                      active: true,
+                      branchIds: [],
+                    });
+
+                    setShowDoctorForm(false);
+
+                    return;
+                  }
+
+                  setEditingDoctorId(null);
+
+                  setDoctorForm({
+                    name: "",
+                    email: "",
+                    specialty: "",
+                    description: "",
+                    photo: "",
+                    active: true,
+                    branchIds: [],
+                  });
+
+                  setShowDoctorForm(true);
+
+                  requestAnimationFrame(() => {
+                    doctorFormRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                    });
+                  });
+
+                }}
                 className="flex items-center gap-2 bg-[#263F3B] px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
               >
                 <Plus className="h-4 w-4" />
-                Agregar especialista
+
+                {showDoctorForm
+                  ? "Cerrar"
+                  : "Agregar especialista"}
               </button>
             </div>
 
-            <form
-              onSubmit={handleDoctorSubmit}
-              className="border border-[#DED9CD] bg-white p-8"
-            >
-              <div className="mb-6 flex items-center justify-between">
-                <span className="text-sm text-[#A2B38B]">#{doctors.length + 1}</span>
+            {showDoctorForm && (
+              <form
+              ref={doctorFormRef}
+                onSubmit={handleDoctorSubmit}
+                className="scroll-mt-6 border border-[#DED9CD] bg-white p-8"
+              >
+                <div className="mb-6 flex items-center justify-between">
+                  <span className="text-sm text-[#A2B38B]">#{doctors.length + 1}</span>
 
-                <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
-                  <input
-                    type="checkbox"
-                    checked={doctorForm.active}
-                    onChange={(e) =>
-                      setDoctorForm({
-                        ...doctorForm,
-                        active: e.target.checked,
-                      })
-                    }
-                  />
-                  Visible
-                </label>
-              </div>
-
-              <div className="mb-6 flex items-start gap-6">
-                <div className="flex h-28 w-28 items-center justify-center bg-[#E4E8E0] text-xs uppercase tracking-[0.15em] text-[#8A9A87]">
-                  {doctorForm.photo ? (
-                    <img
-                      src={doctorForm.photo}
-                      alt="Foto del odontólogo"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    "Sin foto"
-                  )}
-                </div>
-
-                <div>
-                  <label className="inline-block cursor-pointer border border-[#DED9CD] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#263F3B] hover:bg-[#F7F5EF]">
-                    Subir foto
+                  <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
                     <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append("file", file);
-
-                        const res = await fetch("/api/upload", {
-                          method: "POST",
-                          body: formData,
-                        });
-
-                        const data = await res.json();
-
+                      type="checkbox"
+                      checked={doctorForm.active}
+                      onChange={(e) =>
                         setDoctorForm({
                           ...doctorForm,
-                          photo: data.url,
-                        });
-                      }}
+                          active: e.target.checked,
+                        })
+                      }
                     />
+                    Visible
                   </label>
                 </div>
-              </div>
 
-              <div className="grid gap-6 md:grid-cols-2">
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Nombre completo
-                  </label>
-
-                  <input
-                    className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
-                    value={doctorForm.name}
-                    onChange={(e) =>
-                      setDoctorForm({
-                        ...doctorForm,
-                        name: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Email
-                  </label>
-
-                  <input
-                    type="email"
-                    className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
-                    value={doctorForm.email}
-                    onChange={(e) =>
-                      setDoctorForm({
-                        ...doctorForm,
-                        email: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="mt-6">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                  Rol / Especialidad
-                </label>
-
-                <input
-                  className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
-                  value={doctorForm.specialty}
-                  onChange={(e) =>
-                    setDoctorForm({
-                      ...doctorForm,
-                      specialty: e.target.value,
-                    })
-                  }
-                  placeholder="Ej: Ortodoncia, Estética dental, Odontopediatría"
-                />
-              </div>
-
-              <div className="mt-6">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                  Sucursales
-                </label>
-
-                <div className="grid md:grid-cols-2 gap-3">
-                  {branches.map((branch) => (
-                    <label
-                      key={branch.id}
-                      className="border border-[#d8d2c4] px-4 py-3 flex items-center gap-3 text-sm text-[#1f3f36]"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={doctorForm.branchIds.includes(branch.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setDoctorForm({
-                              ...doctorForm,
-                              branchIds: [...doctorForm.branchIds, branch.id],
-                            });
-                          } else {
-                            setDoctorForm({
-                              ...doctorForm,
-                              branchIds: doctorForm.branchIds.filter(
-                                (id) => id !== branch.id
-                              ),
-                            });
-                          }
-                        }}
-                        className="h-4 w-4 accent-[#1f3f36]"
+                <div className="mb-6 flex items-start gap-6">
+                  <div className="flex h-28 w-28 items-center justify-center overflow-hidden bg-[#E4E8E0] text-3xl font-semibold uppercase text-[#8A9A87]">
+                    {doctorForm.photo ? (
+                      <img
+                        src={doctorForm.photo}
+                        alt={doctorForm.name || "Especialista"}
+                        className="h-full w-full object-cover"
                       />
+                    ) : (
+                      getInitials(doctorForm.name) || "N"
+                    )}
+                  </div>
 
-                      <span>
-                        {branch.name} - {branch.address}
-                      </span>
+                  <div className="flex flex-wrap gap-3">
+                    <label className="inline-block cursor-pointer border border-[#DED9CD] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#263F3B] hover:bg-[#F7F5EF]">
+                      {doctorForm.photo ? "Cambiar foto" : "Subir foto"}
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+
+                          if (!file) return;
+
+                          const formData = new FormData();
+                          formData.append("file", file);
+
+                          const res = await fetch("/api/upload", {
+                            method: "POST",
+                            body: formData,
+                          });
+
+                          const data = await res.json();
+
+                          if (!res.ok) {
+                            alert(data.error || "No se pudo subir la foto.");
+                            return;
+                          }
+
+                          setDoctorForm((current) => ({
+                            ...current,
+                            photo: data.url,
+                          }));
+
+                          e.target.value = "";
+                        }}
+                      />
                     </label>
-                  ))}
+
+                    {doctorForm.photo && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDoctorForm((current) => ({
+                            ...current,
+                            photo: "",
+                          }))
+                        }
+                        className="border border-[#D8CACA] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#B06B6B] hover:bg-[#FAF3F3]"
+                      >
+                        Eliminar foto
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="mt-6">
-                <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                  Biografía
-                </label>
+                <div className="grid gap-6 md:grid-cols-2">
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                      Nombre completo
+                    </label>
 
-                <textarea
-                  rows={4}
-                  className="mt-2 w-full border border-[#DED9CD] p-2 leading-7 outline-none focus:border-[#263F3B]"
-                  value={doctorForm.description}
-                  onChange={(e) =>
-                    setDoctorForm({
-                      ...doctorForm,
-                      description: e.target.value,
-                    })
-                  }
-                />
-              </div>
+                    <input
+                      className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
+                      value={doctorForm.name}
+                      onChange={(e) =>
+                        setDoctorForm({
+                          ...doctorForm,
+                          name: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
 
-              <div className="mt-6 flex justify-end">
-                <button className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
-                  Guardar especialista
-                </button>
-              </div>
-            </form>
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                      Email
+                    </label>
+
+                    <input
+                      type="email"
+                      className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
+                      value={doctorForm.email}
+                      onChange={(e) =>
+                        setDoctorForm({
+                          ...doctorForm,
+                          email: e.target.value,
+                        })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                    Rol / Especialidad
+                  </label>
+
+                  <input
+                    className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
+                    value={doctorForm.specialty}
+                    onChange={(e) =>
+                      setDoctorForm({
+                        ...doctorForm,
+                        specialty: e.target.value,
+                      })
+                    }
+                    placeholder="Ej: Ortodoncia, Estética dental, Odontopediatría"
+                  />
+                </div>
+
+                <div className="mt-6">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                    Sucursales
+                  </label>
+
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {branches.map((branch) => (
+                      <label
+                        key={branch.id}
+                        className="border border-[#d8d2c4] px-4 py-3 flex items-center gap-3 text-sm text-[#1f3f36]"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={doctorForm.branchIds.includes(branch.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setDoctorForm({
+                                ...doctorForm,
+                                branchIds: [...doctorForm.branchIds, branch.id],
+                              });
+                            } else {
+                              setDoctorForm({
+                                ...doctorForm,
+                                branchIds: doctorForm.branchIds.filter(
+                                  (id) => id !== branch.id
+                                ),
+                              });
+                            }
+                          }}
+                          className="h-4 w-4 accent-[#1f3f36]"
+                        />
+
+                        <span>
+                          {branch.name} - {branch.address}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                    Biografía
+                  </label>
+
+                  <textarea
+                    rows={4}
+                    className="mt-2 w-full border border-[#DED9CD] p-2 leading-7 outline-none focus:border-[#263F3B]"
+                    value={doctorForm.description}
+                    onChange={(e) =>
+                      setDoctorForm({
+                        ...doctorForm,
+                        description: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <button className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
+                    {editingDoctorId
+                      ? "Guardar cambios"
+                      : "Guardar especialista"}
+                  </button>
+                </div>
+              </form>
+            )}
 
             {doctors.map((doctor, index) => (
               <div
@@ -928,7 +1138,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                 </div>
 
                 <div className="grid gap-6 md:grid-cols-[120px_1fr]">
-                  <div className="flex h-28 w-28 items-center justify-center bg-[#E4E8E0] text-xs uppercase tracking-[0.15em] text-[#8A9A87]">
+                  <div className="flex h-28 w-28 items-center justify-center overflow-hidden bg-[#E4E8E0] text-3xl font-semibold uppercase text-[#8A9A87]">
                     {doctor.photo ? (
                       <img
                         src={doctor.photo}
@@ -936,7 +1146,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      "Sin foto"
+                      getInitials(doctor.user.name) || "N"
                     )}
                   </div>
 
@@ -1007,15 +1217,219 @@ async function handleContactSubmit(e: React.FormEvent) {
         )}
 
         {activeTab === "testimonios" && (
-          <section className="border border-[#DED9CD] bg-white p-8">
-            <Star className="mb-5 h-5 w-5 text-[#A2B38B]" />
-            <h2 className="font-[var(--font-cormorant)] text-4xl font-medium">
-              Testimonios
-            </h2>
-            <p className="mt-2 text-sm text-[#6B7774]">
-              Próximamente: comentarios de pacientes con calificación de 1 a 5
-              estrellas.
-            </p>
+          <section className="space-y-8">
+            <div className="border border-[#DED9CD] bg-white p-8">
+              <Star className="mb-5 h-5 w-5 text-[#A2B38B]" />
+
+              <h2 className="font-[var(--font-cormorant)] text-4xl font-medium">
+                Testimonios
+              </h2>
+
+              <p className="mt-2 text-sm text-[#6B7774]">
+                Revisá, aprobá y administrá las opiniones publicadas por los
+                pacientes.
+              </p>
+
+              <div className="mt-8 grid gap-4 md:grid-cols-4">
+                <TestimonialStatCard
+                  label="Total"
+                  value={testimonials.length.toString()}
+                />
+
+                <TestimonialStatCard
+                  label="Promedio"
+                  value={
+                    testimonials.length > 0
+                      ? averageRating.toFixed(1)
+                      : "0.0"
+                  }
+                  suffix=" / 5"
+                />
+
+                <TestimonialStatCard
+                  label="Aprobadas"
+                  value={approvedTestimonials.toString()}
+                />
+
+                <TestimonialStatCard
+                  label="Pendientes"
+                  value={pendingTestimonials.toString()}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-5">
+              {loadingTestimonials && (
+                <div className="border border-[#DED9CD] bg-white p-8 text-sm text-[#6B7774]">
+                  Cargando testimonios...
+                </div>
+              )}
+
+              {!loadingTestimonials && testimonials.length === 0 && (
+                <div className="border border-[#DED9CD] bg-white p-8 text-center">
+                  <Star className="mx-auto h-8 w-8 text-[#A2B38B]" />
+
+                  <h3 className="mt-4 font-serif text-2xl">
+                    Todavía no hay testimonios
+                  </h3>
+
+                  <p className="mt-2 text-sm text-[#6B7774]">
+                    Cuando un paciente publique una reseña, aparecerá en esta
+                    sección.
+                  </p>
+                </div>
+              )}
+
+              {!loadingTestimonials &&
+                testimonials.map((testimonial) => {
+                  const patientName =
+                    testimonial.patient.user?.name?.trim() ||
+                    `${testimonial.patient.firstName} ${testimonial.patient.lastName}`;
+
+                  const initials = patientName
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((word) => word[0]?.toUpperCase())
+                    .join("");
+
+                  const isUpdating =
+                    updatingTestimonialId === testimonial.id;
+
+                  return (
+                    <article
+                      key={testimonial.id}
+                      className="border border-[#DED9CD] bg-white p-7"
+                    >
+                      <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+                        <div className="flex min-w-0 items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#E4E8E0] text-sm font-semibold text-[#263F3B]">
+                            {testimonial.patient.user?.image ? (
+                              <img
+                                src={testimonial.patient.user.image}
+                                alt={patientName}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              initials || "P"
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <h3 className="truncate font-serif text-2xl">
+                              {patientName}
+                            </h3>
+
+                            <p className="mt-1 text-xs text-[#6B7774]">
+                              Publicada el{" "}
+                              {new Date(
+                                testimonial.createdAt
+                              ).toLocaleDateString("es-AR")}
+                            </p>
+
+                            <div
+                              className="mt-3 flex gap-1"
+                              aria-label={`${testimonial.rating} de 5 estrellas`}
+                            >
+                              {Array.from({ length: 5 }).map((_, index) => (
+                                <Star
+                                  key={index}
+                                  className={`h-5 w-5 ${
+                                    index < testimonial.rating
+                                      ? "fill-yellow-400 text-yellow-400"
+                                      : "fill-transparent text-[#DED9CD]"
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span
+                            className={`border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                              testimonial.approved
+                                ? "border-[#A2B38B] bg-[#F2F5EF] text-[#56705F]"
+                                : "border-[#E3C98A] bg-[#FFF8E8] text-[#927025]"
+                            }`}
+                          >
+                            {testimonial.approved
+                              ? "Aprobada"
+                              : "Pendiente"}
+                          </span>
+
+                          <span
+                            className={`border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                              testimonial.visible
+                                ? "border-[#A2B38B] bg-[#F2F5EF] text-[#56705F]"
+                                : "border-[#D8CACA] bg-[#FAF3F3] text-[#9A6868]"
+                            }`}
+                          >
+                            {testimonial.visible ? "Visible" : "Oculta"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-6 border border-[#DED9CD] bg-[#FCFBF8] p-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                          Comentario
+                        </p>
+
+                        <p className="mt-3 whitespace-pre-wrap leading-7 text-[#263F3B]">
+                          {testimonial.comment?.trim() ||
+                            "El paciente dejó una calificación sin comentario."}
+                        </p>
+                      </div>
+
+                      <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-[#DED9CD] pt-5">
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            updateTestimonial(testimonial.id, {
+                              approved: !testimonial.approved,
+                            })
+                          }
+                          className={`border px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                            testimonial.approved
+                              ? "border-[#DED9CD] text-[#6B7774] hover:bg-[#F7F5EF]"
+                              : "border-[#263F3B] bg-[#263F3B] text-white hover:bg-[#1D302D]"
+                          }`}
+                        >
+                          {testimonial.approved
+                            ? "Quitar aprobación"
+                            : "Aprobar"}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isUpdating}
+                          onClick={() =>
+                            updateTestimonial(testimonial.id, {
+                              visible: !testimonial.visible,
+                            })
+                          }
+                          className="border border-[#DED9CD] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#263F3B] transition hover:bg-[#F7F5EF] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {testimonial.visible
+                            ? "Ocultar del sitio"
+                            : "Mostrar en el sitio"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+            </div>
+
+            {testimonials.length > 0 && (
+              <div className="border border-[#DED9CD] bg-white px-6 py-4 text-sm text-[#6B7774]">
+                <strong className="text-[#263F3B]">
+                  {visibleTestimonials}
+                </strong>{" "}
+                testimonios están configurados como visibles. Solo aparecerán
+                públicamente aquellos que además estén aprobados.
+              </div>
+            )}
           </section>
         )}
 
@@ -1383,6 +1797,33 @@ async function handleContactSubmit(e: React.FormEvent) {
           </section>
         )}
       </div>
+    </div>
+  );
+}
+
+function TestimonialStatCard({
+  label,
+  value,
+  suffix = "",
+}: {
+  label: string;
+  value: string;
+  suffix?: string;
+}) {
+  return (
+    <div className="border border-[#DED9CD] bg-[#FCFBF8] p-5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+        {label}
+      </p>
+
+      <p className="mt-3 text-3xl font-medium text-[#263F3B]">
+        {value}
+        {suffix && (
+          <span className="ml-1 text-base text-[#6B7774]">
+            {suffix}
+          </span>
+        )}
+      </p>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { Save } from "lucide-react";
+import SignaturePad from "@/app/components/clinical-history/SignaturePad";
 
 type Props = {
   patientId: string;
@@ -154,6 +155,8 @@ const initialForm: FormState = {
   consentimientoDni: "",
   consentimientoDomicilio: "",
   doctorMp: "",
+  patientSignature: "",
+  doctorSignature: "",
 };
 
 function YesNo({
@@ -564,18 +567,30 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
     fetch(`/api/clinical-history?patientId=${patientId}`)
       .then((res) => res.json())
       .then((history) => {
-        if (history) {
-          setHistoryId(history.id);
-          const savedData = (history.data || {}) as any;
-          setForm ({
-            ...initialForm,
-            ...savedData,
-            diagnostico: history.diagnosis || "",
-            planTratamiento: history.treatment || "",
-          });
-
-          setOdontogramData(savedData.odontogramData || {});
+        if (!history) {
+          setHistoryId(null);
+          setForm(initialForm);
+          setOdontogramData({});
+          return;
         }
+
+        setHistoryId(history.id);
+
+        const savedData =
+          history.data &&
+          typeof history.data === "object" &&
+          !Array.isArray(history.data)
+            ? history.data
+            : {};
+
+        setForm({
+          ...initialForm,
+          ...savedData,
+          diagnostico: history.diagnosis || "",
+          planTratamiento: history.treatment || "",
+        });
+
+        setOdontogramData(savedData.odontogramData || {});
       });
   }, [patientId]);
 
@@ -879,10 +894,22 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
 
         <LineInput label="Tratamiento propuesto por Dr/a MP" value={form.doctorMp} onChange={(v) => update("doctorMp", v)} />
 
-        <div className="mt-10 grid gap-8 text-center md:grid-cols-3">
-          <div className="border-t pt-2">Firma del paciente o tutor</div>
-          <div className="border-t pt-2">Aclaración</div>
-          <div className="border-t pt-2">DNI Nº</div>
+        <div className="mt-8 grid gap-8 md:grid-cols-2">
+          <SignaturePad
+            title="Firma del paciente o tutor"
+            value={form.patientSignature}
+            onChange={(value) =>
+              update("patientSignature", value)
+            }
+          />
+
+          <SignaturePad
+            title="Firma del profesional"
+            value={form.doctorSignature}
+            onChange={(value) =>
+              update("doctorSignature", value)
+            }
+          />
         </div>
       </div>
     </section>

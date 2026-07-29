@@ -11,6 +11,7 @@ import {
   HelpCircle,
   Home,
   LogOut,
+  Star,
   User,
   X,
 } from "lucide-react";
@@ -119,6 +120,14 @@ export default function PatientSidebar({
         >
           <CreditCard className="h-5 w-5" />
           Pagos
+        </Link>
+
+        <Link
+          href="/dashboard/patient/mi-resena"
+          className={menuClass("/dashboard/patient/mi-resena")}
+        >
+          <Star className="h-5 w-5" />
+          Mi reseña
         </Link>
 
         <Link

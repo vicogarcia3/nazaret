@@ -119,6 +119,20 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
           Historia Clínica General
         </h1>
 
+        <div className="mb-5 flex justify-between text-[11px] text-gray-600">
+          <span>
+            Historia clínica N°
+            {" "}
+            {history?.id.slice(-8).toUpperCase() || "----"}
+          </span>
+
+          <span>
+            Emitida:
+            {" "}
+            {new Date().toLocaleDateString("es-AR")}
+          </span>
+        </div>
+
         <div className="grid grid-cols-2 gap-x-8 gap-y-2">
           <Line label="Lugar" value={data.lugar} />
           <Line label="Fecha" value={data.fecha} />
@@ -276,10 +290,34 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
             <LineFull label="Tratamiento propuesto por Dr/a MP" value={data.doctorMp} />
           </div>
 
-          <div className="mt-12 grid grid-cols-3 gap-8 text-center text-[11px]">
-            <div className="border-t border-black pt-1">Firma del paciente o tutor</div>
-            <div className="border-t border-black pt-1">Aclaración</div>
-            <div className="border-t border-black pt-1">DNI Nº</div>
+          <div className="mt-12 grid grid-cols-2 gap-10">
+            <SignaturePreview
+              title="Firma del paciente o tutor"
+              signature={data.patientSignature}
+            />
+
+            <SignaturePreview
+              title="Firma del profesional"
+              signature={data.doctorSignature}
+            />
+
+            <div className="mt-10 border-t border-gray-400 pt-4 text-[10px] leading-5 text-gray-600">
+              <p>
+                Documento generado por Sistema Nazaret.
+              </p>
+
+              <p>
+                Fecha de impresión:{" "}
+                {new Date().toLocaleString("es-AR")}
+              </p>
+
+              {history?.updatedAt && (
+                <p>
+                  Última actualización:{" "}
+                  {new Date(history.updatedAt).toLocaleString("es-AR")}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -330,6 +368,36 @@ function YesNo({ label, value }: { label: string; value?: string | null }) {
         SI {value === "SI" ? "☑" : "☐"} &nbsp; NO {value === "NO" ? "☑" : "☐"}
       </span>
     </p>
+  );
+}
+
+function SignaturePreview({
+  title,
+  signature,
+}: {
+  title: string;
+  signature?: string;
+}) {
+  return (
+    <div className="flex flex-col items-center">
+      <div className="flex h-36 w-full items-center justify-center border border-dashed border-gray-400">
+        {signature ? (
+          <img
+            src={signature}
+            alt={title}
+            className="max-h-32 object-contain"
+          />
+        ) : (
+          <span className="text-xs italic text-gray-500">
+            Sin firma
+          </span>
+        )}
+      </div>
+
+      <div className="mt-3 w-full border-t border-black pt-1 text-center text-[11px]">
+        {title}
+      </div>
+    </div>
   );
 }
 

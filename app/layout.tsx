@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 const cormorant = Cormorant_Garamond({
   subsets: ["latin"],
@@ -32,6 +33,13 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${inter.variable} ${playfair.variable} ${cormorant.variable}`}>
         {children}
+
+        <Toaster
+          position="top-right"
+          richColors
+          closeButton
+          duration={3500}
+        />
       </body>
     </html>
   );

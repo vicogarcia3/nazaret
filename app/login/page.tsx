@@ -28,7 +28,7 @@ export default function LoginPage() {
 
     try {
       const result = await signIn("credentials", {
-        email,
+        email: email.trim().toLowerCase(),
         password,
         redirect: false,
       });
@@ -98,41 +98,54 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                autoComplete="email"
                 className="h-12 w-full rounded-md border border-[#D5D9DE] bg-white py-3 pl-12 pr-4 text-[15px] font-medium text-[#555D67] outline-none transition placeholder:text-[#7F8791] focus:border-[#8E9E7A] focus:ring-2 focus:ring-[#A2B38B]/20"
               />
             </div>
 
-            <div className="relative">
-              <Lock
-                size={19}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#737C86]"
-              />
+            <div>
+              <div className="relative">
+                <Lock
+                  size={19}
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-[#737C86]"
+                />
 
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-12 w-full rounded-md border border-[#D5D9DE] bg-white py-3 pl-12 pr-12 text-[15px] font-medium text-[#555D67] outline-none transition placeholder:text-[#7F8791] focus:border-[#8E9E7A] focus:ring-2 focus:ring-[#A2B38B]/20"
-              />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Contraseña"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoComplete="current-password"
+                  className="h-12 w-full rounded-md border border-[#D5D9DE] bg-white py-3 pl-12 pr-12 text-[15px] font-medium text-[#555D67] outline-none transition placeholder:text-[#7F8791] focus:border-[#8E9E7A] focus:ring-2 focus:ring-[#A2B38B]/20"
+                />
 
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                aria-label={
-                  showPassword
-                    ? "Ocultar contraseña"
-                    : "Mostrar contraseña"
-                }
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-[#737C86] transition hover:text-[#263F3B]"
-              >
-                {showPassword ? (
-                  <EyeOff size={20} />
-                ) : (
-                  <Eye size={20} />
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={
+                    showPassword
+                      ? "Ocultar contraseña"
+                      : "Mostrar contraseña"
+                  }
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#737C86] transition hover:text-[#263F3B]"
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
+                </button>
+              </div>
+
+              <div className="mt-2 text-right">
+                <Link
+                  href="/recuperar-contrasena"
+                  className="text-sm font-semibold text-[#7C936A] transition hover:text-[#5F7652] hover:underline"
+                >
+                  ¿Olvidaste tu contraseña?
+                </Link>
+              </div>
             </div>
 
             {error && (
@@ -191,14 +204,17 @@ function GoogleIcon() {
         fill="#4285F4"
         d="M21.35 12.24c0-.74-.07-1.45-.19-2.13H12v4.03h5.24a4.48 4.48 0 0 1-1.94 2.94v2.62h3.14c1.84-1.69 2.91-4.19 2.91-7.46Z"
       />
+
       <path
         fill="#34A853"
         d="M12 21.75c2.62 0 4.82-.87 6.43-2.35l-3.14-2.62c-.87.58-1.98.93-3.29.93-2.53 0-4.67-1.71-5.44-4.01H3.32v2.7A9.72 9.72 0 0 0 12 21.75Z"
       />
+
       <path
         fill="#FBBC05"
         d="M6.56 13.7A5.84 5.84 0 0 1 6.25 12c0-.59.1-1.16.31-1.7V7.6H3.32A9.74 9.74 0 0 0 2.25 12c0 1.58.38 3.08 1.07 4.4l3.24-2.7Z"
       />
+
       <path
         fill="#EA4335"
         d="M12 6.29c1.43 0 2.71.49 3.72 1.45l2.79-2.79A9.34 9.34 0 0 0 12 2.25 9.72 9.72 0 0 0 3.32 7.6l3.24 2.7C7.33 8 9.47 6.29 12 6.29Z"

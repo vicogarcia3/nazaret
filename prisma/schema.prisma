@@ -25,19 +25,34 @@ enum PaymentStatus {
   PAID
 }
 
+enum NotificationType {
+  APPOINTMENT
+  BUDGET
+  PAYMENT
+  CLINICAL_HISTORY
+}
+
+enum NotificationActor {
+  PATIENT
+  DOCTOR
+  ADMIN
+  SYSTEM
+}
+
 model Payment {
   id String @id @default(cuid())
 
-  amount  Float
-  concept String?
+  amount        Float
+  concept       String?
+  paymentMethod String?
 
   status PaymentStatus @default(PENDING)
 
   dueDate DateTime
   paidAt  DateTime?
 
-  whatsappReminderSent    Boolean   @default(false)
-  whatsappReminderSentAt  DateTime?
+  whatsappReminderSent   Boolean   @default(false)
+  whatsappReminderSentAt DateTime?
 
   patientId String
   patient   Patient @relation(fields: [patientId], references: [id])
@@ -46,6 +61,11 @@ model Payment {
   budget   Budget? @relation(fields: [budgetId], references: [id])
 
   createdAt DateTime @default(now())
+
+  @@index([patientId])
+  @@index([budgetId])
+  @@index([status])
+  @@index([paidAt])
 }
 
 model User {
@@ -61,7 +81,40 @@ model User {
   doctor  Doctor?
   patient Patient?
 
-  lastLoginAt DateTime?
+  lastLoginAt   DateTime?
+  emailVerified DateTime?
+
+  passwordResetTokens     PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+}
+
+model EmailVerificationToken {
+  id String @id @default(cuid())
+
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id String @id @default(cuid())
+
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Branch {
@@ -139,9 +192,10 @@ model Patient {
   firstName String
   lastName  String
 
-  dni   String?
-  phone String
-  email String?
+  dni         String?
+  phone       String
+  email       String?
+  testimonial Testimonial?
 
   birthDate DateTime?
 
@@ -152,12 +206,13 @@ model Patient {
   doctor   Doctor? @relation(fields: [doctorId], references: [id])
 
   planId String?
-  plan   Plan?   @relation(fields: [planId], references: [id])
+  plan   Plan? @relation(fields: [planId], references: [id])
 
   appointments Appointment[]
   budgets      Budget[]
   histories    ClinicalHistory[]
   payments     Payment[]
+  notifications Notification[]
 
   createdAt  DateTime    @default(now())
   odontogram Odontogram?
@@ -168,8 +223,8 @@ model Appointment {
 
   date DateTime
 
-  status AppointmentStatus @default(PENDING)
-  reminderSent Boolean @default(false)
+  status       AppointmentStatus @default(PENDING)
+  reminderSent Boolean           @default(false)
 
   notes String?
 
@@ -191,17 +246,25 @@ model Budget {
 
   patientId String
   doctorId  String
-  subtotal  Decimal
-  discount  Decimal  @default(0)
-  total     Decimal
-  status    String   @default("DRAFT")
 
-  patient  Patient      @relation(fields: [patientId], references: [id])
-  doctor   Doctor       @relation(fields: [doctorId], references: [id])
+  subtotal Decimal
+  discount Decimal @default(0)
+  total    Decimal
+
+  status String @default("CREATED")
+
+  patient Patient @relation(fields: [patientId], references: [id])
+  doctor  Doctor  @relation(fields: [doctorId], references: [id])
+
   payments Payment[]
   items    BudgetItem[]
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
 }
 
 model ClinicalHistory {
@@ -235,6 +298,7 @@ model SiteConfig {
   whatsapp  String?
   instagram String?
   facebook  String?
+  googleReviewsUrl String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -264,7 +328,8 @@ model BudgetItem {
   id String @id @default(cuid())
 
   budgetId String
-  budget   Budget @relation(fields: [budgetId], references: [id])
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
 
   serviceName String
 
@@ -273,6 +338,8 @@ model BudgetItem {
   unitPrice Float
 
   total Float
+
+  @@index([budgetId])
 }
 
 model Odontogram {
@@ -313,14 +380,14 @@ model DoctorAvailability {
 }
 
 model Expense {
-  id        String   @id @default(cuid())
-  concept   String
-  category  String
-  amount    Float
-  date      DateTime
+  id       String   @id @default(cuid())
+  concept  String
+  category String
+  amount   Float
+  date     DateTime
 
-  branchId  String?
-  branch    Branch? @relation(fields: [branchId], references: [id])
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
 }
@@ -334,4 +401,48 @@ model Treatment {
   active      Boolean @default(true)
 
   createdAt DateTime @default(now())
+}
+
+model Testimonial {
+  id String @id @default(cuid())
+
+  rating Int
+
+  comment String?
+
+  visible Boolean @default(true)
+
+  approved Boolean @default(false)
+
+  patientId String @unique
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id String @id @default(cuid())
+
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+
+  title   String
+  message String
+
+  type NotificationType
+
+  read Boolean @default(false)
+
+  actionUrl String?
+
+  appointmentId String?
+  budgetId String?
+  paymentId String?
+  clinicalHistoryId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([patientId, read])
+  @@index([createdAt])
 }

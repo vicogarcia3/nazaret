@@ -85,7 +85,9 @@ export default function RegistroPage() {
         return;
       }
 
-      router.push("/login");
+      router.push(
+        `/registro-exitoso?email=${encodeURIComponent(form.email)}`
+      );
     } catch {
       setError("No se pudo crear la cuenta.");
     } finally {

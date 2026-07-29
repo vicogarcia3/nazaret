@@ -55,32 +55,30 @@ export default async function PacienteDetallePage({ params }: Props) {
         new Date(a.date).getTime() - new Date(b.date).getTime()
     )[0];
 
-  const delayedPayments = patient.payments.filter(
-    (payment) =>
-      payment.status === "PENDING" &&
-      new Date(payment.dueDate) < new Date()
-  );
-
-  const pendingPayments = patient.payments.filter(
-    (payment) =>
-      payment.status === "PENDING" &&
-      new Date(payment.dueDate) >= new Date()
-  );
-
   const totalPaid = paidPayments.reduce(
-    (acc, p) => acc + Number(p.amount),
+    (acc, payment) => acc + Number(payment.amount),
     0
   );
 
-  const totalPending = pendingPayments.reduce(
-    (acc, p) => acc + Number(p.amount),
-    0
-  );
+  const totalPending = patient.budgets.reduce((acc, budget) => {
+    const budgetPaid = patient.payments
+      .filter(
+        (payment) =>
+          payment.budgetId === budget.id &&
+          payment.status === "PAID"
+      )
+      .reduce(
+        (sum, payment) => sum + Number(payment.amount),
+        0
+      );
 
-  const totalDelayed = delayedPayments.reduce(
-    (acc, p) => acc + Number(p.amount),
-    0
-  );
+    return (
+      acc +
+      Math.max(Number(budget.total) - budgetPaid, 0)
+    );
+  }, 0);
+
+  const totalDelayed = 0;
 
   const completedAppointments = patient.appointments
     .filter((a) => a.status === "COMPLETED")
@@ -221,7 +219,7 @@ export default async function PacienteDetallePage({ params }: Props) {
 
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                  Pendientes
+                  Saldo pendiente
                 </p>
 
                 <p className="mt-2 text-[15px]">

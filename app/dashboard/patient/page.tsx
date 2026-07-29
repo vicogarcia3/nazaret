@@ -254,27 +254,28 @@ export default async function PatientDashboardPage() {
         </article>
       </section>
 
-      <section className="flex items-center justify-between border border-[#DED9CD] bg-white p-6">
-        <div className="flex items-center gap-5">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#6F855F] text-white">
+      <section className="flex flex-col gap-6 border border-[#DED9CD] bg-white p-6 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-start gap-4 md:items-center">
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#6F855F] text-white">
             <Headphones className="h-7 w-7" />
           </div>
 
           <div>
             <h2 className="font-semibold">¿Necesitás ayuda?</h2>
-            <p className="text-sm text-[#6B7774]">
+
+            <p className="mt-1 text-sm leading-5 text-[#6B7774]">
               Estamos para ayudarte. Contactanos por WhatsApp o teléfono.
             </p>
           </div>
         </div>
 
-        <div className="flex gap-4">
-          <button className="border border-[#A2B38B] px-8 py-3 text-sm font-medium text-[#263F3B]">
+        <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:w-auto">
+          <button className="w-full border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto">
             WhatsApp
           </button>
 
-          <button className="flex items-center gap-2 border border-[#A2B38B] px-8 py-3 text-sm font-medium text-[#263F3B]">
-            <Phone className="h-4 w-4" />
+          <button className="flex w-full items-center justify-center gap-2 border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto">
+            <Phone className="h-4 w-4 shrink-0" />
             Llamar
           </button>
         </div>

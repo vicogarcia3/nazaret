@@ -1,9 +1,15 @@
-import NextAuth from "next-auth";
+import NextAuth, {
+  CredentialsSignin,
+} from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcrypt";
 
 import { prisma } from "@/lib/prisma";
+
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "email_not_verified";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -46,6 +52,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!validPassword) {
           return null;
+        }
+
+        if (!user.emailVerified) {
+          throw new EmailNotVerifiedError();
         }
 
         const updatedUser = await prisma.user.update({
@@ -96,7 +106,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         },
       });
 
-      // Si ya existe, actualizamos su último acceso.
       if (existingUser) {
         await prisma.user.update({
           where: {
@@ -104,12 +113,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           },
           data: {
             lastLoginAt: new Date(),
+            emailVerified: new Date(),
           },
         });
       }
 
-      // Si no existe, también permitimos el acceso.
-      // Después lo enviaremos a completar DNI, teléfono y sucursal.
       return true;
     },
 
@@ -150,8 +158,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       });
 
       if (!databaseUser) {
-        // Usuario autenticado por Google que todavía
-        // no fue registrado en Nazaret.
         token.id = "";
         token.role = "PENDING";
         token.needsRegistration = true;
@@ -180,7 +186,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           typeof token.id === "string" ? token.id : "";
 
         session.user.role =
-          typeof token.role === "string" ? token.role : "";
+          typeof token.role === "string"
+            ? token.role
+            : "";
 
         session.user.needsRegistration =
           Boolean(token.needsRegistration);
