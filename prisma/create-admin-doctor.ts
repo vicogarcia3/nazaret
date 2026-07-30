@@ -3,7 +3,7 @@ import { PrismaClient } from "@prisma/client";
 const prisma = new PrismaClient();
 
 async function main() {
-  const adminEmail = "REEMPLAZAR_CON_EL_MAIL_DE_VICTORIA";
+  const adminEmail = "virginiaparino90@gmail.com";
   const branchId = "REEMPLAZAR_CON_EL_ID_DE_LA_SUCURSAL";
 
   const admin = await prisma.user.findUnique({

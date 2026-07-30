@@ -134,6 +134,7 @@ model Branch {
   active Boolean @default(true)
 
   doctors            DoctorBranch[]
+  teamMembers        TeamMemberBranch[]
   patients           Patient[]
   appointments       Appointment[]
   galleryImages      GalleryImage[]
@@ -502,4 +503,31 @@ model Notification {
   @@index([patientId, read])
   @@index([doctorId, read])
   @@index([createdAt])
+}
+
+model TeamMember {
+  id String @id @default(cuid())
+
+  name        String
+  specialty   String?
+  description String?
+  photo       String?
+
+  visible Boolean @default(true)
+
+  branches TeamMemberBranch[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TeamMemberBranch {
+  teamMemberId String
+  branchId     String
+
+  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@id([teamMemberId, branchId])
+  @@index([branchId])
 }
