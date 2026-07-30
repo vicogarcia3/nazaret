@@ -162,6 +162,7 @@ model Doctor {
   schedules          DoctorSchedule[]
   specificSchedules  DoctorSpecificSchedule[]
   scheduleExceptions DoctorScheduleException[]
+  notifications      Notification[]
 }
 
 model DoctorBranch {
@@ -475,25 +476,30 @@ model Testimonial {
 model Notification {
   id String @id @default(cuid())
 
-  patientId String
-  patient Patient @relation(fields: [patientId], references: [id])
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  doctorId String?
+  doctor   Doctor? @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 
   title   String
   message String
 
-  type NotificationType
+  type  NotificationType
+  actor NotificationActor @default(SYSTEM)
 
   read Boolean @default(false)
 
   actionUrl String?
 
-  appointmentId String?
-  budgetId String?
-  paymentId String?
+  appointmentId     String?
+  budgetId          String?
+  paymentId         String?
   clinicalHistoryId String?
 
   createdAt DateTime @default(now())
 
   @@index([patientId, read])
+  @@index([doctorId, read])
   @@index([createdAt])
 }

@@ -53,6 +53,7 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor"
           className="flex min-w-0 items-center gap-3"
+          onClick={() => setOpen(false)}
         >
           {logoUrl ? (
             <img
@@ -76,6 +77,7 @@ export default function DoctorSidebar({
         <button
           type="button"
           onClick={() => setOpen(false)}
+          aria-label="Cerrar menú"
         >
           <X className="h-5 w-5" />
         </button>
@@ -85,6 +87,7 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor"
           className={menuClass("/dashboard/doctor")}
+          onClick={() => setOpen(false)}
         >
           <Home className="h-5 w-5" />
           Inicio
@@ -93,6 +96,7 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor/agenda"
           className={menuClass("/dashboard/doctor/agenda")}
+          onClick={() => setOpen(false)}
         >
           <CalendarDays className="h-5 w-5" />
           Agenda
@@ -101,6 +105,7 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor/pacientes"
           className={menuClass("/dashboard/doctor/pacientes")}
+          onClick={() => setOpen(false)}
         >
           <UsersRound className="h-5 w-5" />
           Pacientes
@@ -109,6 +114,7 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor/balance"
           className={menuClass("/dashboard/doctor/balance")}
+          onClick={() => setOpen(false)}
         >
           <CircleDollarSign className="h-5 w-5" />
           Balance

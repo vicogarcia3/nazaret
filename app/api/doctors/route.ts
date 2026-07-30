@@ -140,7 +140,9 @@ export async function POST(request: Request) {
 
     if (!emailPattern.test(email)) {
       return NextResponse.json(
-        { error: "Ingresá un correo electrónico válido." },
+        {
+          error: "Ingresá un correo electrónico válido.",
+        },
         { status: 400 }
       );
     }
@@ -216,6 +218,9 @@ export async function POST(request: Request) {
           password: hashedPassword,
           role: "DOCTOR",
           image: photo,
+
+          // La cuenta fue creada y validada por el administrador.
+          emailVerified: new Date(),
         },
       });
 
