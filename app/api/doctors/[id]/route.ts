@@ -350,8 +350,12 @@ export async function DELETE(
         error instanceof Error ? String(error) : String(error);
 
       if (
-        errorMessage.includes("DoctorAvailability_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "DoctorAvailability"')
+        errorMessage.includes("DoctorSchedule_doctorId_fkey") ||
+        errorMessage.includes('referenced from table "DoctorSchedule"') ||
+        errorMessage.includes("DoctorSpecificSchedule_doctorId_fkey") ||
+        errorMessage.includes('referenced from table "DoctorSpecificSchedule"') ||
+        errorMessage.includes("DoctorScheduleException_doctorId_fkey") ||
+        errorMessage.includes('referenced from table "DoctorScheduleException"')
       ) {
         return NextResponse.json(
           {

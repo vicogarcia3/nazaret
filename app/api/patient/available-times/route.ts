@@ -1,149 +1,199 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
+import { AppointmentStatus } from "@prisma/client";
 
-function buildSlots(startTime: string, endTime: string) {
+function parseDate(date: string) {
+  return new Date(`${date}T00:00:00-03:00`);
+}
+
+function addDays(date: Date, amount: number) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + amount);
+  return result;
+}
+
+function timeToMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+  return hours * 60 + minutes;
+}
+
+function minutesToTime(minutes: number) {
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  return `${String(hours).padStart(2, "0")}:${String(
+    remainingMinutes
+  ).padStart(2, "0")}`;
+}
+
+function generateSlots(startTime: string, endTime: string) {
   const slots: string[] = [];
 
-  const [startHour, startMinute] = startTime.split(":").map(Number);
-  const [endHour, endMinute] = endTime.split(":").map(Number);
+  const firstSlot = timeToMinutes(startTime) + 30;
+  const lastSlot = timeToMinutes(endTime) - 30;
 
-  let hour = startHour;
-  let minute = startMinute;
-
-  while (hour < endHour || (hour === endHour && minute < endMinute)) {
-    slots.push(`${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`);
-
-    minute += 30;
-
-    if (minute >= 60) {
-      minute = 0;
-      hour += 1;
-    }
+  for (
+    let current = firstSlot;
+    current <= lastSlot;
+    current += 30
+  ) {
+    slots.push(minutesToTime(current));
   }
 
   return slots;
 }
 
-function formatTime(date: Date) {
-  return date.toLocaleTimeString("es-AR", {
+function getAppointmentTime(date: Date) {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
-    timeZone: "America/Argentina/Cordoba",
-  });
+  }).format(date);
 }
 
-function parseBranchHours(hours?: string | null) {
-  if (!hours || hours.toLowerCase().includes("cerrado")) return null;
+export async function GET(request: NextRequest) {
+  try {
+    const session = await auth();
 
-  const normalized = hours.replace("—", "-").replace("–", "-");
-  const [startTime, endTime] = normalized.split("-").map((value) => value.trim());
-
-  if (!startTime || !endTime) return null;
-
-  return { startTime, endTime };
-}
-
-function getBranchHoursForDate(branch: any, date: string) {
-  const selectedDate = new Date(`${date}T00:00:00-03:00`);
-  const day = selectedDate.getDay();
-
-  if (day >= 1 && day <= 5) {
-    return parseBranchHours(branch.mondayToFridayHours);
-  }
-
-  if (day === 6) {
-    return parseBranchHours(branch.saturdayHours);
-  }
-
-  return parseBranchHours(branch.sundayHours);
-}
-
-export async function GET(req: Request) {
-  const session = await auth();
-
-  if (!session || session.user.role !== "PATIENT") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-
-  const doctorId = searchParams.get("doctorId");
-  const date = searchParams.get("date");
-
-  if (!doctorId || !date) {
-    return NextResponse.json([]);
-  }
-
-  const patient = await prisma.patient.findUnique({
-    where: {
-      userId: session.user.id,
-    },
-    include: {
-      branch: true,
-    },
-  });
-
-  if (!patient) {
-    return NextResponse.json([]);
-  }
-
-  const dayStart = new Date(`${date}T00:00:00-03:00`);
-  const dayEnd = new Date(`${date}T23:59:59-03:00`);
-
-  const availability = await prisma.doctorAvailability.findFirst({
-    where: {
-      doctorId,
-      branchId: patient.branchId,
-      date: {
-        gte: dayStart,
-        lte: dayEnd,
-      },
-    },
-  });
-
-  let startTime = "";
-  let endTime = "";
-
-  if (availability) {
-    startTime = availability.startTime;
-    endTime = availability.endTime;
-  } else {
-    const branchHours = getBranchHoursForDate(patient.branch, date);
-
-    if (!branchHours) {
-      return NextResponse.json([]);
+    if (!session || session.user.role !== "PATIENT") {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    startTime = branchHours.startTime;
-    endTime = branchHours.endTime;
+    const doctorId = request.nextUrl.searchParams.get("doctorId");
+    const branchId = request.nextUrl.searchParams.get("branchId");
+    const dateParam = request.nextUrl.searchParams.get("date");
+
+    if (!doctorId || !branchId || !dateParam) {
+      return NextResponse.json(
+        { error: "Faltan doctorId, branchId o date." },
+        { status: 400 }
+      );
+    }
+
+    const date = parseDate(dateParam);
+    const nextDate = addDays(date, 1);
+
+    const exception = await prisma.doctorScheduleException.findUnique({
+      where: {
+        doctorId_date: {
+          doctorId,
+          date,
+        },
+      },
+    });
+
+    if (exception) {
+      return NextResponse.json({
+        available: false,
+        source: "EXCEPTION",
+        times: [],
+      });
+    }
+
+    const allSpecificSchedules =
+      await prisma.doctorSpecificSchedule.findMany({
+        where: {
+          doctorId,
+          date,
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+
+    let ranges: {
+      startTime: string;
+      endTime: string;
+    }[] = [];
+
+    let source: "SPECIFIC" | "WEEKLY" = "WEEKLY";
+
+    if (allSpecificSchedules.length > 0) {
+      source = "SPECIFIC";
+
+      ranges = allSpecificSchedules
+        .filter((schedule) => schedule.branchId === branchId)
+        .map((schedule) => ({
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+        }));
+    } else {
+      const weekday = date.getDay();
+
+      const weeklySchedules = await prisma.doctorSchedule.findMany({
+        where: {
+          doctorId,
+          branchId,
+          weekday,
+          active: true,
+        },
+        orderBy: {
+          startTime: "asc",
+        },
+      });
+
+      ranges = weeklySchedules.map((schedule) => ({
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+      }));
+    }
+
+    if (ranges.length === 0) {
+      return NextResponse.json({
+        available: false,
+        source,
+        times: [],
+      });
+    }
+
+    const generatedTimes = Array.from(
+      new Set(
+        ranges.flatMap((range) =>
+          generateSlots(range.startTime, range.endTime)
+        )
+      )
+    ).sort();
+
+    const appointments = await prisma.appointment.findMany({
+      where: {
+        doctorId,
+        branchId,
+        date: {
+          gte: date,
+          lt: nextDate,
+        },
+        status: {
+          not: AppointmentStatus.CANCELED,
+        },
+      },
+      select: {
+        date: true,
+      },
+    });
+
+    const occupiedTimes = new Set(
+      appointments.map((appointment) =>
+        getAppointmentTime(appointment.date)
+      )
+    );
+
+    const availableTimes = generatedTimes.filter(
+      (time) => !occupiedTimes.has(time)
+    );
+
+    return NextResponse.json({
+      available: availableTimes.length > 0,
+      source,
+      times: availableTimes,
+    });
+  } catch (error) {
+    console.error("Error al calcular horarios:", error);
+
+    return NextResponse.json(
+      { error: "No se pudieron calcular los horarios disponibles." },
+      { status: 500 }
+    );
   }
-
-  const appointments = await prisma.appointment.findMany({
-    where: {
-      doctorId,
-      branchId: patient.branchId,
-      date: {
-        gte: dayStart,
-        lte: dayEnd,
-      },
-      status: {
-        not: "CANCELED",
-      },
-    },
-  });
-
-  const occupiedTimes = appointments.map((appointment) =>
-    formatTime(new Date(appointment.date))
-  );
-
-  const slots = buildSlots(startTime, endTime);
-
-  const result = slots.map((time) => ({
-    time,
-    available: !occupiedTimes.includes(time),
-  }));
-
-  return NextResponse.json(result);
 }

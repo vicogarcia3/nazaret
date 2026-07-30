@@ -133,12 +133,14 @@ model Branch {
 
   active Boolean @default(true)
 
-  doctors        DoctorBranch[]
-  patients       Patient[]
-  appointments   Appointment[]
-  galleryImages  GalleryImage[]
-  availabilities DoctorAvailability[]
-  expenses       Expense[]
+  doctors            DoctorBranch[]
+  patients           Patient[]
+  appointments       Appointment[]
+  galleryImages      GalleryImage[]
+  doctorSchedules    DoctorSchedule[]
+  specificSchedules  DoctorSpecificSchedule[]
+  scheduleExceptions DoctorScheduleException[]
+  expenses           Expense[]
 }
 
 model Doctor {
@@ -153,11 +155,13 @@ model Doctor {
 
   active Boolean @default(true)
 
-  branches       DoctorBranch[]
-  patients       Patient[]
-  appointments   Appointment[]
-  budgets        Budget[]
-  availabilities DoctorAvailability[]
+  branches           DoctorBranch[]
+  patients           Patient[]
+  appointments       Appointment[]
+  budgets            Budget[]
+  schedules          DoctorSchedule[]
+  specificSchedules  DoctorSpecificSchedule[]
+  scheduleExceptions DoctorScheduleException[]
 }
 
 model DoctorBranch {
@@ -363,20 +367,67 @@ model OdontogramCondition {
   createdAt DateTime @default(now())
 }
 
-model DoctorAvailability {
+model DoctorSchedule {
   id String @id @default(cuid())
 
   doctorId String
   branchId String
 
-  date      DateTime
+  // 0 domingo, 1 lunes, 2 martes...
+  weekday Int
+
   startTime String
   endTime   String
 
-  doctor Doctor @relation(fields: [doctorId], references: [id])
-  branch Branch @relation(fields: [branchId], references: [id])
+  active Boolean @default(true)
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, weekday])
+  @@index([branchId, weekday])
+}
+
+model DoctorScheduleException {
+  id String @id @default(cuid())
+
+  doctorId String
+  branchId String
+
+  date   DateTime @db.Date
+  reason String?
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([doctorId, date])
+  @@index([branchId, date])
+}
+
+model DoctorSpecificSchedule {
+  id String @id @default(cuid())
+
+  doctorId String
+  branchId String
+
+  date DateTime @db.Date
+
+  startTime String
+  endTime   String
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([doctorId, date])
+  @@index([branchId, date])
 }
 
 model Expense {

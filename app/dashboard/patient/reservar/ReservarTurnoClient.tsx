@@ -31,10 +31,7 @@ type Doctor = {
   imageUrl?: string | null;
 };
 
-type AvailableTime = {
-  time: string;
-  available: boolean;
-};
+type AvailableTime = string;
 
 type AppointmentToReschedule = {
   id: string;
@@ -253,24 +250,21 @@ export default function ReservarTurnoClient({
           return;
         }
 
-        const times = data as AvailableTime[];
+        const times = Array.isArray(data)
+          ? (data as string[])
+          : [];
 
         if (
           isRescheduling &&
           selectedTime &&
-          !times.some(
-            (slot) => slot.time === selectedTime
-          )
+          !times.includes(selectedTime)
         ) {
-          times.push({
-            time: selectedTime,
-            available: true,
-          });
+          times.push(selectedTime);
 
-          times.sort((a, b) =>
-            a.time.localeCompare(b.time)
-          );
+          times.sort();
         }
+
+        setAvailableTimes(times);
 
         setAvailableTimes(times);
       } catch {
@@ -868,23 +862,18 @@ export default function ReservarTurnoClient({
                 </p>
               ) : (
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
-                  {availableTimes.map((slot) => (
+                  {availableTimes.map((time) => (
                     <button
-                      key={slot.time}
+                      key={time}
                       type="button"
-                      disabled={!slot.available}
-                      onClick={() =>
-                        setSelectedTime(slot.time)
-                      }
+                      onClick={() => setSelectedTime(time)}
                       className={`border py-3 font-semibold transition ${
-                        selectedTime === slot.time
+                        selectedTime === time
                           ? "border-[#6F855F] bg-[#6F855F] text-white"
-                          : slot.available
-                          ? "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
-                          : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                          : "border-[#D8D2C4] bg-white text-[#173B33] hover:border-[#6F855F]"
                       }`}
                     >
-                      {slot.time}
+                      {time}
                     </button>
                   ))}
                 </div>

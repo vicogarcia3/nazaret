@@ -12,6 +12,7 @@ import {
   ShieldPlus,
 } from "lucide-react";
 import TreatmentManager from "@/components/admin/TratmentManager";
+import DoctorScheduleManager from "@/components/admin/DoctorScheduleManager";
 
 type Service = {
   id: string;
@@ -55,20 +56,6 @@ type Branch = {
   sundayHours?: string | null;
 };
 
-type Availability = {
-  id: string;
-  doctorId: string;
-  branchId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  doctor: {
-    user: {
-      name: string | null;
-    };
-  };
-};
-
 type Testimonial = {
   id: string;
   rating: number;
@@ -105,19 +92,10 @@ export default function ServiciosPage() {
   const [showDoctorForm, setShowDoctorForm] = useState(false);
   const doctorFormRef = useRef<HTMLFormElement>(null);
   
-  const [availabilities, setAvailabilities] = useState<Availability[]>([]);
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(false);
   const [updatingTestimonialId, setUpdatingTestimonialId] =
     useState<string | null>(null);
-
-  const [availabilityForm, setAvailabilityForm] = useState({
-    doctorId: "",
-    branchId: "",
-    date: "",
-    startTime: "",
-    endTime: "",
-  });
 
   const [doctorForm, setDoctorForm] = useState<{
     name: string;
@@ -171,53 +149,6 @@ export default function ServiciosPage() {
     );
   }
 
-  async function loadAvailabilities() {
-    const res = await fetch("/api/doctor-availability");
-    const data = await res.json();
-
-    setAvailabilities(Array.isArray(data) ? data : []);
-  }
-
-  async function saveAvailability(branchId: string) {
-    const res = await fetch("/api/doctor-availability", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        ...availabilityForm,
-        branchId,
-      }),
-    });
-
-    if (!res.ok) {
-      alert("No se pudo guardar la disponibilidad.");
-      return;
-    }
-
-    setAvailabilityForm({
-      doctorId: "",
-      branchId: "",
-      date: "",
-      startTime: "",
-      endTime: "",
-    });
-
-    await loadAvailabilities();
-
-    alert("Disponibilidad guardada.");
-  }
-
-  async function deleteAvailability(id: string) {
-    if (!confirm("¿Eliminar disponibilidad?")) return;
-
-    await fetch(`/api/doctor-availability/${id}`, {
-      method: "DELETE",
-    });
-
-    await loadAvailabilities();
-  }
-
   async function saveBranchHours() {
     for (const branch of branches) {
       console.log("Guardando sucursal:", branch);
@@ -248,7 +179,6 @@ export default function ServiciosPage() {
     loadDoctors();
     loadBranches();
     loadContact();
-    loadAvailabilities();
     loadTestimonials();
   }, []);
 
@@ -1619,167 +1549,10 @@ async function handleContactSubmit(e: React.FormEvent) {
                       </div>
                     </div>
 
-                    <div className="mt-10 w-full border-t border-[#DED9CD] pt-8">
-                      <h4 className="font-[var(--font-cormorant)] text-2xl text-[#263F3B]">
-                        Programación de especialistas
-                      </h4>
-
-                      <p className="mt-1 text-sm text-[#6B7774]">
-                        Definí qué día y en qué horario atiende cada especialista en esta sucursal.
-                      </p>
-
-                      <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-5">
-                        <div className="md:col-span-2">
-                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                            Especialista
-                          </label>
-
-                          <select
-                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                            value={
-                              availabilityForm.branchId === branch.id
-                                ? availabilityForm.doctorId
-                                : ""
-                            }
-                            onChange={(e) =>
-                              setAvailabilityForm({
-                                ...availabilityForm,
-                                branchId: branch.id,
-                                doctorId: e.target.value,
-                              })
-                            }
-                          >
-                            <option value="">Seleccionar especialista</option>
-
-                            {doctors
-                              .filter((doctor) =>
-                                doctor.branches?.some((b) => b.branchId === branch.id)
-                              )
-                              .map((doctor) => (
-                                <option key={doctor.id} value={doctor.id}>
-                                  {doctor.user?.name || "Especialista"}
-                                </option>
-                              ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                            Día
-                          </label>
-
-                          <input
-                            type="date"
-                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                            value={
-                              availabilityForm.branchId === branch.id
-                                ? availabilityForm.date
-                                : ""
-                            }
-                            onChange={(e) =>
-                              setAvailabilityForm({
-                                ...availabilityForm,
-                                branchId: branch.id,
-                                date: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                            Desde
-                          </label>
-
-                          <input
-                            type="time"
-                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                            value={
-                              availabilityForm.branchId === branch.id
-                                ? availabilityForm.startTime
-                                : ""
-                            }
-                            onChange={(e) =>
-                              setAvailabilityForm({
-                                ...availabilityForm,
-                                branchId: branch.id,
-                                startTime: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-
-                        <div>
-                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                            Hasta
-                          </label>
-
-                          <input
-                            type="time"
-                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                            value={
-                              availabilityForm.branchId === branch.id
-                                ? availabilityForm.endTime
-                                : ""
-                            }
-                            onChange={(e) =>
-                              setAvailabilityForm({
-                                ...availabilityForm,
-                                branchId: branch.id,
-                                endTime: e.target.value,
-                              })
-                            }
-                          />
-                        </div>
-                      </div>
-
-                      <div className="mt-6 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={() => saveAvailability(branch.id)}
-                          className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
-                        >
-                          Agregar disponibilidad
-                        </button>
-                      </div>
-
-                      <div className="mt-8 border-t border-[#DED9CD] pt-6">
-                        <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Disponibilidades cargadas
-                        </p>
-
-                        <div className="space-y-3">
-                          {availabilities
-                            .filter((a) => a.branchId === branch.id)
-                            .map((availability) => (
-                              <div
-                                key={availability.id}
-                                className="flex items-center justify-between border border-[#DED9CD] bg-[#FCFBF8] px-5 py-4 text-sm"
-                              >
-                                <span>
-                                  <strong>{availability.doctor.user?.name}</strong>{" "}
-                                  — {new Date(availability.date).toLocaleDateString("es-AR")}{" "}
-                                  — {availability.startTime} a {availability.endTime}
-                                </span>
-
-                                <button
-                                  type="button"
-                                  onClick={() => deleteAvailability(availability.id)}
-                                  className="text-[11px] font-semibold uppercase tracking-[0.2em] text-red-400 hover:underline"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
-                            ))}
-
-                          {availabilities.filter((a) => a.branchId === branch.id).length === 0 && (
-                            <p className="border border-[#DED9CD] bg-[#FCFBF8] px-5 py-4 text-sm text-[#6B7774]">
-                              Todavía no hay programación cargada para esta sucursal.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
+                    <DoctorScheduleManager
+                      branch={branch}
+                      doctors={doctors}
+                    />
                   </div>
                 ))}
               </div>
