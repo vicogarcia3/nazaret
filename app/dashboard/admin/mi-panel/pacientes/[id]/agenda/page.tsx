@@ -1,13 +1,22 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, CalendarDays } from "lucide-react";
+import {
+  ArrowLeft,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import NewAppointmentForm from "./NewAppointmentForm";
 import AppointmentActionsMenu from "./AppointmentActionsMenu";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ vista?: string }>;
+  searchParams: Promise<{
+    vista?: string;
+    year?: string;
+    month?: string;
+  }>;
 };
 
 function getDaysInMonth(year: number, month: number) {
@@ -66,13 +75,30 @@ export default async function PatientAgendaPage({
   searchParams,
 }: Props) {
   const { id } = await params;
-  const { vista } = await searchParams;
+  const { vista, year: yearParam, month: monthParam } =
+    await searchParams;
 
   const view = vista || "mes";
 
   const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
+
+  const parsedYear = Number(yearParam);
+  const parsedMonth = Number(monthParam);
+
+  const year = Number.isInteger(parsedYear)
+    ? parsedYear
+    : today.getFullYear();
+
+  const month =
+    Number.isInteger(parsedMonth) &&
+    parsedMonth >= 0 &&
+    parsedMonth <= 11
+      ? parsedMonth
+      : today.getMonth();
+
+  const currentDate = new Date(year, month, 1);
+  const previousMonth = new Date(year, month - 1, 1);
+  const nextMonth = new Date(year, month + 1, 1);
 
   const patient = await prisma.patient.findUnique({
     where: { id },
@@ -180,21 +206,44 @@ export default async function PatientAgendaPage({
         />
 
         <section className="border border-[#DED9CD] bg-white">
-          <div className="flex items-center justify-between border-b border-[#DED9CD] px-6 py-4">
+          <div className="flex flex-col gap-4 border-b border-[#DED9CD] px-6 py-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
-              <CalendarDays className="h-5 w-5 text-[#A2B38B]" />
-              <h2 className="font-[var(--font-cormorant)] text-2xl font-medium capitalize">
-                {view === "mes"
-                  ? getMonthName(today)
-                  : view === "semana"
-                  ? "Semana actual"
-                  : "Día de hoy"}
-              </h2>
+              <CalendarDays className="h-5 w-5 shrink-0 text-[#A2B38B]" />
+
+              {view === "mes" ? (
+                <div className="flex items-center gap-2">
+                  <Link
+                    href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=mes&year=${previousMonth.getFullYear()}&month=${previousMonth.getMonth()}`}
+                    aria-label="Mes anterior"
+                    title="Mes anterior"
+                    className="flex h-9 w-9 items-center justify-center border border-[#DED9CD] text-[#263F3B] transition hover:bg-[#F7F5EF]"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Link>
+
+                  <h2 className="min-w-[190px] text-center font-[var(--font-cormorant)] text-2xl font-medium capitalize">
+                    {getMonthName(currentDate)}
+                  </h2>
+
+                  <Link
+                    href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=mes&year=${nextMonth.getFullYear()}&month=${nextMonth.getMonth()}`}
+                    aria-label="Mes siguiente"
+                    title="Mes siguiente"
+                    className="flex h-9 w-9 items-center justify-center border border-[#DED9CD] text-[#263F3B] transition hover:bg-[#F7F5EF]"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Link>
+                </div>
+              ) : (
+                <h2 className="font-[var(--font-cormorant)] text-2xl font-medium capitalize">
+                  {view === "semana" ? "Semana actual" : "Día de hoy"}
+                </h2>
+              )}
             </div>
 
-            <div className="flex border border-[#DED9CD] text-xs font-semibold uppercase tracking-[0.18em]">
+            <div className="flex w-fit border border-[#DED9CD] text-xs font-semibold uppercase tracking-[0.18em]">
               <Link
-                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=mes`}
+                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=mes&year=${year}&month=${month}`}
                 className={`px-5 py-2 ${
                   view === "mes"
                     ? "bg-[#263F3B] text-white"
@@ -205,7 +254,7 @@ export default async function PatientAgendaPage({
               </Link>
 
               <Link
-                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=semana`}
+                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=semana&year=${year}&month=${month}`}
                 className={`px-5 py-2 ${
                   view === "semana"
                     ? "bg-[#263F3B] text-white"
@@ -216,7 +265,7 @@ export default async function PatientAgendaPage({
               </Link>
 
               <Link
-                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=dia`}
+                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/agenda?vista=dia&year=${year}&month=${month}`}
                 className={`px-5 py-2 ${
                   view === "dia"
                     ? "bg-[#263F3B] text-white"
@@ -253,7 +302,9 @@ export default async function PatientAgendaPage({
                       <>
                         <div
                           className={`mb-2 text-sm ${
-                            day === today.getDate()
+                            day === today.getDate() &&
+                            month === today.getMonth() &&
+                            year === today.getFullYear()
                               ? "flex h-7 w-7 items-center justify-center rounded-full bg-[#A2B38B] font-semibold text-white"
                               : "text-[#263F3B]"
                           }`}
