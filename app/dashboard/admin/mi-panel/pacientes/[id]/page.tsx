@@ -50,7 +50,11 @@ export default async function PacienteDetallePage({ params }: Props) {
 
 
   const nextAppointment = patient.appointments
-    .filter((appointemnt) => new Date(appointemnt.date) > new Date())
+    .filter(
+      (appointment) =>
+        new Date(appointment.date) > new Date() &&
+        appointment.status !== "CANCELED"
+    )
     .sort(
       (a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
@@ -281,11 +285,38 @@ export default async function PacienteDetallePage({ params }: Props) {
                   Próximo turno
                 </p>
 
-                <p className="mt-2 text-[15px]">
-                  {nextAppointment
-                    ? new Date(nextAppointment.date).toLocaleDateString("es-AR")
-                    : "Sin turnos"}
-                </p>
+                {nextAppointment ? (
+                  <div className="mt-2 flex items-center gap-3">
+                    <span className="text-[15px]">
+                      {new Date(nextAppointment.date).toLocaleDateString("es-AR")}
+                    </span>
+
+                    <span
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em]
+                        ${
+                          nextAppointment.status === "CONFIRMED"
+                            ? "bg-green-100 text-green-700"
+                            : nextAppointment.status === "PENDING"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : nextAppointment.status === "COMPLETED"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-red-100 text-red-700"
+                        }`}
+                    >
+                      {nextAppointment.status === "PENDING"
+                        ? "Pendiente"
+                        : nextAppointment.status === "CONFIRMED"
+                        ? "Confirmado"
+                        : nextAppointment.status === "COMPLETED"
+                        ? "Completado"
+                        : "Cancelado"}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[15px] text-[#6B7774]">
+                    Sin próximos turnos
+                  </p>
+                )}
               </div>
 
               <div>
