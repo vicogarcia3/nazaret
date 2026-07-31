@@ -201,12 +201,14 @@ export default async function HomePage() {
                 {doctor.photo ? (
                   <img
                     src={doctor.photo}
-                    alt={doctor.user.name || "Odontólogo"}
+                    alt={doctor.name || doctor.user?.name || "Odontólogo"}
                     className="mb-4 h-24 w-24 rounded-full object-cover"
                   />
                 ) : null}
 
-                <h3 className="text-lg font-semibold">{doctor.user.name}</h3>
+                <h3 className="text-lg font-semibold">
+                  {doctor.name || doctor.user?.name || "Especialista"}
+                </h3>
 
                 <p className="mt-1 text-sm text-[#A2B38B]">
                   {doctor.specialty || "Odontología general"}

@@ -6,9 +6,10 @@ import { Plus, Trash2 } from "lucide-react";
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
     name: string | null;
-  };
+  } | null;
 };
 
 type Item = {
@@ -114,7 +115,7 @@ export default function NewBudgetForm({
 
           {doctors.map((doctor) => (
             <option key={doctor.id} value={doctor.id}>
-              {doctor.user.name || "Odontólogo sin nombre"}
+              {doctor.name || doctor.user?.name || "Odontólogo sin nombre"}
             </option>
           ))}
         </select>

@@ -312,7 +312,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       doctor: {
         id: doctor.id,
-        name: doctor.user.name,
+        name: doctor.name || doctor.user?.name || "Especialista",
       },
       period: {
         month: requestedMonth,

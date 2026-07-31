@@ -12,10 +12,11 @@ import {
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
     name: string;
     email: string;
-  };
+  } | null;
   specialty: string | null;
   active: boolean;
   branches: {
@@ -45,9 +46,10 @@ type DoctorSchedule = {
   endTime: string;
   active: boolean;
   doctor: {
+    name: string | null;
     user: {
       name: string | null;
-    };
+    } | null;
   };
   branch: {
     id: string;
@@ -70,9 +72,10 @@ type SpecificSchedule = {
   startTime: string;
   endTime: string;
   doctor: {
+    name: string | null;
     user: {
       name: string | null;
-    };
+    } | null;
   };
   branch: {
     id: string;
@@ -88,9 +91,10 @@ type ScheduleException = {
   date: string;
   reason: string | null;
   doctor: {
+    name: string | null;
     user: {
       name: string | null;
-    };
+    } | null;
   };
   branch: {
     id: string;
@@ -208,7 +212,16 @@ export default function DoctorScheduleManager({
             )
         )
         .sort((firstDoctor, secondDoctor) =>
-          firstDoctor.user.name.localeCompare(secondDoctor.user.name, "es")
+          (
+            firstDoctor.name ||
+            firstDoctor.user?.name ||
+            ""
+          ).localeCompare(
+            secondDoctor.name ||
+              secondDoctor.user?.name ||
+              "",
+            "es"
+          )
         ),
     [branch.id, doctors]
   );
@@ -219,8 +232,15 @@ export default function DoctorScheduleManager({
         .filter((schedule) => schedule.branchId === branch.id)
         .sort((firstSchedule, secondSchedule) => {
           const doctorComparison = (
-            firstSchedule.doctor.user.name || ""
-          ).localeCompare(secondSchedule.doctor.user.name || "", "es");
+            firstSchedule.doctor.name ||
+            firstSchedule.doctor.user?.name ||
+            ""
+          ).localeCompare(
+            secondSchedule.doctor.name ||
+              secondSchedule.doctor.user?.name ||
+              "",
+            "es"
+          );
 
           if (doctorComparison !== 0) {
             return doctorComparison;
@@ -558,7 +578,7 @@ export default function DoctorScheduleManager({
 
               {doctorsForBranch.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.user.name}
+                  {doctor.name || doctor.user?.name || "Especialista"}
                 </option>
               ))}
             </select>
@@ -777,7 +797,9 @@ export default function DoctorScheduleManager({
                   {branchSchedules.map((schedule) => (
                     <tr key={schedule.id}>
                       <td className="border-b border-[#EEEAE1] px-4 py-4 font-semibold text-[#263F3B]">
-                        {schedule.doctor.user.name || "Especialista"}
+                        {schedule.doctor.name ||
+                          schedule.doctor.user?.name ||
+                          "Especialista"}
                       </td>
 
                       <td className="border-b border-[#EEEAE1] px-4 py-4 text-[#263F3B]">
@@ -853,7 +875,7 @@ export default function DoctorScheduleManager({
 
               {doctorsForBranch.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.user.name}
+                  {doctor.name || doctor.user?.name || "Especialista"}
                 </option>
               ))}
             </select>
@@ -916,7 +938,11 @@ export default function DoctorScheduleManager({
                   className="flex flex-col gap-3 border border-[#DED9CD] bg-white p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span>
-                    <strong>{schedule.doctor.user.name}</strong>
+                    <strong>
+                      {schedule.doctor.name ||
+                        schedule.doctor.user?.name ||
+                        "Especialista"}
+                    </strong>
                     {" · "}
                     {new Date(
                       `${schedule.date.split("T")[0]}T12:00:00`
@@ -983,7 +1009,7 @@ export default function DoctorScheduleManager({
 
               {doctorsForBranch.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.user.name}
+                  {doctor.name || doctor.user?.name || "Especialista"}
                 </option>
               ))}
             </select>
@@ -1032,7 +1058,11 @@ export default function DoctorScheduleManager({
                   className="flex flex-col gap-3 border border-[#E1D6D6] bg-[#FAF3F3] p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span>
-                    <strong>{exception.doctor.user.name}</strong>
+                    <strong>
+                      {exception.doctor.name ||
+                        exception.doctor.user?.name ||
+                        "Especialista"}
+                    </strong>
                     {" · "}
                     {new Date(
                       `${exception.date.split("T")[0]}T12:00:00`

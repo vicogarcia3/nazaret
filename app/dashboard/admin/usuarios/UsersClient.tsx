@@ -8,7 +8,6 @@ import {
   Loader2,
   Pencil,
   Plus,
-  Upload,
   UserRound,
   X,
 } from "lucide-react";
@@ -18,30 +17,27 @@ import DeleteDoctorDialog from "@/components/admin/users/DeleteDoctorDialog";
 import EditDoctorModal from "@/components/admin/users/EditDoctorModal";
 import UserList from "@/components/admin/users/UserList";
 import type {
+  AvailableDoctor,
   Branch,
   UserItem,
 } from "@/components/admin/users/types";
 
-type SpecialistForm = {
+type AccountRole = "ADMIN" | "DOCTOR";
+
+type NewAccountForm = {
+  role: AccountRole;
+  doctorId: string;
   name: string;
   email: string;
   password: string;
-  specialty: string;
-  description: string;
-  photo: string;
-  active: boolean;
-  branchIds: string[];
 };
 
-const EMPTY_SPECIALIST_FORM: SpecialistForm = {
+const EMPTY_ACCOUNT_FORM: NewAccountForm = {
+  role: "DOCTOR",
+  doctorId: "",
   name: "",
   email: "",
   password: "",
-  specialty: "",
-  description: "",
-  photo: "",
-  active: true,
-  branchIds: [],
 };
 
 function generatePassword(name?: string) {
@@ -63,17 +59,23 @@ export default function UsersClient({
   users,
   currentUser,
   branches,
+  availableDoctors,
 }: {
   users: UserItem[];
   currentUser: UserItem | null;
   branches: Branch[];
+  availableDoctors: AvailableDoctor[];
 }) {
   const router = useRouter();
 
   const [selectedUser, setSelectedUser] =
     useState<UserItem | null>(null);
-  const [showEditPassword, setShowEditPassword] = useState(false);
-  const [savingUser, setSavingUser] = useState(false);
+
+  const [showEditPassword, setShowEditPassword] =
+    useState(false);
+
+  const [savingUser, setSavingUser] =
+    useState(false);
 
   const [accountForm, setAccountForm] = useState({
     name: "",
@@ -81,24 +83,32 @@ export default function UsersClient({
     password: "",
   });
 
-  const [specialistModalOpen, setSpecialistModalOpen] = useState(false);
-  const [specialistForm, setSpecialistForm] =
-    useState<SpecialistForm>(EMPTY_SPECIALIST_FORM);
-  const [showSpecialistPassword, setShowSpecialistPassword] =
+  const [newAccountModalOpen, setNewAccountModalOpen] =
     useState(false);
-  const [creatingSpecialist, setCreatingSpecialist] = useState(false);
-  const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [specialistError, setSpecialistError] = useState("");
+
+  const [newAccountForm, setNewAccountForm] =
+    useState<NewAccountForm>(EMPTY_ACCOUNT_FORM);
+
+  const [showNewAccountPassword, setShowNewAccountPassword] =
+    useState(false);
+
+  const [creatingAccount, setCreatingAccount] =
+    useState(false);
+
+  const [newAccountError, setNewAccountError] =
+    useState("");
 
   const [doctorToEdit, setDoctorToEdit] =
     useState<UserItem | null>(null);
 
-  const [doctorToDelete, setDoctorToDelete] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  const [doctorToDelete, setDoctorToDelete] =
+    useState<{
+      id: string;
+      name: string;
+    } | null>(null);
 
-  const [deletingDoctor, setDeletingDoctor] = useState(false);
+  const [deletingDoctor, setDeletingDoctor] =
+    useState(false);
 
   const admins = useMemo(
     () => users.filter((user) => user.role === "ADMIN"),
@@ -127,10 +137,13 @@ export default function UsersClient({
   }
 
   function closeAccountEdit() {
-    if (savingUser) return;
+    if (savingUser) {
+      return;
+    }
 
     setSelectedUser(null);
     setShowEditPassword(false);
+
     setAccountForm({
       name: "",
       email: "",
@@ -139,32 +152,43 @@ export default function UsersClient({
   }
 
   async function handleSaveAccount() {
-    if (!selectedUser) return;
+    if (!selectedUser) {
+      return;
+    }
 
     try {
       setSavingUser(true);
 
-      const response = await fetch(`/api/users/${selectedUser.id}`, {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: accountForm.name.trim(),
-          email: accountForm.email.trim().toLowerCase(),
-          password: accountForm.password,
-        }),
-      });
+      const response = await fetch(
+        `/api/users/${selectedUser.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name: accountForm.name.trim(),
+            email: accountForm.email
+              .trim()
+              .toLowerCase(),
+            password: accountForm.password,
+          }),
+        }
+      );
 
       const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudieron guardar los cambios."
+          data.error ||
+            "No se pudieron guardar los cambios."
         );
       }
 
-      toast.success("Cambios guardados correctamente.");
+      toast.success(
+        "Cambios guardados correctamente."
+      );
+
       setSelectedUser(null);
       router.refresh();
     } catch (error) {
@@ -178,114 +202,104 @@ export default function UsersClient({
     }
   }
 
-  function openSpecialistModal() {
-    setSpecialistError("");
-    setShowSpecialistPassword(false);
-    setSpecialistForm({
-      ...EMPTY_SPECIALIST_FORM,
+  function openNewAccountModal() {
+    setNewAccountError("");
+    setShowNewAccountPassword(false);
+    setNewAccountForm(EMPTY_ACCOUNT_FORM);
+    setNewAccountModalOpen(true);
+  }
+
+  function closeNewAccountModal() {
+    if (creatingAccount) {
+      return;
+    }
+
+    setNewAccountModalOpen(false);
+    setNewAccountError("");
+    setShowNewAccountPassword(false);
+    setNewAccountForm(EMPTY_ACCOUNT_FORM);
+  }
+
+  function handleRoleChange(role: AccountRole) {
+    setNewAccountError("");
+
+    setNewAccountForm({
+      role,
+      doctorId: "",
+      name: "",
+      email: "",
       password: "",
     });
-    setSpecialistModalOpen(true);
   }
 
-  function closeSpecialistModal() {
-    if (creatingSpecialist || uploadingPhoto) return;
+  function handleDoctorSelection(doctorId: string) {
+    const selectedDoctor = availableDoctors.find(
+      (doctor) => doctor.id === doctorId
+    );
 
-    setSpecialistModalOpen(false);
-    setSpecialistError("");
-    setShowSpecialistPassword(false);
-    setSpecialistForm(EMPTY_SPECIALIST_FORM);
-  }
-
-  function toggleBranch(branchId: string) {
-    setSpecialistForm((current) => ({
+    setNewAccountForm((current) => ({
       ...current,
-      branchIds: current.branchIds.includes(branchId)
-        ? current.branchIds.filter((id) => id !== branchId)
-        : [...current.branchIds, branchId],
+      doctorId,
+      name: selectedDoctor?.name || "",
     }));
   }
 
-  async function handlePhotoUpload(file: File) {
-    try {
-      setUploadingPhoto(true);
-      setSpecialistError("");
+  async function handleCreateAccount() {
+    setNewAccountError("");
 
-      const formData = new FormData();
-      formData.append("file", file);
+    const name = newAccountForm.name.trim();
+    const email = newAccountForm.email
+      .trim()
+      .toLowerCase();
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok || !data.url) {
-        throw new Error(data.error || "No se pudo subir la imagen.");
-      }
-
-      setSpecialistForm((current) => ({
-        ...current,
-        photo: data.url,
-      }));
-
-      toast.success("Imagen cargada correctamente.");
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo subir la imagen.";
-
-      setSpecialistError(message);
-      toast.error(message);
-    } finally {
-      setUploadingPhoto(false);
-    }
-  }
-
-  async function handleCreateSpecialist() {
-    setSpecialistError("");
-
-    if (!specialistForm.name.trim()) {
-      setSpecialistError("Ingresá el nombre completo.");
+    if (
+      newAccountForm.role === "DOCTOR" &&
+      !newAccountForm.doctorId
+    ) {
+      setNewAccountError(
+        "Seleccioná un especialista de Equipo."
+      );
       return;
     }
 
-    if (!specialistForm.email.trim()) {
-      setSpecialistError("Ingresá el correo electrónico.");
+    if (!name) {
+      setNewAccountError(
+        "Ingresá el nombre completo."
+      );
       return;
     }
 
-    if (specialistForm.password.length < 8) {
-      setSpecialistError(
+    if (!email) {
+      setNewAccountError(
+        "Ingresá el correo electrónico."
+      );
+      return;
+    }
+
+    if (newAccountForm.password.length < 8) {
+      setNewAccountError(
         "La contraseña debe tener al menos 8 caracteres."
       );
       return;
     }
 
-    if (specialistForm.branchIds.length === 0) {
-      setSpecialistError("Seleccioná al menos una sucursal.");
-      return;
-    }
-
     try {
-      setCreatingSpecialist(true);
+      setCreatingAccount(true);
 
-      const response = await fetch("/api/doctors", {
+      const response = await fetch("/api/users", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          name: specialistForm.name.trim(),
-          email: specialistForm.email.trim().toLowerCase(),
-          password: specialistForm.password,
-          specialty: specialistForm.specialty.trim() || null,
-          description: specialistForm.description.trim() || null,
-          photo: specialistForm.photo || null,
-          active: specialistForm.active,
-          branchIds: specialistForm.branchIds,
+          role: newAccountForm.role,
+          doctorId:
+            newAccountForm.role === "DOCTOR"
+              ? newAccountForm.doctorId
+              : null,
+          name,
+          email,
+          password: newAccountForm.password,
         }),
       });
 
@@ -293,39 +307,50 @@ export default function UsersClient({
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudo crear el especialista."
+          data.error ||
+            "No se pudo crear la cuenta."
         );
       }
 
-      setSpecialistModalOpen(false);
-      setSpecialistForm(EMPTY_SPECIALIST_FORM);
+      setNewAccountModalOpen(false);
+      setNewAccountForm(EMPTY_ACCOUNT_FORM);
 
-      toast.success("Especialista creado correctamente.");
+      toast.success(
+        "Cuenta creada correctamente."
+      );
+
       router.refresh();
     } catch (error) {
       const message =
         error instanceof Error
           ? error.message
-          : "No se pudo crear el especialista.";
+          : "No se pudo crear la cuenta.";
 
-      setSpecialistError(message);
+      setNewAccountError(message);
       toast.error(message);
     } finally {
-      setCreatingSpecialist(false);
+      setCreatingAccount(false);
     }
   }
 
   function requestDeleteDoctor(user: UserItem) {
-    if (!user.doctor) return;
+    if (!user.doctor) {
+      return;
+    }
 
     setDoctorToDelete({
       id: user.doctor.id,
-      name: user.name || "Especialista",
+      name:
+        user.doctor.name ||
+        user.name ||
+        "Especialista",
     });
   }
 
   async function handleDeleteDoctor() {
-    if (!doctorToDelete) return;
+    if (!doctorToDelete) {
+      return;
+    }
 
     try {
       setDeletingDoctor(true);
@@ -341,12 +366,14 @@ export default function UsersClient({
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudo eliminar el especialista."
+          data.error ||
+            "No se pudo eliminar el especialista."
         );
       }
 
       toast.success(
-        data.message || "Especialista eliminado correctamente."
+        data.message ||
+          "Especialista eliminado correctamente."
       );
 
       setDoctorToDelete(null);
@@ -371,18 +398,18 @@ export default function UsersClient({
           </h1>
 
           <p className="mt-2 text-sm text-[#5F6F6B]">
-            Administrá todos los usuarios del sistema: administradores,
-            odontólogos y pacientes.
+            Administrá las cuentas que tienen acceso al
+            sistema.
           </p>
         </div>
 
         <button
           type="button"
-          onClick={openSpecialistModal}
+          onClick={openNewAccountModal}
           className="flex items-center justify-center gap-2 bg-[#263F3B] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D]"
         >
           <Plus className="h-4 w-4" />
-          Crear usuario especialista
+          Crear usuario
         </button>
       </div>
 
@@ -398,12 +425,18 @@ export default function UsersClient({
             <div className="mt-6 space-y-4">
               <AccountField
                 label="Nombre"
-                value={currentUser?.name || "Sin nombre"}
+                value={
+                  currentUser?.name || "Sin nombre"
+                }
               />
+
               <AccountField
                 label="Email"
-                value={currentUser?.email || "Sin email"}
+                value={
+                  currentUser?.email || "Sin email"
+                }
               />
+
               <AccountField
                 label="Contraseña"
                 value="************"
@@ -417,7 +450,8 @@ export default function UsersClient({
             <button
               type="button"
               onClick={() =>
-                currentUser && openAccountEdit(currentUser)
+                currentUser &&
+                openAccountEdit(currentUser)
               }
               disabled={!currentUser}
               className="flex items-center gap-3 bg-[#263F3B] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D] disabled:cursor-not-allowed disabled:opacity-50"
@@ -450,7 +484,9 @@ export default function UsersClient({
             onEditDoctor={setDoctorToEdit}
             onDeleteDoctor={requestDeleteDoctor}
             deletingDoctorId={
-              deletingDoctor ? doctorToDelete?.id ?? null : null
+              deletingDoctor
+                ? doctorToDelete?.id ?? null
+                : null
             }
           />
 
@@ -511,40 +547,23 @@ export default function UsersClient({
                 }
               />
 
-              <div>
-                <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                  Nueva contraseña
-                </label>
-
-                <div className="relative mt-2">
-                  <input
-                    type={showEditPassword ? "text" : "password"}
-                    value={accountForm.password}
-                    onChange={(event) =>
-                      setAccountForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    className="w-full border border-[#DED9CD] bg-white p-3 pr-12 outline-none transition focus:border-[#263F3B]"
-                    placeholder="Dejar vacío para no cambiar"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setShowEditPassword((current) => !current)
-                    }
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7774]"
-                  >
-                    {showEditPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
+              <PasswordField
+                label="Nueva contraseña"
+                value={accountForm.password}
+                visible={showEditPassword}
+                placeholder="Dejar vacío para no cambiar"
+                onToggleVisibility={() =>
+                  setShowEditPassword(
+                    (current) => !current
+                  )
+                }
+                onChange={(value) =>
+                  setAccountForm((current) => ({
+                    ...current,
+                    password: value,
+                  }))
+                }
+              />
             </div>
 
             <div className="mt-8 flex justify-end gap-3">
@@ -566,6 +585,7 @@ export default function UsersClient({
                 {savingUser && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
+
                 Guardar cambios
               </button>
             </div>
@@ -573,28 +593,28 @@ export default function UsersClient({
         </div>
       )}
 
-      {specialistModalOpen && (
+      {newAccountModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4 py-6">
-          <div className="max-h-[94vh] w-full max-w-3xl overflow-y-auto border border-[#DED9CD] bg-white">
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-6 border-b border-[#DED9CD] bg-white p-7">
+          <div className="max-h-[94vh] w-full max-w-2xl overflow-y-auto border border-[#DED9CD] bg-white">
+            <div className="flex items-start justify-between gap-6 border-b border-[#DED9CD] p-7">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-[0.3em] text-[#A2B38B]">
-                  Nuevo usuario profesional
+                  Nueva cuenta
                 </p>
 
                 <h2 className="mt-2 font-serif text-3xl text-[#12302A]">
-                  Crear especialista
+                  Crear usuario
                 </h2>
 
                 <p className="mt-2 text-sm text-[#6B7774]">
-                  Ingresá sus datos personales, profesionales y de acceso.
+                  Creá una cuenta de acceso al sistema.
                 </p>
               </div>
 
               <button
                 type="button"
-                onClick={closeSpecialistModal}
-                disabled={creatingSpecialist || uploadingPhoto}
+                onClick={closeNewAccountModal}
+                disabled={creatingAccount}
                 className="text-[#6B7774] transition hover:text-[#263F3B] disabled:opacity-50"
                 title="Cerrar"
               >
@@ -602,278 +622,145 @@ export default function UsersClient({
               </button>
             </div>
 
-            <div className="space-y-8 p-7">
-              {specialistError && (
+            <div className="space-y-6 p-7">
+              {newAccountError && (
                 <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {specialistError}
+                  {newAccountError}
                 </div>
               )}
 
-              <section>
-                <SectionTitle
-                  title="Datos de acceso"
-                  description="El especialista usará este correo y contraseña para ingresar."
-                />
+              <div>
+                <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                  Tipo de usuario
+                </label>
 
-                <div className="mt-5 grid gap-5 md:grid-cols-2">
-                  <TextField
-                    label="Nombre completo"
-                    value={specialistForm.name}
-                    placeholder="Ejemplo: Dra. María Pérez"
-                    onChange={(value) =>
-                      setSpecialistForm((current) => ({
-                        ...current,
-                        name: value,
-                      }))
-                    }
-                  />
+                <select
+                  value={newAccountForm.role}
+                  onChange={(event) =>
+                    handleRoleChange(
+                      event.target.value as AccountRole
+                    )
+                  }
+                  className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B]"
+                >
+                  <option value="DOCTOR">
+                    Especialista
+                  </option>
 
-                  <TextField
-                    label="Correo electrónico"
-                    type="email"
-                    value={specialistForm.email}
-                    placeholder="especialista@correo.com"
-                    onChange={(value) =>
-                      setSpecialistForm((current) => ({
-                        ...current,
-                        email: value,
-                      }))
-                    }
-                  />
-                </div>
+                  <option value="ADMIN">
+                    Administrador
+                  </option>
+                </select>
+              </div>
 
-                <div className="mt-5">
+              {newAccountForm.role === "DOCTOR" && (
+                <div>
                   <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Contraseña inicial
+                    Especialista de Equipo
                   </label>
 
-                  <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto]">
-                    <div className="relative">
-                      <input
-                        type={
-                          showSpecialistPassword
-                            ? "text"
-                            : "password"
-                        }
-                        value={specialistForm.password}
-                        onChange={(event) =>
-                          setSpecialistForm((current) => ({
-                            ...current,
-                            password: event.target.value,
-                          }))
-                        }
-                        className="w-full border border-[#DED9CD] bg-white p-3 pr-12 outline-none transition focus:border-[#263F3B]"
-                      />
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setShowSpecialistPassword(
-                            (current) => !current
-                          )
-                        }
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7774]"
-                      >
-                        {showSpecialistPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setSpecialistForm((current) => ({
-                          ...current,
-                          password: generatePassword(
-                            specialistForm.name
-                          ),
-                        }))
-                      }
-                      className="border border-[#DED9CD] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] transition hover:bg-[#F7F5EF]"
-                    >
-                      Generar aleatoriamente
-                    </button>
-                  </div>
-                </div>
-              </section>
-
-              <section className="border-t border-[#DED9CD] pt-8">
-                <SectionTitle
-                  title="Perfil profesional"
-                  description="Información visible dentro del sistema."
-                />
-
-                <div className="mt-5 grid gap-5 md:grid-cols-2">
-                  <TextField
-                    label="Especialidad"
-                    value={specialistForm.specialty}
-                    placeholder="Ejemplo: Odontología general"
-                    onChange={(value) =>
-                      setSpecialistForm((current) => ({
-                        ...current,
-                        specialty: value,
-                      }))
-                    }
-                  />
-
-                  <label className="mt-7 flex items-center justify-between border border-[#DED9CD] px-4 py-3">
-                    <span>
-                      <span className="block text-sm font-medium text-[#12302A]">
-                        Especialista activo
-                      </span>
-                      <span className="mt-1 block text-xs text-[#6B7774]">
-                        Podrá utilizar el portal profesional.
-                      </span>
-                    </span>
-
-                    <input
-                      type="checkbox"
-                      checked={specialistForm.active}
-                      onChange={(event) =>
-                        setSpecialistForm((current) => ({
-                          ...current,
-                          active: event.target.checked,
-                        }))
-                      }
-                      className="h-4 w-4 accent-[#263F3B]"
-                    />
-                  </label>
-                </div>
-
-                <div className="mt-5">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Descripción
-                  </label>
-
-                  <textarea
-                    value={specialistForm.description}
+                  <select
+                    value={newAccountForm.doctorId}
                     onChange={(event) =>
-                      setSpecialistForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
+                      handleDoctorSelection(
+                        event.target.value
+                      )
                     }
-                    rows={4}
-                    className="mt-2 w-full resize-none border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B]"
-                    placeholder="Experiencia, formación o presentación profesional..."
-                  />
-                </div>
+                    className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B]"
+                  >
+                    <option value="">
+                      Seleccionar especialista
+                    </option>
 
-                <div className="mt-5">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Foto
-                  </label>
-
-                  <div className="mt-2 flex flex-col gap-4 border border-[#DED9CD] p-4 sm:flex-row sm:items-center">
-                    {specialistForm.photo ? (
-                      <img
-                        src={specialistForm.photo}
-                        alt="Vista previa"
-                        className="h-20 w-20 rounded-full border border-[#DED9CD] object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#F1F4EC] text-[#A2B38B]">
-                        <UserRound className="h-7 w-7" />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="inline-flex cursor-pointer items-center gap-2 bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1D302D]">
-                        {uploadingPhoto ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Upload className="h-4 w-4" />
-                        )}
-
-                        {uploadingPhoto ? "Subiendo" : "Subir imagen"}
-
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          disabled={uploadingPhoto}
-                          onChange={(event) => {
-                            const file = event.target.files?.[0];
-
-                            if (file) {
-                              handlePhotoUpload(file);
-                            }
-
-                            event.target.value = "";
-                          }}
-                        />
-                      </label>
-
-                      {specialistForm.photo && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSpecialistForm((current) => ({
-                              ...current,
-                              photo: "",
-                            }))
-                          }
-                          className="ml-3 text-sm text-red-600 hover:underline"
-                        >
-                          Quitar
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              <section className="border-t border-[#DED9CD] pt-8">
-                <SectionTitle
-                  title="Sucursales"
-                  description="Seleccioná al menos una sede donde atenderá."
-                />
-
-                <div className="mt-5 grid gap-3">
-                  {branches.map((branch) => {
-                    const selected =
-                      specialistForm.branchIds.includes(branch.id);
-
-                    return (
-                      <label
-                        key={branch.id}
-                        className={`flex cursor-pointer items-start justify-between gap-4 border p-4 transition ${
-                          selected
-                            ? "border-[#A2B38B] bg-[#F4F6F0]"
-                            : "border-[#DED9CD] bg-white hover:border-[#A2B38B]"
-                        }`}
+                    {availableDoctors.map((doctor) => (
+                      <option
+                        key={doctor.id}
+                        value={doctor.id}
                       >
-                        <div>
-                          <p className="font-medium text-[#12302A]">
-                            {branch.name}
-                          </p>
+                        {doctor.name ||
+                          "Especialista sin nombre"}
+                        {doctor.specialty
+                          ? ` — ${doctor.specialty}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
 
-                          <p className="mt-1 text-sm text-[#6B7774]">
-                            {branch.address}, {branch.city}
-                          </p>
-                        </div>
-
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleBranch(branch.id)}
-                          className="mt-1 h-4 w-4 accent-[#263F3B]"
-                        />
-                      </label>
-                    );
-                  })}
+                  {availableDoctors.length === 0 && (
+                    <p className="mt-2 text-sm text-[#6B7774]">
+                      Todos los especialistas de Equipo ya
+                      tienen una cuenta asociada.
+                    </p>
+                  )}
                 </div>
-              </section>
-            </div>
+              )}
 
-            <div className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-[#DED9CD] bg-white p-6 sm:flex-row sm:justify-end">
+              <TextField
+                label="Nombre completo"
+                value={newAccountForm.name}
+                placeholder="Nombre del usuario"
+                disabled={
+                  newAccountForm.role === "DOCTOR"
+                }
+                onChange={(value) =>
+                  setNewAccountForm((current) => ({
+                    ...current,
+                    name: value,
+                  }))
+                }
+              />
+
+              <TextField
+                label="Correo electrónico"
+                type="email"
+                value={newAccountForm.email}
+                placeholder="usuario@correo.com"
+                onChange={(value) =>
+                  setNewAccountForm((current) => ({
+                    ...current,
+                    email: value,
+                  }))
+                }
+              />
+
+              <PasswordField
+                label="Contraseña inicial"
+                value={newAccountForm.password}
+                visible={showNewAccountPassword}
+                onToggleVisibility={() =>
+                  setShowNewAccountPassword(
+                    (current) => !current
+                  )
+                }
+                onChange={(value) =>
+                  setNewAccountForm((current) => ({
+                    ...current,
+                    password: value,
+                  }))
+                }
+              />
+
               <button
                 type="button"
-                onClick={closeSpecialistModal}
-                disabled={creatingSpecialist || uploadingPhoto}
+                onClick={() =>
+                  setNewAccountForm((current) => ({
+                    ...current,
+                    password: generatePassword(
+                      current.name
+                    ),
+                  }))
+                }
+                className="border border-[#DED9CD] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] transition hover:bg-[#F7F5EF]"
+              >
+                Generar contraseña aleatoria
+              </button>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 border-t border-[#DED9CD] bg-white p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeNewAccountModal}
+                disabled={creatingAccount}
                 className="border border-[#DED9CD] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] transition hover:bg-[#F7F5EF] disabled:opacity-50"
               >
                 Cancelar
@@ -881,14 +768,19 @@ export default function UsersClient({
 
               <button
                 type="button"
-                onClick={handleCreateSpecialist}
-                disabled={creatingSpecialist || uploadingPhoto}
-                className="flex items-center justify-center gap-2 bg-[#263F3B] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D] disabled:opacity-50"
+                onClick={handleCreateAccount}
+                disabled={
+                  creatingAccount ||
+                  (newAccountForm.role === "DOCTOR" &&
+                    availableDoctors.length === 0)
+                }
+                className="flex items-center justify-center gap-2 bg-[#263F3B] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D] disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {creatingSpecialist && (
+                {creatingAccount && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
-                Crear especialista
+
+                Crear cuenta
               </button>
             </div>
           </div>
@@ -943,12 +835,14 @@ function TextField({
   onChange,
   type = "text",
   placeholder,
+  disabled = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   type?: string;
   placeholder?: string;
+  disabled?: boolean;
 }) {
   return (
     <div>
@@ -959,30 +853,66 @@ function TextField({
       <input
         type={type}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
         placeholder={placeholder}
-        className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B]"
+        className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B] disabled:cursor-not-allowed disabled:bg-[#F4F4F1] disabled:text-[#6B7774]"
       />
     </div>
   );
 }
 
-function SectionTitle({
-  title,
-  description,
+function PasswordField({
+  label,
+  value,
+  visible,
+  onChange,
+  onToggleVisibility,
+  placeholder,
 }: {
-  title: string;
-  description: string;
+  label: string;
+  value: string;
+  visible: boolean;
+  onChange: (value: string) => void;
+  onToggleVisibility: () => void;
+  placeholder?: string;
 }) {
   return (
     <div>
-      <h3 className="font-serif text-2xl text-[#12302A]">
-        {title}
-      </h3>
+      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+        {label}
+      </label>
 
-      <p className="mt-1 text-sm text-[#6B7774]">
-        {description}
-      </p>
+      <div className="relative mt-2">
+        <input
+          type={visible ? "text" : "password"}
+          value={value}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
+          placeholder={placeholder}
+          className="w-full border border-[#DED9CD] bg-white p-3 pr-12 outline-none transition focus:border-[#263F3B]"
+        />
+
+        <button
+          type="button"
+          onClick={onToggleVisibility}
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7774]"
+          title={
+            visible
+              ? "Ocultar contraseña"
+              : "Mostrar contraseña"
+          }
+        >
+          {visible ? (
+            <EyeOff className="h-4 w-4" />
+          ) : (
+            <Eye className="h-4 w-4" />
+          )}
+        </button>
+      </div>
     </div>
   );
 }

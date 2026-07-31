@@ -48,6 +48,7 @@ export async function GET() {
 
         doctor: {
           select: {
+            name: true,
             specialty: true,
             user: {
               select: {
@@ -79,7 +80,10 @@ export async function GET() {
       branch: patient.branch,
       doctor: patient.doctor
         ? {
-            name: patient.doctor.user.name,
+            name:
+              patient.doctor.name ||
+              patient.doctor.user?.name ||
+              "Especialista",
             specialty: patient.doctor.specialty,
           }
         : null,

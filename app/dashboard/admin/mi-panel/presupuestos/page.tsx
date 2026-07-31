@@ -17,9 +17,10 @@ type Patient = {
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
-    name: string;
-  };
+    name: string | null;
+  } | null;
 };
 
 type BudgetItem = {
@@ -199,7 +200,7 @@ export default function PresupuestosPage() {
 
           {doctors.map((doctor) => (
             <option key={doctor.id} value={doctor.id}>
-              {doctor.user.name}
+              {doctor.name || doctor.user?.name || "Especialista"}
             </option>
           ))}
         </select>
@@ -290,7 +291,7 @@ export default function PresupuestosPage() {
             </h2>
 
             <p className="mt-2 text-gray-500">
-              Odontólogo: {budget.doctor.user.name}
+              Odontólogo: {budget.doctor.name || budget.doctor.user?.name || "Especialista"}
             </p>
 
             <div className="mt-4 space-y-2">

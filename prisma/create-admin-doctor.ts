@@ -35,13 +35,17 @@ async function main() {
       userId: admin.id,
     },
     update: {
+      name: admin.name || "Administrador",
       specialty: "Odontología General",
       active: true,
+      visible: true,
     },
     create: {
+      name: admin.name || "Administrador",
       userId: admin.id,
       specialty: "Odontología General",
       active: true,
+      visible: true,
     },
   });
 

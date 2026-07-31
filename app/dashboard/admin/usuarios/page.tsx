@@ -16,58 +16,97 @@ export default async function AdminUsersPage() {
     redirect("/dashboard");
   }
 
-  const [users, branches] = await Promise.all([
-    prisma.user.findMany({
-      orderBy: {
-        name: "asc",
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        lastLoginAt: true,
-        doctor: {
-          select: {
-            id: true,
-            specialty: true,
-            description: true,
-            photo: true,
-            active: true,
-            branches: {
-              select: {
-                branchId: true,
+  const [users, branches, availableDoctors] =
+    await Promise.all([
+      prisma.user.findMany({
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          lastLoginAt: true,
+          doctor: {
+            select: {
+              id: true,
+              name: true,
+              specialty: true,
+              description: true,
+              photo: true,
+              active: true,
+              visible: true,
+              branches: {
+                select: {
+                  branchId: true,
+                },
               },
             },
           },
         },
-      },
-    }),
+      }),
 
-    prisma.branch.findMany({
-      where: {
-        active: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-      select: {
-        id: true,
-        name: true,
-        city: true,
-        address: true,
-      },
-    }),
-  ]);
+      prisma.branch.findMany({
+        where: {
+          active: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          address: true,
+        },
+      }),
+
+      /*
+       * Especialistas cargados en Equipo
+       * que todavía no tienen una cuenta asociada.
+       */
+      prisma.doctor.findMany({
+        where: {
+          userId: null,
+        },
+        orderBy: {
+          name: "asc",
+        },
+        select: {
+          id: true,
+          name: true,
+          specialty: true,
+          photo: true,
+          active: true,
+          visible: true,
+          branches: {
+            select: {
+              branchId: true,
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                  city: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
 
   const currentUser =
-    users.find((user) => user.id === session.user.id) ?? null;
+    users.find(
+      (user) => user.id === session.user.id
+    ) ?? null;
 
   return (
     <UsersClient
       users={users}
       currentUser={currentUser}
       branches={branches}
+      availableDoctors={availableDoctors}
     />
   );
 }

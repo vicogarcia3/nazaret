@@ -24,14 +24,16 @@ type Service = {
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
     name: string;
     email: string;
-  };
+  } | null;
   specialty: string | null;
   description: string | null;
   photo: string | null;
   active: boolean;
+  visible: boolean;
   branches: {
     branchId: string;
     branch: {
@@ -104,6 +106,7 @@ export default function ServiciosPage() {
     description: string;
     photo: string;
     active: boolean;
+    visible: boolean;
     branchIds: string[];
   }>({
     name: "",
@@ -112,6 +115,7 @@ export default function ServiciosPage() {
     description: "",
     photo: "",
     active: true,
+    visible: true,
     branchIds: [],
   });
 
@@ -196,13 +200,14 @@ export default function ServiciosPage() {
     setEditingDoctorId(doctor.id);
 
     setDoctorForm({
-      name: doctor.user.name,
-      email: doctor.user.email,
+      name: doctor.name || doctor.user?.name || "",
+      email: doctor.user?.email || "",
       specialty: doctor.specialty || "",
       description: doctor.description || "",
       photo: doctor.photo || "",
       active: doctor.active,
-      branchIds: doctor.branches.map((b: any) => b.branchId),
+      visible: doctor.visible,
+      branchIds: doctor.branches.map((branch) => branch.branchId),
     });
     setShowDoctorForm(true);
 
@@ -272,7 +277,8 @@ async function handleDoctorSubmit(e: React.FormEvent) {
       specialty: doctorForm.specialty,
       description: doctorForm.description,
       photo: doctorForm.photo,
-      active: doctorForm.active,
+      active: true,
+      visible: doctorForm.active,
       branchIds: doctorForm.branchIds,
     }),
   });
@@ -292,6 +298,7 @@ async function handleDoctorSubmit(e: React.FormEvent) {
     description: "",
     photo: "",
     active: true,
+    visible: true,
     branchIds: [],
   });
 
@@ -527,6 +534,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                     description: "",
                     photo: "",
                     active: true,
+                    visible: true,
                     branchIds: doctorForm.branchIds,
                   })
                 }
@@ -753,6 +761,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                       description: "",
                       photo: "",
                       active: true,
+                      visible: true,
                       branchIds: [],
                     });
 
@@ -770,6 +779,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                     description: "",
                     photo: "",
                     active: true,
+                    visible: true,
                     branchIds: [],
                   });
 
@@ -884,7 +894,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                   </div>
                 </div>
 
-                <div className="grid gap-6 md:grid-cols-2">
+                <div>
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                       Nombre completo
@@ -897,25 +907,6 @@ async function handleContactSubmit(e: React.FormEvent) {
                         setDoctorForm({
                           ...doctorForm,
                           name: e.target.value,
-                        })
-                      }
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                      Email
-                    </label>
-
-                    <input
-                      type="email"
-                      className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
-                      value={doctorForm.email}
-                      onChange={(e) =>
-                        setDoctorForm({
-                          ...doctorForm,
-                          email: e.target.value,
                         })
                       }
                       required
@@ -1032,8 +1023,8 @@ async function handleContactSubmit(e: React.FormEvent) {
                               ...doctor,
                               active: e.target.checked,
                               branchIds: doctor.branches.map((b) => b.branch.id),
-                              name: doctor.user.name,
-                              email: doctor.user.email,
+                              name: doctor.name || doctor.user?.name || "",
+                              email: doctor.user?.email || "",
                             }),
                           });
 
@@ -1072,11 +1063,11 @@ async function handleContactSubmit(e: React.FormEvent) {
                     {doctor.photo ? (
                       <img
                         src={doctor.photo}
-                        alt={doctor.user.name}
+                        alt={doctor.name || doctor.user?.name || "Especialista"}
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      getInitials(doctor.user.name) || "N"
+                      getInitials(doctor.name || doctor.user?.name || "") || "N"
                     )}
                   </div>
 
@@ -1086,7 +1077,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                     </p>
 
                     <p className="mt-2 border border-[#DED9CD] p-2">
-                      {doctor.user.name}
+                      {doctor.name || doctor.user?.name || "Especialista"}
                     </p>
 
                     <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">

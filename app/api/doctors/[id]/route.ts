@@ -99,9 +99,13 @@ export async function PUT(
       const existingUser = await prisma.user.findFirst({
         where: {
           email,
-          id: {
-            not: doctor.userId,
-          },
+          ...(doctor.userId
+            ? {
+                id: {
+                  not: doctor.userId,
+                },
+              }
+            : {}),
         },
         select: {
           id: true,
@@ -147,15 +151,17 @@ export async function PUT(
           name !== undefined || email !== undefined;
 
         if (shouldUpdateUser) {
-          await transaction.user.update({
-            where: {
-              id: doctor.userId,
-            },
-            data: {
-              ...(name !== undefined && { name }),
-              ...(email !== undefined && { email }),
-            },
-          });
+          if (doctor.userId) {
+            await transaction.user.update({
+              where: {
+                id: doctor.userId,
+              },
+              data: {
+                ...(name !== undefined && { name }),
+                ...(email !== undefined && { email }),
+              },
+            });
+          }
         }
 
         if (branchIds !== undefined) {
@@ -252,9 +258,12 @@ export async function DELETE(
     const { id } = await context.params;
 
     const doctor = await prisma.doctor.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       select: {
         id: true,
+        name: true,
         userId: true,
         user: {
           select: {
@@ -319,6 +328,12 @@ export async function DELETE(
     }
 
     await prisma.$transaction(async (transaction) => {
+      await transaction.doctorSchedule.deleteMany({
+        where: {
+          doctorId: doctor.id,
+        },
+      });
+
       await transaction.doctorBranch.deleteMany({
         where: {
           doctorId: doctor.id,
@@ -331,16 +346,18 @@ export async function DELETE(
         },
       });
 
-      await transaction.user.delete({
-        where: {
-          id: doctor.userId,
-        },
-      });
+      if (doctor.userId) {
+        await transaction.user.delete({
+          where: {
+            id: doctor.userId,
+          },
+        });
+      }
     });
 
     return NextResponse.json({
       message: `${
-        doctor.user.name || "El especialista"
+        doctor.name || doctor.user?.name || "El especialista"
       } fue eliminado correctamente.`,
     });
   } catch (error) {

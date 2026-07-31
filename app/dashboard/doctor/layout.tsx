@@ -48,13 +48,13 @@ export default async function DoctorLayout({
   }
 
   const doctorName =
-    doctor.user.name?.trim() || "Especialista";
+    doctor.name || doctor.user?.name?.trim() || "Especialista";
 
   return (
     <DoctorDashboardShell
       doctorName={doctorName}
       initials={getInitials(doctorName) || "DR"}
-      doctorImage={doctor.user.image}
+      doctorImage={doctor.user?.image || doctor.photo || null}
       clinicName="Consultorios Nazaret"
       logoUrl={null}
     >

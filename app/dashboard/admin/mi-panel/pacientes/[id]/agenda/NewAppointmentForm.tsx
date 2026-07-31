@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
     name: string | null;
-  };
+  } | null;
+  specialty: string | null;
 };
 
 type Branch = {
@@ -117,7 +119,7 @@ export default function NewAppointmentForm({
               <option value="">Seleccionar odontólogo</option>
               {doctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.user.name || "Odontólogo sin nombre"}
+                  {doctor.name || doctor.user?.name || "Odontólogo sin nombre"}
                 </option>
               ))}
             </select>

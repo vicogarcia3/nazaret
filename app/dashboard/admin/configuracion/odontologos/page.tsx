@@ -5,16 +5,11 @@ import {
   AlertCircle,
   Building2,
   Check,
-  Copy,
-  Eye,
-  EyeOff,
   Loader2,
-  Mail,
   Pencil,
   Plus,
   RefreshCcw,
   Search,
-  ShieldCheck,
   Stethoscope,
   Trash2,
   Upload,
@@ -33,22 +28,21 @@ type Branch = {
 
 type Doctor = {
   id: string;
+  name: string | null;
   specialty: string | null;
   description: string | null;
   photo: string | null;
   active: boolean;
-
+  visible: boolean;
   user: {
     id?: string;
     name: string;
     email: string;
     lastLoginAt?: string | null;
-  };
-
+  } | null;
   branches: Array<{
     branch: Branch;
   }>;
-
   _count?: {
     patients?: number;
     appointments?: number;
@@ -57,23 +51,21 @@ type Doctor = {
 
 type DoctorForm = {
   name: string;
-  email: string;
-  password: string;
   specialty: string;
   description: string;
   photo: string;
   active: boolean;
+  visible: boolean;
   branchIds: string[];
 };
 
 const EMPTY_FORM: DoctorForm = {
   name: "",
-  email: "",
-  password: "",
   specialty: "",
   description: "",
   photo: "",
   active: true,
+  visible: true,
   branchIds: [],
 };
 
@@ -90,53 +82,20 @@ const SPECIALTIES = [
   "Otra",
 ];
 
-function createTemporaryPassword() {
-  const randomNumber = Math.floor(1000 + Math.random() * 9000);
-
-  return `Nazaret@${randomNumber}`;
-}
-
-function formatLastLogin(date?: string | null) {
-  if (!date) {
-    return "Nunca ingresó";
-  }
-
-  const loginDate = new Date(date);
-
-  if (Number.isNaN(loginDate.getTime())) {
-    return "Sin información";
-  }
-
-  return new Intl.DateTimeFormat("es-AR", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(loginDate);
-}
-
 export default function OdontologosPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     "ALL" | "ACTIVE" | "INACTIVE"
   >("ALL");
-
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-
   const [form, setForm] = useState<DoctorForm>(EMPTY_FORM);
-
-  const [showPassword, setShowPassword] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -146,12 +105,8 @@ export default function OdontologosPage() {
       setError("");
 
       const [doctorsResponse, branchesResponse] = await Promise.all([
-        fetch("/api/doctors", {
-          cache: "no-store",
-        }),
-        fetch("/api/branches", {
-          cache: "no-store",
-        }),
+        fetch("/api/doctors", { cache: "no-store" }),
+        fetch("/api/branches", { cache: "no-store" }),
       ]);
 
       const doctorsData = await doctorsResponse.json();
@@ -159,7 +114,7 @@ export default function OdontologosPage() {
 
       if (!doctorsResponse.ok) {
         throw new Error(
-          doctorsData.error || "No se pudieron cargar los odontólogos."
+          doctorsData.error || "No se pudieron cargar los especialistas."
         );
       }
 
@@ -173,10 +128,8 @@ export default function OdontologosPage() {
       setBranches(Array.isArray(branchesData) ? branchesData : []);
     } catch (loadError) {
       console.error(loadError);
-
       setDoctors([]);
       setBranches([]);
-
       setError(
         loadError instanceof Error
           ? loadError.message
@@ -188,7 +141,7 @@ export default function OdontologosPage() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
   const filteredDoctors = useMemo(() => {
@@ -196,8 +149,8 @@ export default function OdontologosPage() {
 
     return doctors.filter((doctor) => {
       const searchableText = [
-        doctor.user.name,
-        doctor.user.email,
+        doctor.name || doctor.user?.name || "",
+        doctor.user?.email || "",
         doctor.specialty || "",
         doctor.description || "",
         ...doctor.branches.map((item) => item.branch.name),
@@ -206,8 +159,7 @@ export default function OdontologosPage() {
         .toLowerCase();
 
       const matchesSearch =
-        normalizedSearch === "" ||
-        searchableText.includes(normalizedSearch);
+        normalizedSearch === "" || searchableText.includes(normalizedSearch);
 
       const matchesStatus =
         statusFilter === "ALL" ||
@@ -223,7 +175,15 @@ export default function OdontologosPage() {
     [doctors]
   );
 
-  const inactiveDoctors = doctors.length - activeDoctors;
+  const visibleDoctors = useMemo(
+    () => doctors.filter((doctor) => doctor.visible).length,
+    [doctors]
+  );
+
+  const doctorsWithAccount = useMemo(
+    () => doctors.filter((doctor) => Boolean(doctor.user)).length,
+    [doctors]
+  );
 
   function resetMessages() {
     setError("");
@@ -233,46 +193,32 @@ export default function OdontologosPage() {
   function resetForm() {
     setEditingId(null);
     setForm(EMPTY_FORM);
-    setShowPassword(false);
   }
 
   function openCreateDrawer() {
     resetMessages();
     setEditingId(null);
-
-    setForm({
-      ...EMPTY_FORM,
-      password: createTemporaryPassword(),
-    });
-
-    setShowPassword(false);
+    setForm(EMPTY_FORM);
     setDrawerOpen(true);
   }
 
   function openEditDrawer(doctor: Doctor) {
     resetMessages();
     setEditingId(doctor.id);
-
     setForm({
-      name: doctor.user.name,
-      email: doctor.user.email,
-      password: "",
+      name: doctor.name || doctor.user?.name || "",
       specialty: doctor.specialty || "",
       description: doctor.description || "",
       photo: doctor.photo || "",
       active: doctor.active,
+      visible: doctor.visible,
       branchIds: doctor.branches.map((item) => item.branch.id),
     });
-
-    setShowPassword(false);
     setDrawerOpen(true);
   }
 
   function closeDrawer() {
-    if (saving || uploadingPhoto) {
-      return;
-    }
-
+    if (saving || uploadingPhoto) return;
     setDrawerOpen(false);
     resetForm();
   }
@@ -281,16 +227,12 @@ export default function OdontologosPage() {
     field: K,
     value: DoctorForm[K]
   ) {
-    setForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setForm((current) => ({ ...current, [field]: value }));
   }
 
   function toggleBranch(branchId: string) {
     setForm((current) => {
       const isSelected = current.branchIds.includes(branchId);
-
       return {
         ...current,
         branchIds: isSelected
@@ -308,23 +250,7 @@ export default function OdontologosPage() {
   }
 
   function clearBranches() {
-    setForm((current) => ({
-      ...current,
-      branchIds: [],
-    }));
-  }
-
-  async function copyPassword() {
-    if (!form.password) {
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(form.password);
-      setSuccess("Contraseña copiada.");
-    } catch {
-      setError("No se pudo copiar la contraseña.");
-    }
+    setForm((current) => ({ ...current, branchIds: [] }));
   }
 
   async function uploadPhoto(file: File) {
@@ -349,7 +275,6 @@ export default function OdontologosPage() {
       updateForm("photo", data.url);
     } catch (uploadError) {
       console.error(uploadError);
-
       setError(
         uploadError instanceof Error
           ? uploadError.message
@@ -361,22 +286,10 @@ export default function OdontologosPage() {
   }
 
   function validateForm() {
-    if (!form.name.trim()) {
-      return "Ingresá el nombre completo.";
-    }
-
-    if (!form.email.trim()) {
-      return "Ingresá el correo electrónico.";
-    }
-
-    if (!editingId && form.password.length < 8) {
-      return "La contraseña inicial debe tener al menos 8 caracteres.";
-    }
-
+    if (!form.name.trim()) return "Ingresá el nombre completo.";
     if (form.branchIds.length === 0) {
       return "Seleccioná al menos una sucursal.";
     }
-
     return "";
   }
 
@@ -384,7 +297,6 @@ export default function OdontologosPage() {
     event.preventDefault();
 
     const validationError = validateForm();
-
     if (validationError) {
       setError(validationError);
       return;
@@ -395,23 +307,18 @@ export default function OdontologosPage() {
       resetMessages();
 
       const isEditing = Boolean(editingId);
-      const endpoint = isEditing
-        ? `/api/doctors/${editingId}`
-        : "/api/doctors";
+      const endpoint = isEditing ? `/api/doctors/${editingId}` : "/api/doctors";
 
       const response = await fetch(endpoint, {
         method: isEditing ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: form.name.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
           specialty: form.specialty.trim() || null,
           description: form.description.trim() || null,
           photo: form.photo || null,
           active: form.active,
+          visible: form.visible,
           branchIds: form.branchIds,
         }),
       });
@@ -422,28 +329,25 @@ export default function OdontologosPage() {
         throw new Error(
           data.error ||
             (isEditing
-              ? "No se pudo actualizar el odontólogo."
-              : "No se pudo crear el odontólogo.")
+              ? "No se pudo actualizar el especialista."
+              : "No se pudo crear el especialista.")
         );
       }
 
       await loadData();
-
       setDrawerOpen(false);
       resetForm();
-
       setSuccess(
         isEditing
-          ? "Odontólogo actualizado correctamente."
-          : "Cuenta de odontólogo creada correctamente."
+          ? "Especialista actualizado correctamente."
+          : "Especialista creado correctamente."
       );
     } catch (submitError) {
       console.error(submitError);
-
       setError(
         submitError instanceof Error
           ? submitError.message
-          : "No se pudo guardar el odontólogo."
+          : "No se pudo guardar el especialista."
       );
     } finally {
       setSaving(false);
@@ -451,13 +355,14 @@ export default function OdontologosPage() {
   }
 
   async function handleDelete(doctor: Doctor) {
+    const displayName =
+      doctor.name || doctor.user?.name || "este especialista";
+
     const confirmed = window.confirm(
-      `¿Seguro que querés eliminar a ${doctor.user.name}? Esta acción puede afectar sus turnos, pacientes y presupuestos asociados.`
+      `¿Seguro que querés eliminar a ${displayName}? Esta acción puede afectar sus turnos, pacientes y presupuestos asociados.`
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     try {
       setDeletingId(doctor.id);
@@ -471,22 +376,20 @@ export default function OdontologosPage() {
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudo eliminar el odontólogo."
+          data.error || "No se pudo eliminar el especialista."
         );
       }
 
       setDoctors((current) =>
         current.filter((item) => item.id !== doctor.id)
       );
-
-      setSuccess("Odontólogo eliminado correctamente.");
+      setSuccess(data.message || "Especialista eliminado correctamente.");
     } catch (deleteError) {
       console.error(deleteError);
-
       setError(
         deleteError instanceof Error
           ? deleteError.message
-          : "No se pudo eliminar el odontólogo."
+          : "No se pudo eliminar el especialista."
       );
     } finally {
       setDeletingId(null);
@@ -501,14 +404,12 @@ export default function OdontologosPage() {
             <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8FA07F]">
               Configuración
             </p>
-
             <h1 className="mt-2 text-4xl font-semibold tracking-tight md:text-5xl">
-              Odontólogos
+              Especialistas
             </h1>
-
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[#6B7774]">
-              Creá cuentas profesionales, asigná sucursales y administrá el
-              acceso de cada especialista al sistema.
+              Administrá los profesionales, sus sucursales y su visibilidad
+              pública. Las cuentas de acceso se gestionan desde Usuarios.
             </p>
           </div>
 
@@ -518,7 +419,7 @@ export default function OdontologosPage() {
             className="inline-flex min-h-12 items-center justify-center gap-2 bg-[#263F3B] px-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#1D302D]"
           >
             <Plus className="h-4 w-4" />
-            Nuevo odontólogo
+            Nuevo especialista
           </button>
         </header>
 
@@ -527,43 +428,38 @@ export default function OdontologosPage() {
             icon={<UsersRound className="h-5 w-5" />}
             label="Profesionales"
             value={doctors.length}
-            detail="Cuentas registradas"
+            detail="Cargados en Equipo"
           />
-
           <MetricCard
-            icon={<ShieldCheck className="h-5 w-5" />}
+            icon={<Check className="h-5 w-5" />}
             label="Activos"
             value={activeDoctors}
-            detail="Con acceso habilitado"
+            detail="Disponibles para turnos"
           />
-
           <MetricCard
-            icon={<AlertCircle className="h-5 w-5" />}
-            label="Inactivos"
-            value={inactiveDoctors}
-            detail="Sin actividad pública"
+            icon={<Stethoscope className="h-5 w-5" />}
+            label="Visibles"
+            value={visibleDoctors}
+            detail="Publicados en el inicio"
           />
-
           <MetricCard
             icon={<Building2 className="h-5 w-5" />}
-            label="Sucursales"
-            value={branches.length}
-            detail="Disponibles para asignar"
+            label="Con acceso"
+            value={doctorsWithAccount}
+            detail="Con cuenta vinculada"
           />
         </section>
 
         <section className="border border-[#DED9CD] bg-white p-4 md:p-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(280px,1fr)_240px_auto]">
             <label className="relative block">
-              <span className="sr-only">Buscar odontólogo</span>
-
+              <span className="sr-only">Buscar especialista</span>
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8FA07F]" />
-
               <input
                 type="search"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por nombre, correo, especialidad o sucursal"
+                placeholder="Buscar por nombre, especialidad o sucursal"
                 className="w-full border border-[#DED9CD] bg-[#FFFCF7] py-3 pl-11 pr-4 text-sm outline-none transition placeholder:text-[#9AA09E] focus:border-[#6F855F]"
               />
             </label>
@@ -584,7 +480,7 @@ export default function OdontologosPage() {
 
             <button
               type="button"
-              onClick={loadData}
+              onClick={() => void loadData()}
               disabled={loading}
               className="inline-flex min-h-12 items-center justify-center gap-2 border border-[#DED9CD] px-4 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#5F6F6B] transition hover:border-[#6F855F] disabled:opacity-50"
             >
@@ -615,16 +511,13 @@ export default function OdontologosPage() {
         {loading ? (
           <section className="flex min-h-[360px] flex-col items-center justify-center border border-[#DED9CD] bg-white">
             <Loader2 className="h-7 w-7 animate-spin text-[#6F855F]" />
-
             <p className="mt-3 text-sm text-[#6B7774]">
-              Cargando odontólogos...
+              Cargando especialistas...
             </p>
           </section>
         ) : filteredDoctors.length === 0 ? (
           <EmptyState
-            hasFilters={
-              search.trim() !== "" || statusFilter !== "ALL"
-            }
+            hasFilters={search.trim() !== "" || statusFilter !== "ALL"}
             onCreate={openCreateDrawer}
             onClear={() => {
               setSearch("");
@@ -639,7 +532,7 @@ export default function OdontologosPage() {
                 doctor={doctor}
                 deleting={deletingId === doctor.id}
                 onEdit={() => openEditDrawer(doctor)}
-                onDelete={() => handleDelete(doctor)}
+                onDelete={() => void handleDelete(doctor)}
               />
             ))}
           </section>
@@ -654,18 +547,10 @@ export default function OdontologosPage() {
           specialties={SPECIALTIES}
           saving={saving}
           uploadingPhoto={uploadingPhoto}
-          showPassword={showPassword}
-          onTogglePassword={() =>
-            setShowPassword((current) => !current)
-          }
           onChange={updateForm}
           onToggleBranch={toggleBranch}
           onSelectAllBranches={selectAllBranches}
           onClearBranches={clearBranches}
-          onGeneratePassword={() =>
-            updateForm("password", createTemporaryPassword())
-          }
-          onCopyPassword={copyPassword}
           onUploadPhoto={uploadPhoto}
           onRemovePhoto={() => updateForm("photo", "")}
           onSubmit={handleSubmit}
@@ -692,16 +577,11 @@ function MetricCard({
       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#EEF1E8] text-[#6F855F]">
         {icon}
       </div>
-
       <div>
         <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
           {label}
         </p>
-
-        <p className="mt-1 text-2xl font-semibold tracking-tight">
-          {value}
-        </p>
-
+        <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
         <p className="mt-1 text-xs text-[#6B7774]">{detail}</p>
       </div>
     </article>
@@ -719,11 +599,10 @@ function DoctorCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const branchNames = doctor.branches.map(
-    (item) => item.branch.name
-  );
-
-  const initials = doctor.user.name
+  const branchNames = doctor.branches.map((item) => item.branch.name);
+  const displayName =
+    doctor.name || doctor.user?.name || "Especialista sin nombre";
+  const initials = displayName
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
@@ -738,7 +617,7 @@ function DoctorCard({
           {doctor.photo ? (
             <img
               src={doctor.photo}
-              alt={doctor.user.name}
+              alt={displayName}
               className="h-16 w-16 shrink-0 rounded-full border border-[#DED9CD] object-cover"
             />
           ) : (
@@ -752,17 +631,16 @@ function DoctorCard({
               <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
                 Profesional
               </p>
-
               <StatusBadge active={doctor.active} />
+              <VisibilityBadge visible={doctor.visible} />
             </div>
-
             <h2 className="mt-1 truncate text-xl font-semibold tracking-tight md:text-2xl">
-              {doctor.user.name}
+              {displayName}
             </h2>
-
-            <p className="mt-1 flex items-center gap-2 truncate text-sm text-[#6B7774]">
-              <Mail className="h-4 w-4 shrink-0 text-[#8FA07F]" />
-              {doctor.user.email}
+            <p className="mt-1 text-sm text-[#6B7774]">
+              {doctor.user
+                ? `Cuenta vinculada: ${doctor.user.email}`
+                : "Sin cuenta de acceso"}
             </p>
           </div>
         </div>
@@ -771,13 +649,8 @@ function DoctorCard({
           <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
             Especialidad
           </p>
-
           <p className="mt-2 text-sm font-semibold">
             {doctor.specialty || "Sin especialidad"}
-          </p>
-
-          <p className="mt-2 text-xs leading-5 text-[#6B7774]">
-            Último acceso: {formatLastLogin(doctor.user.lastLoginAt)}
           </p>
         </div>
 
@@ -785,7 +658,6 @@ function DoctorCard({
           <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
             Sucursales
           </p>
-
           {branchNames.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-2">
               {branchNames.map((branchName) => (
@@ -818,7 +690,7 @@ function DoctorCard({
             type="button"
             onClick={onDelete}
             disabled={deleting}
-            aria-label={`Eliminar a ${doctor.user.name}`}
+            aria-label={`Eliminar a ${displayName}`}
             className="inline-flex h-11 w-11 items-center justify-center border border-[#D9A5A5] text-[#A45858] transition hover:bg-[#F8E6E6] disabled:opacity-50"
           >
             {deleting ? (
@@ -855,8 +727,21 @@ function StatusBadge({ active }: { active: boolean }) {
           active ? "bg-[#6F855F]" : "bg-[#C77777]"
         }`}
       />
-
       {active ? "Activo" : "Inactivo"}
+    </span>
+  );
+}
+
+function VisibilityBadge({ visible }: { visible: boolean }) {
+  return (
+    <span
+      className={`px-2 py-1 text-[8px] font-semibold uppercase tracking-[0.14em] ${
+        visible
+          ? "bg-[#EEF1E8] text-[#5F7653]"
+          : "bg-[#F0EDE6] text-[#7A817E]"
+      }`}
+    >
+      {visible ? "Visible" : "Oculto"}
     </span>
   );
 }
@@ -868,14 +753,10 @@ function DoctorFormDrawer({
   specialties,
   saving,
   uploadingPhoto,
-  showPassword,
-  onTogglePassword,
   onChange,
   onToggleBranch,
   onSelectAllBranches,
   onClearBranches,
-  onGeneratePassword,
-  onCopyPassword,
   onUploadPhoto,
   onRemovePhoto,
   onSubmit,
@@ -887,8 +768,6 @@ function DoctorFormDrawer({
   specialties: string[];
   saving: boolean;
   uploadingPhoto: boolean;
-  showPassword: boolean;
-  onTogglePassword: () => void;
   onChange: <K extends keyof DoctorForm>(
     field: K,
     value: DoctorForm[K]
@@ -896,8 +775,6 @@ function DoctorFormDrawer({
   onToggleBranch: (branchId: string) => void;
   onSelectAllBranches: () => void;
   onClearBranches: () => void;
-  onGeneratePassword: () => void;
-  onCopyPassword: () => void;
   onUploadPhoto: (file: File) => void;
   onRemovePhoto: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -918,15 +795,12 @@ function DoctorFormDrawer({
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
               Gestión de profesionales
             </p>
-
             <h2 className="mt-2 text-3xl font-semibold tracking-tight">
-              {editing ? "Editar odontólogo" : "Nuevo odontólogo"}
+              {editing ? "Editar especialista" : "Nuevo especialista"}
             </h2>
-
             <p className="mt-2 text-sm leading-6 text-[#6B7774]">
-              {editing
-                ? "Actualizá los datos profesionales y sus sucursales."
-                : "Creá la cuenta que utilizará el profesional para ingresar al portal."}
+              Cargá sus datos profesionales. La cuenta de acceso se administra
+              desde Usuarios.
             </p>
           </div>
 
@@ -940,110 +814,24 @@ function DoctorFormDrawer({
           </button>
         </header>
 
-        <form
-          onSubmit={onSubmit}
-          className="flex min-h-0 flex-1 flex-col"
-        >
+        <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
           <div className="flex-1 space-y-7 overflow-y-auto p-6">
-            <FormSection
-              eyebrow="Cuenta"
-              title="Datos de acceso"
-              description="Información que utilizará el odontólogo para iniciar sesión."
-            >
-              <div className="grid gap-5 sm:grid-cols-2">
-                <FormField label="Nombre completo" htmlFor="doctor-name">
-                  <input
-                    id="doctor-name"
-                    value={form.name}
-                    onChange={(event) =>
-                      onChange("name", event.target.value)
-                    }
-                    placeholder="Ejemplo: Dra. María Pérez"
-                    className={inputClasses}
-                    required
-                  />
-                </FormField>
-
-                <FormField label="Correo electrónico" htmlFor="doctor-email">
-                  <input
-                    id="doctor-email"
-                    type="email"
-                    value={form.email}
-                    onChange={(event) =>
-                      onChange("email", event.target.value)
-                    }
-                    placeholder="profesional@nazaret.com"
-                    className={inputClasses}
-                    required
-                  />
-                </FormField>
-              </div>
-
-              {!editing && (
-                <FormField
-                  label="Contraseña inicial"
-                  htmlFor="doctor-password"
-                  helper="El profesional podrá utilizarla para su primer ingreso."
-                >
-                  <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                    <div className="relative">
-                      <input
-                        id="doctor-password"
-                        type={showPassword ? "text" : "password"}
-                        value={form.password}
-                        onChange={(event) =>
-                          onChange("password", event.target.value)
-                        }
-                        className={`${inputClasses} pr-11`}
-                        required
-                        minLength={8}
-                      />
-
-                      <button
-                        type="button"
-                        onClick={onTogglePassword}
-                        aria-label={
-                          showPassword
-                            ? "Ocultar contraseña"
-                            : "Mostrar contraseña"
-                        }
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7774]"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-4 w-4" />
-                        ) : (
-                          <Eye className="h-4 w-4" />
-                        )}
-                      </button>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={onGeneratePassword}
-                      className="border border-[#DED9CD] px-4 py-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-[#5F6F6B] transition hover:border-[#6F855F]"
-                    >
-                      Generar
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={onCopyPassword}
-                      disabled={!form.password}
-                      aria-label="Copiar contraseña"
-                      className="flex h-12 w-12 items-center justify-center border border-[#DED9CD] text-[#6F855F] transition hover:border-[#6F855F] disabled:opacity-40"
-                    >
-                      <Copy className="h-4 w-4" />
-                    </button>
-                  </div>
-                </FormField>
-              )}
-            </FormSection>
-
             <FormSection
               eyebrow="Perfil"
               title="Información profesional"
-              description="Datos que se mostrarán en el equipo de especialistas."
+              description="Datos que verán los pacientes y el público."
             >
+              <FormField label="Nombre completo" htmlFor="doctor-name">
+                <input
+                  id="doctor-name"
+                  value={form.name}
+                  onChange={(event) => onChange("name", event.target.value)}
+                  placeholder="Ejemplo: Dra. María Pérez"
+                  className={inputClasses}
+                  required
+                />
+              </FormField>
+
               <div className="grid gap-5 sm:grid-cols-2">
                 <FormField label="Especialidad" htmlFor="doctor-specialty">
                   <select
@@ -1055,7 +843,6 @@ function DoctorFormDrawer({
                     className={inputClasses}
                   >
                     <option value="">Seleccionar especialidad</option>
-
                     {specialties.map((specialty) => (
                       <option key={specialty} value={specialty}>
                         {specialty}
@@ -1064,23 +851,40 @@ function DoctorFormDrawer({
                   </select>
                 </FormField>
 
-                <div className="flex items-end">
-                  <label className="flex min-h-12 w-full items-center justify-between border border-[#DED9CD] bg-white px-4 py-3">
+                <div className="grid gap-3">
+                  <label className="flex min-h-12 items-center justify-between border border-[#DED9CD] bg-white px-4 py-3">
                     <span>
                       <span className="block text-sm font-medium">
-                        Profesional activo
+                        Especialista activo
                       </span>
-
                       <span className="mt-1 block text-xs text-[#6B7774]">
-                        Mostrar y habilitar su cuenta.
+                        Puede recibir turnos.
                       </span>
                     </span>
-
                     <input
                       type="checkbox"
                       checked={form.active}
                       onChange={(event) =>
                         onChange("active", event.target.checked)
+                      }
+                      className="h-4 w-4 accent-[#6F855F]"
+                    />
+                  </label>
+
+                  <label className="flex min-h-12 items-center justify-between border border-[#DED9CD] bg-white px-4 py-3">
+                    <span>
+                      <span className="block text-sm font-medium">
+                        Visible en el sitio
+                      </span>
+                      <span className="mt-1 block text-xs text-[#6B7774]">
+                        Aparece en la sección Equipo.
+                      </span>
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={form.visible}
+                      onChange={(event) =>
+                        onChange("visible", event.target.checked)
                       }
                       className="h-4 w-4 accent-[#6F855F]"
                     />
@@ -1129,7 +933,6 @@ function DoctorFormDrawer({
                       ) : (
                         <Upload className="h-4 w-4" />
                       )}
-
                       {uploadingPhoto ? "Subiendo" : "Subir imagen"}
                     </label>
 
@@ -1141,11 +944,7 @@ function DoctorFormDrawer({
                       className="hidden"
                       onChange={(event) => {
                         const file = event.target.files?.[0];
-
-                        if (file) {
-                          onUploadPhoto(file);
-                        }
-
+                        if (file) onUploadPhoto(file);
                         event.target.value = "";
                       }}
                     />
@@ -1173,7 +972,6 @@ function DoctorFormDrawer({
                 <p className="text-xs text-[#6B7774]">
                   {form.branchIds.length} de {branches.length} seleccionadas
                 </p>
-
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -1182,7 +980,6 @@ function DoctorFormDrawer({
                   >
                     Seleccionar todas
                   </button>
-
                   <button
                     type="button"
                     onClick={onClearBranches}
@@ -1196,7 +993,6 @@ function DoctorFormDrawer({
               <div className="grid gap-3">
                 {branches.map((branch) => {
                   const selected = form.branchIds.includes(branch.id);
-
                   return (
                     <label
                       key={branch.id}
@@ -1208,12 +1004,10 @@ function DoctorFormDrawer({
                     >
                       <div>
                         <p className="font-semibold">{branch.name}</p>
-
                         <p className="mt-1 text-xs leading-5 text-[#6B7774]">
                           {branch.address}, {branch.city}
                         </p>
                       </div>
-
                       <input
                         type="checkbox"
                         checked={selected}
@@ -1242,7 +1036,6 @@ function DoctorFormDrawer({
             >
               Cancelar
             </button>
-
             <button
               type="submit"
               disabled={saving || uploadingPhoto}
@@ -1256,7 +1049,7 @@ function DoctorFormDrawer({
               ) : (
                 <>
                   <Check className="h-4 w-4" />
-                  {editing ? "Guardar cambios" : "Crear cuenta"}
+                  {editing ? "Guardar cambios" : "Crear especialista"}
                 </>
               )}
             </button>
@@ -1283,13 +1076,8 @@ function FormSection({
       <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#8FA07F]">
         {eyebrow}
       </p>
-
       <h3 className="mt-1 text-xl font-semibold tracking-tight">{title}</h3>
-
-      <p className="mt-1 text-xs leading-5 text-[#6B7774]">
-        {description}
-      </p>
-
+      <p className="mt-1 text-xs leading-5 text-[#6B7774]">{description}</p>
       <div className="mt-5 space-y-5">{children}</div>
     </section>
   );
@@ -1314,13 +1102,9 @@ function FormField({
       >
         {label}
       </label>
-
       <div className="mt-2">{children}</div>
-
       {helper && (
-        <p className="mt-2 text-xs leading-5 text-[#8B9491]">
-          {helper}
-        </p>
+        <p className="mt-2 text-xs leading-5 text-[#8B9491]">{helper}</p>
       )}
     </div>
   );
@@ -1349,10 +1133,8 @@ function FeedbackMessage({
         ) : (
           <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
         )}
-
         <p>{message}</p>
       </div>
-
       <button
         type="button"
         onClick={onClose}
@@ -1379,19 +1161,16 @@ function EmptyState({
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EEF1E8] text-[#6F855F]">
         <Stethoscope className="h-7 w-7" />
       </div>
-
       <h2 className="mt-6 text-2xl font-semibold tracking-tight">
         {hasFilters
           ? "No encontramos profesionales"
-          : "Todavía no hay odontólogos"}
+          : "Todavía no hay especialistas"}
       </h2>
-
       <p className="mt-2 max-w-md text-sm leading-6 text-[#6B7774]">
         {hasFilters
           ? "Probá con otros términos o eliminá los filtros seleccionados."
-          : "Creá la primera cuenta profesional y asignale las sucursales donde atiende."}
+          : "Creá el primer especialista y asignale las sucursales donde atiende."}
       </p>
-
       <button
         type="button"
         onClick={hasFilters ? onClear : onCreate}
@@ -1405,7 +1184,7 @@ function EmptyState({
         ) : (
           <>
             <Plus className="h-4 w-4" />
-            Crear odontólogo
+            Crear especialista
           </>
         )}
       </button>

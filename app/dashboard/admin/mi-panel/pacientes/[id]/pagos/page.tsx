@@ -82,8 +82,13 @@ export default async function PagosPacientePage({
       budgets: {
         include: {
           doctor: {
-            include: {
-              user: true,
+            select: {
+              name: true,
+              user: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
 
@@ -151,7 +156,8 @@ export default async function PagosPacientePage({
             : "CREATED",
         createdAt: budget.createdAt,
         doctorName:
-          budget.doctor.user.name ||
+          budget.doctor.name ||
+          budget.doctor.user?.name ||
           "Sin especialista asignado",
       };
     }

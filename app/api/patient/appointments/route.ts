@@ -201,7 +201,7 @@ export async function POST(req: Request) {
      * Si Resend falla, el turno y la notificación interna se conservan.
      */
     try {
-      if (doctor.user.email) {
+      if (doctor.user?.email) {
         await resend.emails.send({
           from:
             process.env.RESEND_FROM_EMAIL ||
@@ -218,7 +218,7 @@ export async function POST(req: Request) {
               </h2>
 
               <p>
-                Hola ${doctor.user.name || "especialista"}:
+                alt={doctor.name || doctor.user?.name || "Odontólogo"}:
               </p>
 
               <p>

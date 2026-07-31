@@ -23,9 +23,10 @@ type Appointment = {
     phone: string;
   };
   doctor: {
+    name: string | null;
     user: {
       name: string;
-    };
+    } | null;
   };
   branch: Branch;
 };
@@ -319,7 +320,7 @@ export default function TurnosPage() {
         </p>
 
         <p className="mt-1 text-sm text-[#6B7774]">
-          {appointment.doctor.user.name}
+          {appointment.doctor.name || appointment.doctor.user?.name || "Especialista"}
         </p>
 
         <p className="mt-1 text-sm text-[#6B7774]">

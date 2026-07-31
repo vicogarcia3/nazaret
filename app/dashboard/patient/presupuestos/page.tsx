@@ -23,9 +23,10 @@ type Budget = {
   total: number;
   createdAt: string;
   doctor: {
+    name: string | null;
     user: {
       name: string;
-    };
+    } | null;
   };
   items: BudgetItem[];
 };
@@ -80,7 +81,11 @@ export default function PatientPresupuestosPage() {
                 <InfoCard
                   icon={<UserRound size={18} />}
                   title="Odontólogo"
-                  value={budget.doctor.user.name}
+                  value={
+                    budget.doctor.name ||
+                    budget.doctor.user?.name ||
+                    "Especialista"
+                  }
                 />
 
                 <InfoCard

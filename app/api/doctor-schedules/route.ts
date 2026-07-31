@@ -186,7 +186,9 @@ export async function POST(request: Request) {
       if (scheduleInAnotherBranch) {
         const weekdayName = WEEKDAY_NAMES[weekday];
         const doctorName =
-          doctorBranch.doctor.user.name || "El especialista";
+          doctorBranch.doctor.name ||
+          doctorBranch.doctor.user?.name ||
+          "El especialista";
 
         return NextResponse.json(
           {

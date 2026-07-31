@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 
 type Doctor = {
   id: string;
-  user: { name: string };
+  name: string | null;
+  user: {
+    name: string;
+  } | null;
 };
 
 type Branch = {
@@ -19,7 +22,12 @@ type Availability = {
   date: string;
   startTime: string;
   endTime: string;
-  doctor: { user: { name: string } };
+  doctor: {
+    name: string | null;
+    user: {
+      name: string;
+    } | null;
+  };
   branch: Branch;
 };
 
@@ -114,7 +122,7 @@ export default function DisponibilidadPage() {
           <option value="">Seleccionar odontóloga</option>
           {doctors.map((doctor) => (
             <option key={doctor.id} value={doctor.id}>
-              {doctor.user.name}
+              {doctor.name || doctor.user?.name || "Especialista"}
             </option>
           ))}
         </select>
@@ -170,7 +178,11 @@ export default function DisponibilidadPage() {
             key={item.id}
             className="rounded-xl border bg-white p-5 shadow-sm"
           >
-            <p className="text-lg font-bold">{item.doctor.user.name}</p>
+            <p className="text-lg font-bold">
+              {item.doctor.name ||
+                item.doctor.user?.name ||
+                "Especialista"}
+            </p>
 
             <p className="mt-2 text-gray-600">
                 📍 {item.branch.name} — {item.branch.address}, {item.branch.city}

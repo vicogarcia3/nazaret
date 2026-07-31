@@ -19,9 +19,10 @@ type Appointment = {
   notes: string | null;
   status: string;
   doctor: {
+    name: string | null;
     user: {
       name: string | null;
-    };
+    } | null;
   };
   branch: {
     name: string;
@@ -262,8 +263,9 @@ export default function PatientTurnsClient({
                     icon={<UserRound />}
                     title="Especialista"
                     value={
-                      appointment.doctor.user.name ||
-                      "Profesional"
+                      appointment.doctor.name ||
+                      appointment.doctor.user?.name ||
+                      "Especialista"
                     }
                   />
 
@@ -441,7 +443,9 @@ function CancelAppointmentModal({
                 Profesional:
               </span>{" "}
               <span className="text-[#6B7774]">
-                {appointment.doctor.user.name || "Profesional"}
+                {appointment.doctor.name ||
+                  appointment.doctor.user?.name ||
+                  "Profesional"}
               </span>
             </p>
           </div>

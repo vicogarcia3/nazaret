@@ -24,9 +24,10 @@ type Appointment = {
   status: AppointmentStatus;
   notes: string | null;
   doctor: {
+    name: string | null;
     user: {
       name: string;
-    };
+    } | null;
   };
   branch: {
     name: string;
@@ -372,7 +373,11 @@ function AppointmentCard({
         <InfoItem
           icon={<Stethoscope className="h-5 w-5" />}
           label="Especialista"
-          value={appointment.doctor.user.name}
+          value={
+            appointment.doctor.name ||
+            appointment.doctor.user?.name ||
+            "Especialista"
+          }
         />
 
         <InfoItem

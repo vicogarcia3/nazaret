@@ -34,7 +34,10 @@ export async function POST(req: Request) {
 
   await prisma.doctor.create({
     data: {
+      name: user.name || "Administrador",
       userId: user.id,
+      active: true,
+      visible: true,
     },
   });
 

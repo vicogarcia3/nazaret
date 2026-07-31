@@ -1,10 +1,8 @@
-import bcrypt from "bcrypt";
 import { NextResponse } from "next/server";
-
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-function normalizeBranchIds(value: unknown) {
+function normalizeBranchIds(value: unknown): string[] {
   if (!Array.isArray(value)) {
     return [];
   }
@@ -12,23 +10,41 @@ function normalizeBranchIds(value: unknown) {
   return Array.from(
     new Set(
       value
-        .filter((branchId): branchId is string => {
-          return typeof branchId === "string";
-        })
+        .filter(
+          (branchId): branchId is string =>
+            typeof branchId === "string"
+        )
         .map((branchId) => branchId.trim())
         .filter(Boolean)
     )
   );
 }
 
+function normalizeOptionalText(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+
+  return normalizedValue || null;
+}
+
 export async function GET() {
   try {
     const session = await auth();
 
-    if (!session?.user?.id || session.user.role !== "ADMIN") {
+    if (
+      !session?.user?.id ||
+      session.user.role !== "ADMIN"
+    ) {
       return NextResponse.json(
-        { error: "No autorizado." },
-        { status: 401 }
+        {
+          error: "No autorizado.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -57,19 +73,25 @@ export async function GET() {
         },
       },
       orderBy: {
-        user: {
-          name: "asc",
-        },
+        name: "asc",
       },
     });
 
     return NextResponse.json(doctors);
   } catch (error) {
-    console.error("ERROR OBTENIENDO ODONTÓLOGOS:", error);
+    console.error(
+      "ERROR OBTENIENDO ESPECIALISTAS:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "No se pudieron cargar los odontólogos." },
-      { status: 500 }
+      {
+        error:
+          "No se pudieron cargar los especialistas.",
+      },
+      {
+        status: 500,
+      }
     );
   }
 }
@@ -92,25 +114,15 @@ export async function POST(request: Request) {
         ? body.name.trim()
         : "";
 
-    const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
-        : "";
-
-    const password =
-      typeof body.password === "string"
-        ? body.password
-        : "";
-
     const specialty =
-      typeof body.specialty === "string"
+      typeof body.specialty === "string" && body.specialty.trim()
         ? body.specialty.trim()
-        : "";
+        : null;
 
     const description =
-      typeof body.description === "string"
+      typeof body.description === "string" && body.description.trim()
         ? body.description.trim()
-        : "";
+        : null;
 
     const photo =
       typeof body.photo === "string" && body.photo.trim()
@@ -122,36 +134,19 @@ export async function POST(request: Request) {
         ? body.active
         : true;
 
+    const visible =
+      typeof body.visible === "boolean"
+        ? body.visible
+        : true;
+
     const branchIds = normalizeBranchIds(
       body.branchIds ?? body.branches
     );
 
-    if (!name || !email || !password) {
+    if (!name) {
       return NextResponse.json(
         {
-          error:
-            "Nombre, correo electrónico y contraseña son obligatorios.",
-        },
-        { status: 400 }
-      );
-    }
-
-    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-    if (!emailPattern.test(email)) {
-      return NextResponse.json(
-        {
-          error: "Ingresá un correo electrónico válido.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (password.length < 8) {
-      return NextResponse.json(
-        {
-          error:
-            "La contraseña debe tener al menos 8 caracteres.",
+          error: "El nombre es obligatorio.",
         },
         { status: 400 }
       );
@@ -160,29 +155,9 @@ export async function POST(request: Request) {
     if (branchIds.length === 0) {
       return NextResponse.json(
         {
-          error:
-            "Seleccioná al menos una sucursal para el odontólogo.",
+          error: "Seleccioná al menos una sucursal.",
         },
         { status: 400 }
-      );
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: {
-        email,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        {
-          error:
-            "Ya existe un usuario registrado con ese correo electrónico.",
-        },
-        { status: 409 }
       );
     }
 
@@ -208,59 +183,44 @@ export async function POST(request: Request) {
       );
     }
 
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const doctor = await prisma.$transaction(async (tx) => {
-      const user = await tx.user.create({
-        data: {
-          name,
-          email,
-          password: hashedPassword,
-          role: "DOCTOR",
-          image: photo,
-
-          // La cuenta fue creada y validada por el administrador.
-          emailVerified: new Date(),
+    const doctor = await prisma.doctor.create({
+      data: {
+        name,
+        userId: null,
+        specialty,
+        description,
+        photo,
+        active,
+        visible,
+        branches: {
+          create: branchIds.map((branchId) => ({
+            branchId,
+          })),
         },
-      });
-
-      return tx.doctor.create({
-        data: {
-          userId: user.id,
-          specialty: specialty || null,
-          description: description || null,
-          photo,
-          active,
-          branches: {
-            create: branchIds.map((branchId) => ({
-              branchId,
-            })),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            image: true,
           },
         },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              image: true,
-            },
-          },
-          branches: {
-            include: {
-              branch: {
-                select: {
-                  id: true,
-                  name: true,
-                  city: true,
-                  address: true,
-                  active: true,
-                },
+        branches: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                city: true,
+                address: true,
+                active: true,
               },
             },
           },
         },
-      });
+      },
     });
 
     return NextResponse.json(
@@ -271,12 +231,11 @@ export async function POST(request: Request) {
       { status: 201 }
     );
   } catch (error) {
-    console.error("ERROR CREANDO ODONTÓLOGO:", error);
+    console.error("ERROR CREANDO ESPECIALISTA:", error);
 
     return NextResponse.json(
       {
-        error:
-          "No se pudo crear la cuenta del odontólogo.",
+        error: "No se pudo crear el especialista.",
       },
       { status: 500 }
     );

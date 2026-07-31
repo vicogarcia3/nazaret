@@ -197,7 +197,9 @@ export default async function DoctorDashboardPage() {
   const collectedThisMonth = 0;
   const pendingThisMonth = 0;
 
-  const firstName = getFirstName(doctor.user.name);
+  const firstName = getFirstName(
+    doctor.name || doctor.user?.name || "Especialista"
+  );
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] px-5 py-8 text-[#263F3B] md:px-10 md:py-10">

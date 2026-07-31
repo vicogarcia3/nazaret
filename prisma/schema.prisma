@@ -134,7 +134,6 @@ model Branch {
   active Boolean @default(true)
 
   doctors            DoctorBranch[]
-  teamMembers        TeamMemberBranch[]
   patients           Patient[]
   appointments       Appointment[]
   galleryImages      GalleryImage[]
@@ -147,14 +146,17 @@ model Branch {
 model Doctor {
   id String @id @default(cuid())
 
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id])
+  name String
+
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   specialty   String?
   description String?
   photo       String?
 
-  active Boolean @default(true)
+  active  Boolean @default(true)
+  visible Boolean @default(true)
 
   branches           DoctorBranch[]
   patients           Patient[]
@@ -212,12 +214,12 @@ model Patient {
   doctor   Doctor? @relation(fields: [doctorId], references: [id])
 
   planId String?
-  plan   Plan? @relation(fields: [planId], references: [id])
+  plan   Plan?   @relation(fields: [planId], references: [id])
 
-  appointments Appointment[]
-  budgets      Budget[]
-  histories    ClinicalHistory[]
-  payments     Payment[]
+  appointments  Appointment[]
+  budgets       Budget[]
+  histories     ClinicalHistory[]
+  payments      Payment[]
   notifications Notification[]
 
   createdAt  DateTime    @default(now())
@@ -301,9 +303,9 @@ model SiteConfig {
   logo      String?
   heroImage String?
 
-  whatsapp  String?
-  instagram String?
-  facebook  String?
+  whatsapp         String?
+  instagram        String?
+  facebook         String?
   googleReviewsUrl String?
 
   createdAt DateTime @default(now())
@@ -467,8 +469,8 @@ model Testimonial {
 
   approved Boolean @default(false)
 
-  patientId String @unique
-  patient Patient @relation(fields: [patientId], references: [id])
+  patientId String  @unique
+  patient   Patient @relation(fields: [patientId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -503,31 +505,4 @@ model Notification {
   @@index([patientId, read])
   @@index([doctorId, read])
   @@index([createdAt])
-}
-
-model TeamMember {
-  id String @id @default(cuid())
-
-  name        String
-  specialty   String?
-  description String?
-  photo       String?
-
-  visible Boolean @default(true)
-
-  branches TeamMemberBranch[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model TeamMemberBranch {
-  teamMemberId String
-  branchId     String
-
-  teamMember TeamMember @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
-  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  @@id([teamMemberId, branchId])
-  @@index([branchId])
 }

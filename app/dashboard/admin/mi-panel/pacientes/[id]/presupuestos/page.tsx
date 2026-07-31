@@ -112,7 +112,7 @@ export default async function PresupuestosPacientePage({
       remainingAmount,
       status: normalizeBudgetStatus(total, paidAmount),
       doctorName:
-        budget.doctor.user.name || "Sin especialista asignado",
+        budget.doctor.name || budget.doctor.user?.name || "Sin especialista asignado",
 
       payments: budget.payments.map((payment) => ({
         id: payment.id,
