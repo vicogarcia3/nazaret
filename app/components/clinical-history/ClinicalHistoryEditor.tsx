@@ -2,8 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { Save } from "lucide-react";
 import SignaturePad from "@/app/components/clinical-history/SignaturePad";
+import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
+import PageNavigation from "./PageNavigation";
 
 type Props = {
   patientId: string;
@@ -286,7 +289,7 @@ function PrintableOdontogram({
 
   function applySymbol(symbol: SymbolType) {
     if (!selectedTooth) {
-      alert("Seleccioná una pieza primero.");
+      toast.warning("Seleccione una pieza primero.");
       return;
     }
 
@@ -302,7 +305,7 @@ function PrintableOdontogram({
 
   function toggleFace(face: Face) {
     if (!selectedTooth) {
-      alert("Seleccioná una pieza primero.");
+      toast.warning("Seleccione una pieza primero.");
       return;
     }
 
@@ -562,6 +565,7 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [odontogramData, setOdontogramData] = useState<Record<string, ToothMark>>({});
+  const [currentPage, setCurrentPage] = useState<1 | 2>(1);
 
   useEffect(() => {
     fetch(`/api/clinical-history?patientId=${patientId}`)
@@ -621,24 +625,23 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
     });
 
     if (!res.ok) {
-      alert("No se pudo guardar la historia clínica.");
+      toast.error("No se pudo guardar la historia clínica.");
       return;
     }
 
     const saved = await res.json();
     setHistoryId(saved.id);
-    alert("Historia clínica guardada.");
+    toast.success("Historia clínica guardada.");
   }
 
   return (
-    <section className="space-y-8 rounded-xl border bg-white p-8 shadow-sm print:shadow-none">
-      <div className="flex items-center justify-between gap-4 print:hidden">
-
+    <>
+      <div className="mb-6 flex items-center justify-between gap-4 print:hidden">
         <div className="flex gap-3">
           <Link
             href={`/print/historia-clinica/${patientId}`}
             target="_blank"
-            className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"          
+            className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
           >
             Ver PDF
           </Link>
@@ -654,8 +657,21 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
         </div>
       </div>
 
-      <div className="text-center print:block">
-        <h1 className="text-2xl font-bold uppercase">Historia clínica general</h1>
+      <div className="mb-6 print:hidden">
+        <PageNavigation
+          page={currentPage}
+          totalPages={2}
+          onPrevious={() => setCurrentPage(1)}
+          onNext={() => setCurrentPage(2)}
+        />
+      </div>
+
+      {currentPage === 1 && (
+        <section className="space-y-8 rounded-xl border bg-white p-8 shadow-sm print:shadow-none">
+          <div className="my-8 text-center print:block">
+        <h1 className="text-2xl font-bold uppercase">
+          Historia clínica general
+        </h1>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -912,6 +928,17 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
           />
         </div>
       </div>
-    </section>
+
+        </section>
+      )}
+
+      {currentPage === 2 && (
+        <ClinicalHistoryAnnex
+          patientName={form.consentimientoNombre}
+          affiliationNumber={form.obraSocial}
+          folioNumber=""
+        />
+      )}
+    </>
   );
 }

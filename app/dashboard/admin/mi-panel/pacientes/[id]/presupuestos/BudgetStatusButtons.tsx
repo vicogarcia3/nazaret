@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function BudgetStatusButtons({
   budgetId,
@@ -19,7 +20,7 @@ export default function BudgetStatusButtons({
     });
 
     if (!res.ok) {
-      alert("No se pudo actualizar el presupuesto.");
+      toast.error("No se pudo actualizar el presupuesto.");
       return;
     }
 

@@ -6,7 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
-
+import { toast } from "sonner";
 import {
   AlertCircle,
   BarChart3,
@@ -152,7 +152,7 @@ export default function BalancePage() {
       setBalance(data);
     } catch (error) {
       console.error(error);
-      alert("No se pudo cargar el balance.");
+      toast.error("No se pudo cargar el balance.");
     } finally {
       setLoading(false);
     }
@@ -199,7 +199,7 @@ export default function BalancePage() {
     });
 
     if (!response.ok) {
-      alert("No se pudo registrar el gasto.");
+      toast.error("No se pudo registrar el gasto.");
       return;
     }
 

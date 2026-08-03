@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
+import ServicesCarousel from "./components/home/ServicesCarousel";
 
 const GOOGLE_REVIEWS_URL =
   "https://www.google.com/maps/place/CONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)/@-31.3915773,-64.2255825,17z/data=!4m18!1m9!3m8!1s0x943298c48f0d390b:0x61d7bfb34430fa99!2sCONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728!3m7!1s0x943298c48f0d390b:0x61d7bfb34430fa99!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
 
 export default async function HomePage() {
-  const [config, services, doctors, branches, testimonials] =
+
+  const [config, services, doctors, branches, testimonials, servicesWithImages] =
     await Promise.all([
       prisma.siteConfig.findFirst(),
 
       prisma.service.findMany({
         where: { active: true },
-        orderBy: { id: "desc" },
+        orderBy: { title: "asc" },
       }),
 
       prisma.doctor.findMany({
@@ -47,6 +49,17 @@ export default async function HomePage() {
           createdAt: "desc",
         },
       }),
+      prisma.service.findMany({
+        where: {
+          active: true,
+          image: {
+            not: null,
+          },
+        },
+        orderBy: {
+          title: "asc",
+        },
+      }),
     ]);
 
   const publicTestimonials = testimonials.map((testimonial) => ({
@@ -64,10 +77,10 @@ export default async function HomePage() {
         </h1>
 
         <nav className="hidden space-x-10 text-xs font-medium uppercase tracking-widest md:flex">
-          <a href="#servicios">Servicios</a>
-          <a href="#equipo">Equipo</a>
-          <a href="#testimonios">Testimonios</a>
-          <a href="#contacto">Contacto</a>
+          <Link href="/#servicios">Servicios</Link>
+          <Link href="/#equipo">Equipo</Link>
+          <Link href="/#testimonios">Testimonios</Link>
+          <Link href="/#contacto">Contacto</Link>
         </nav>
 
         <div className="flex gap-3 text-sm">
@@ -110,7 +123,7 @@ export default async function HomePage() {
               href="#servicios"
               className="rounded-full border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#6f7f5f] hover:bg-white"
             >
-              Ver tratamientos
+              Ver servicios
             </a>
           </div>
         </div>
@@ -146,37 +159,11 @@ export default async function HomePage() {
 
       <section
         id="servicios"
-        className="scroll-mt-8 bg-white px-8 py-16 md:px-16 lg:px-24"
+        className="scroll-mt-8 bg-white"
       >
-        <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
-          Especialidades
-        </p>
-
-        <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
-          Nuestros servicios
-        </h2>
-
-        <div className="mt-8 grid gap-5 md:grid-cols-3">
-          {services.length > 0 ? (
-            services.map((service) => (
-              <div
-                key={service.id}
-                className="rounded-3xl border bg-[#F7F5EF] p-6"
-              >
-                <h3 className="text-lg font-semibold">{service.title}</h3>
-
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  {service.description ||
-                    "Tratamiento odontológico personalizado."}
-                </p>
-              </div>
-            ))
-          ) : (
-            <p className="text-gray-500">
-              Todavía no hay servicios cargados.
-            </p>
-          )}
-        </div>
+        {servicesWithImages.length > 0 && (
+          <ServicesCarousel services={servicesWithImages} />
+        )}
       </section>
 
       <section
@@ -212,11 +199,6 @@ export default async function HomePage() {
 
                 <p className="mt-1 text-sm text-[#A2B38B]">
                   {doctor.specialty || "Odontología general"}
-                </p>
-
-                <p className="mt-3 text-sm leading-6 text-gray-600">
-                  {doctor.description ||
-                    "Profesional del equipo odontológico."}
                 </p>
               </div>
             ))

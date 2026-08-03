@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Patient = {
   id: string;
@@ -142,7 +143,7 @@ export default function PresupuestosPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo crear el presupuesto.");
+      toast.error("No se pudo crear el presupuesto.");
       return;
     }
 

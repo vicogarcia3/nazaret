@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Doctor = {
   id: string;
@@ -70,11 +71,11 @@ export default function DisponibilidadPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo cargar el día en Ballesteros.");
+      toast.error("No se pudo cargar el día.");
       return;
     }
 
-    alert("Día cargado correctamente.");
+    toast.success("Día cargado correctamente.");
 
     setForm({
       doctorId: "",
@@ -95,7 +96,7 @@ export default function DisponibilidadPage() {
   });
 
   if (!res.ok) {
-    alert("No se pudo eliminar el horario.");
+    toast.error("No se pudo eliminar el horario.");
     return;
   }
 

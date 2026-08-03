@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 type Props = {
   patientId: string;
@@ -34,18 +35,15 @@ export default function DeleteClinicalHistoryButton({
       const data = await res.json();
 
       if (!res.ok) {
-        alert(
-          data.error ||
-            "No se pudo eliminar la historia clínica."
-        );
+        toast.error("No se pudo eliminar la historia clínica.");
         return;
       }
 
-      alert("Historia clínica eliminada correctamente.");
+      toast.success("Historia clínica eliminada correctamente.");
 
       router.refresh();
     } catch {
-      alert("Ocurrió un error.");
+      toast.error("Ocurrió un error.");
     } finally {
       setLoading(false);
     }

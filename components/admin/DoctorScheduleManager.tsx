@@ -9,6 +9,7 @@ import {
   Clock3,
   Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 
 type Doctor = {
   id: string;
@@ -339,7 +340,7 @@ export default function DoctorScheduleManager({
     const data = await response.json();
 
     if (!response.ok) {
-      alert(data.error || "No se pudo guardar la fecha.");
+      toast.error("No se pudo guardar la fecha.");
       return;
     }
 
@@ -368,7 +369,7 @@ export default function DoctorScheduleManager({
     const data = await response.json();
 
     if (!response.ok) {
-      alert(data.error || "No se pudo bloquear la fecha.");
+      toast.error("No se pudo bloquear la fecha.");
       return;
     }
 
@@ -432,24 +433,22 @@ export default function DoctorScheduleManager({
 
   async function saveSchedule() {
     if (!form.doctorId) {
-      alert("Seleccioná un especialista.");
+      toast.warning("Seleccioná un especialista.");
       return;
     }
 
     if (form.weekdays.length === 0) {
-      alert("Seleccioná al menos un día de atención.");
+      toast.warning("Seleccioná al menos un día de atención.");
       return;
     }
 
     if (!form.startTime || !form.endTime) {
-      alert("Completá el horario desde y hasta.");
+      toast.warning("Completá el horario desde y hasta.");
       return;
     }
 
     if (form.startTime >= form.endTime) {
-      alert(
-        "La hora de inicio debe ser anterior a la hora de finalización."
-      );
+      toast.warning("La hora de inicio debe ser anterior a la hora de finalización.");
       return;
     }
 
@@ -474,7 +473,7 @@ export default function DoctorScheduleManager({
       const data = text ? JSON.parse(text) : null;
 
       if (!response.ok) {
-        alert(data?.error || "No se pudo guardar el horario.");
+        toast.error("No se pudo guardar el horario.");
         return;
       }
 
@@ -482,10 +481,10 @@ export default function DoctorScheduleManager({
 
       await loadSchedules();
 
-      alert("Agenda semanal guardada.");
+      toast.success("Agenda semanal guardada.");
     } catch (error) {
       console.error("Error al guardar la agenda semanal:", error);
-      alert("No se pudo guardar la agenda semanal.");
+      toast.error("No se pudo guardar la agenda semanal.");
     } finally {
       setSaving(false);
     }
@@ -507,14 +506,14 @@ export default function DoctorScheduleManager({
       const data = text ? JSON.parse(text) : null;
 
       if (!response.ok) {
-        alert(data?.error || "No se pudo eliminar el horario.");
+        toast.error("No se pudo eliminar el horario.");
         return;
       }
 
       await loadSchedules();
     } catch (error) {
       console.error("Error al eliminar el horario:", error);
-      alert("No se pudo eliminar el horario.");
+      toast.error("No se pudo eliminar el horario.");
     } finally {
       setDeletingId(null);
     }

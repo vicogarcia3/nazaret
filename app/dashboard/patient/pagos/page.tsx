@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CalendarDays, CheckCircle2, Clock, WalletCards } from "lucide-react";
+import { toast } from "sonner";
 
 type Payment = {
   id: string;
@@ -27,7 +28,7 @@ export default function PatientPagosPage() {
     const data = await res.json();
 
     if (!res.ok || !data.initPoint) {
-      alert(data.error || "No se pudo iniciar el pago.");
+      toast.error("No se pudo iniciar el pago.");
       return;
     }
 

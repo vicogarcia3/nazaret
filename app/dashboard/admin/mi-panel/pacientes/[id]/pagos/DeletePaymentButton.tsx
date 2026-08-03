@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 type Props = {
   paymentId: string;
@@ -19,7 +20,7 @@ export default function DeletePaymentButton({ paymentId }: Props) {
 
     if (!res.ok) {
       const data = await res.json();
-      alert(data.error || "No se pudo eliminar el pago.");
+      toast.error("No se pudo eliminar el pago.");
       return;
     }
 

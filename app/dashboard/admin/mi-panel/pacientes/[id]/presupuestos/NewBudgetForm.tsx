@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 type Doctor = {
   id: string;
@@ -73,7 +74,7 @@ export default function NewBudgetForm({
     });
 
     if (!res.ok) {
-      alert("No se pudo crear el presupuesto.");
+      toast.error("No se pudo crear el presupuesto.");
       return;
     }
 

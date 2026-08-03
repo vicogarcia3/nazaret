@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
+import { toast } from "sonner";
 
 type Branch = {
   id: string;
@@ -128,7 +129,7 @@ export default function NewGeneralAppointmentForm({
     });
 
     if (!res.ok) {
-      alert("No se pudo crear el turno.");
+      toast.error("Ocurrió un error al crear el turno.");
       return;
     }
 

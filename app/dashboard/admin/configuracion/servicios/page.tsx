@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import {
   FileText,
   Users,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import TreatmentManager from "@/components/admin/TratmentManager";
 import DoctorScheduleManager from "@/components/admin/DoctorScheduleManager";
+import ImageUploader from "@/components/admin/ImageUploader";
 
 type Service = {
   id: string;
@@ -93,6 +95,8 @@ export default function ServiciosPage() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [showDoctorForm, setShowDoctorForm] = useState(false);
   const doctorFormRef = useRef<HTMLFormElement>(null);
+  const editSectionRef = useRef<HTMLFormElement>(null);
+  const [showServiceForm, setShowServiceForm] = useState(false);
   
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(false);
@@ -168,7 +172,7 @@ export default function ServiciosPage() {
       console.log(await res.json());
     }
 
-    alert("Sucursales guardadas.");
+    toast.success("Sucursales guardadas.");
   }
 
   async function loadServices() {
@@ -222,7 +226,10 @@ export default function ServiciosPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const url = editingId ? `/api/services/${editingId}` : "/api/services";
+    const url = editingId
+      ? `/api/services/${editingId}`
+      : "/api/services";
+
     const method = editingId ? "PUT" : "POST";
 
     const res = await fetch(url, {
@@ -234,12 +241,13 @@ export default function ServiciosPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo guardar el servicio.");
+      toast.error("No se pudo guardar el servicio.");
       return;
     }
 
     resetForm();
-    loadServices();
+    setShowServiceForm(false);
+    await loadServices();
   }
 
 async function loadDoctors() {
@@ -285,7 +293,7 @@ async function handleDoctorSubmit(e: React.FormEvent) {
 
   if (!res.ok) {
     const data = await res.json();
-    alert(data.error || "No se pudo guardar el especialista.");
+    toast.error("No se pudo guardar el especialista.");
     return;
   }
 
@@ -336,7 +344,7 @@ async function loadTestimonials() {
     const data = await res.json();
 
     if (!res.ok) {
-      alert(data.error || "No se pudieron cargar los testimonios.");
+      toast.error("No se pudieron cargar los testimonios.");
       setTestimonials([]);
       return;
     }
@@ -371,7 +379,7 @@ async function updateTestimonial(
     const data = await res.json();
 
     if (!res.ok) {
-      alert(data.error || "No se pudo actualizar el testimonio.");
+      toast.error("No se pudo actualizar el testimonio.");
       return;
     }
 
@@ -387,7 +395,7 @@ async function updateTestimonial(
     );
   } catch (error) {
     console.error("Error al actualizar testimonio:", error);
-    alert("No se pudo actualizar el testimonio.");
+    toast.error("No se pudo actualizar el testimonio.");
   } finally {
     setUpdatingTestimonialId(null);
   }
@@ -404,16 +412,25 @@ async function handleContactSubmit(e: React.FormEvent) {
     body: JSON.stringify(contactForm),
   });
 
-  alert("Datos de contacto guardados.");
+  toast.success("Datos de contacto guardados.");
 }
 
   function startEdit(service: Service) {
     setEditingId(service.id);
+    setShowServiceForm(true);
+
     setForm({
       title: service.title,
       description: service.description,
       image: service.image || "",
       active: service.active,
+    });
+
+    requestAnimationFrame(() => {
+      editSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }
 
@@ -526,146 +543,157 @@ async function handleContactSubmit(e: React.FormEvent) {
             <div className="flex justify-end">
               <button
                 type="button"
-                onClick={() => 
-                  setDoctorForm({
-                    name: "",
-                    email: "",
-                    specialty: "",
-                    description: "",
-                    photo: "",
-                    active: true,
-                    visible: true,
-                    branchIds: doctorForm.branchIds,
-                  })
-                }
+                onClick={() => {
+                  if (showServiceForm) {
+                    resetForm();
+                    setShowServiceForm(false);
+                    return;
+                  }
+
+                  resetForm();
+                  setShowServiceForm(true);
+
+                  requestAnimationFrame(() => {
+                    editSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "start",
+                    });
+                  });
+                }}
                 className="flex items-center gap-2 bg-[#263F3B] px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
               >
                 <Plus className="h-4 w-4" />
-                Agregar servicio
+                {showServiceForm ? "Cerrar" : "Agregar servicio"}
               </button>
             </div>
 
             <div className="space-y-6">
-              <form
-                onSubmit={handleSubmit}
-                className="border border-[#DED9CD] bg-white p-8"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3 text-sm text-[#A2B38B]">
-                    <span>#{editingId ? "Editando" : services.length + 1}</span>
+              {showServiceForm && (
+                <form
+                  ref={editSectionRef}
+                  onSubmit={handleSubmit}
+                  className="scroll-mt-6 border border-[#DED9CD] bg-white p-8"
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-sm text-[#A2B38B]">
+                      <span>#{editingId ? "Editando" : services.length + 1}</span>
+                    </div>
+
+                    <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
+                      <input
+                        type="checkbox"
+                        checked={form.active}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            active: e.target.checked,
+                          })
+                        }
+                      />
+                      Visible
+                    </label>
                   </div>
 
-                  <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
-                    <input
-                      type="checkbox"
-                      checked={form.active}
-                      onChange={(e) =>
-                        setForm({
-                          ...form,
-                          active: e.target.checked,
-                        })
-                      }
-                    />
-                    Visible
-                  </label>
-                </div>
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                        Título
+                      </label>
 
-                <div className="grid gap-6 md:grid-cols-2">
-                  <div>
+                      <input
+                        className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                        value={form.title}
+                        onChange={(e) =>
+                          setForm({
+                            ...form,
+                            title: e.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-2">
+                      <div>
+                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                          Título
+                        </label>
+
+                        <input
+                          className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                          value={form.title}
+                          onChange={(e) =>
+                            setForm((current) => ({
+                              ...current,
+                              title: e.target.value,
+                            }))
+                          }
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <ImageUploader
+                          value={form.image}
+                          onChange={(image) =>
+                            setForm((current) => ({
+                              ...current,
+                              image,
+                            }))
+                          }
+                          aspect={16 / 7}
+                          label="Imagen del servicio"
+                          emptyText="Subir imagen"
+                          previewAlt={form.title || "Servicio"}
+                          previewClassName="h-full w-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6">
                     <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                      Título
+                      Descripción
                     </label>
 
-                    <input
-                      className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                      value={form.title}
+                    <textarea
+                      rows={5}
+                      className="mt-3 h-20 w-full resize-y border border-[#DED9CD] bg-white p-2 leading-5 outline-none focus:border-[#263F3B]"
+                      value={form.description}
                       onChange={(e) =>
                         setForm({
                           ...form,
-                          title: e.target.value,
+                          description: e.target.value,
                         })
                       }
                       required
                     />
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                      Imagen del servicio
-                    </label>
+                  <div className="mt-3 flex flex-wrap justify-end gap-3">
+                    {editingId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetForm();
+                          setShowServiceForm(false);
+                        }}
+                        className="border border-[#DED9CD] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] hover:bg-[#F7F5EF]"
+                      >
+                        Cancelar
+                      </button>
+                    )}
 
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-
-                        if (!file) return;
-
-                        const formData = new FormData();
-                        formData.append("file", file);
-
-                        const res = await fetch("/api/upload", {
-                          method: "POST",
-                          body: formData,
-                        });
-
-                       const data = await res.json();
-
-                       setForm({
-                         ...form,
-                         image: data.url,
-                       });
-                     }}
-                    />
-
-                   {form.image && (
-                     <img
-                       src={form.image}
-                       alt="Imagen del servicio"
-                       className="mt-4 h-40 w-full border border-[#DED9CD] object-cover"
-                     />
-                   )}
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Descripción
-                  </label>
-
-                  <textarea
-                    rows={5}
-                    className="mt-3 h-20 w-full resize-y border border-[#DED9CD] bg-white p-2 leading-5 outline-none focus:border-[#263F3B]"
-                    value={form.description}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        description: e.target.value,
-                      })
-                    }
-                    required
-                  />
-                </div>
-
-                <div className="mt-3 flex flex-wrap justify-end gap-3">
-                  {editingId && (
                     <button
-                      type="button"
-                      onClick={resetForm}
-                      className="border border-[#DED9CD] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] hover:bg-[#F7F5EF]"
+                      type="submit"
+                      className="flex items-center gap-2 bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
                     >
-                      Cancelar
+                      <Save className="h-4 w-4" />
+                      {editingId ? "Guardar cambios" : "Guardar servicio"}
                     </button>
-                  )}
-
-                  <button className="flex items-center gap-2 bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
-                    <Save className="h-4 w-4" />
-                    {editingId ? "Guardar cambios" : "Guardar servicio"}
-                  </button>
-                </div>
-              </form>
+                  </div>
+                </form>
+              )}
 
               {services.map((service, index) => (
                 <div
@@ -826,72 +854,23 @@ async function handleContactSubmit(e: React.FormEvent) {
                   </label>
                 </div>
 
-                <div className="mb-6 flex items-start gap-6">
-                  <div className="flex h-28 w-28 items-center justify-center overflow-hidden bg-[#E4E8E0] text-3xl font-semibold uppercase text-[#8A9A87]">
-                    {doctorForm.photo ? (
-                      <img
-                        src={doctorForm.photo}
-                        alt={doctorForm.name || "Especialista"}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getInitials(doctorForm.name) || "N"
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <label className="inline-block cursor-pointer border border-[#DED9CD] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#263F3B] hover:bg-[#F7F5EF]">
-                      {doctorForm.photo ? "Cambiar foto" : "Subir foto"}
-
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-
-                          if (!file) return;
-
-                          const formData = new FormData();
-                          formData.append("file", file);
-
-                          const res = await fetch("/api/upload", {
-                            method: "POST",
-                            body: formData,
-                          });
-
-                          const data = await res.json();
-
-                          if (!res.ok) {
-                            alert(data.error || "No se pudo subir la foto.");
-                            return;
-                          }
-
-                          setDoctorForm((current) => ({
-                            ...current,
-                            photo: data.url,
-                          }));
-
-                          e.target.value = "";
-                        }}
-                      />
-                    </label>
-
-                    {doctorForm.photo && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setDoctorForm((current) => ({
-                            ...current,
-                            photo: "",
-                          }))
-                        }
-                        className="border border-[#D8CACA] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[#B06B6B] hover:bg-[#FAF3F3]"
-                      >
-                        Eliminar foto
-                      </button>
-                    )}
-                  </div>
+                <div className="mb-6">
+                  <ImageUploader
+                    value={doctorForm.photo}
+                    onChange={(photo) =>
+                      setDoctorForm((current) => ({
+                        ...current,
+                        photo,
+                      }))
+                    }
+                    aspect={1}
+                    label="Foto del especialista"
+                    emptyText="Subir foto"
+                    previewAlt={
+                      doctorForm.name || "Especialista"
+                    }
+                    previewClassName="h-full w-full object-cover"
+                  />
                 </div>
 
                 <div>
@@ -972,24 +951,6 @@ async function handleContactSubmit(e: React.FormEvent) {
                   </div>
                 </div>
 
-                <div className="mt-6">
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Biografía
-                  </label>
-
-                  <textarea
-                    rows={4}
-                    className="mt-2 w-full border border-[#DED9CD] p-2 leading-7 outline-none focus:border-[#263F3B]"
-                    value={doctorForm.description}
-                    onChange={(e) =>
-                      setDoctorForm({
-                        ...doctorForm,
-                        description: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
                 <div className="mt-6 flex justify-end">
                   <button className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
                     {editingDoctorId
@@ -1045,7 +1006,7 @@ async function handleContactSubmit(e: React.FormEvent) {
 
                         if (!res.ok) {
                           const data = await res.json();
-                          alert(data.error || "No se pudo eliminar el especialista.");
+                          toast.error("No se pudo eliminar al especialista.");
                           return;
                         }
 
@@ -1111,16 +1072,6 @@ async function handleContactSubmit(e: React.FormEvent) {
                       )}
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Biografía
-                  </p>
-
-                  <p className="mt-3 min-h-[80px] border border-[#DED9CD] p-4 leading-6 text-[#263F3B]">
-                    {doctor.description || "Sin biografía cargada."}
-                  </p>
                 </div>
 
                 <div className="mt-6 flex justify-end">

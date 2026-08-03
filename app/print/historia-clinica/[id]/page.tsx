@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import PrintButton from "./PrintButton";
+import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -321,6 +322,15 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
           </div>
         </div>
       </section>
+
+    <div className="print:break-before-page">
+      <ClinicalHistoryAnnex
+        patientName={`${patient.lastName}, ${patient.firstName}`}
+        affiliationNumber={data.afiliado || ""}
+        folioNumber=""
+      />
+    </div>
+
     </main>
   );
 }

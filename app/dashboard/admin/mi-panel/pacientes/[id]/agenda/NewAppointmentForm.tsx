@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type Doctor = {
   id: string;
@@ -58,7 +59,7 @@ export default function NewAppointmentForm({
     });
 
     if (!res.ok) {
-      alert("No se pudo crear el turno.");
+      toast.error("No se pudo crear el turno.");
       return;
     }
 

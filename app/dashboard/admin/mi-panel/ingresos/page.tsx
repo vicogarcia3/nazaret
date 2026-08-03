@@ -9,6 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { toast } from "sonner";
 
 type Patient = {
   id: string;
@@ -138,7 +139,7 @@ export default function IngresosPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo registrar el pago.");
+      toast.error("No se pudo registrar el pago.");
       return;
     }
 
@@ -165,7 +166,7 @@ export default function IngresosPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo marcar como pagado.");
+      toast.error("No se pudo marcar como pagado.");
       return;
     }
 

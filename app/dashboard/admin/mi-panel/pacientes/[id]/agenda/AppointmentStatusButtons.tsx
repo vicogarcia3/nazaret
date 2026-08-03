@@ -2,6 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function AppointmentStatusButtons({
   appointmentId,
@@ -20,7 +21,7 @@ export default function AppointmentStatusButtons({
     });
 
     if (!res.ok) {
-      alert("No se pudo actualizar el turno.");
+      toast.error("No se pudo actualizar el turno.");
       return;
     }
 

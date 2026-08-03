@@ -33,7 +33,7 @@ export default function ConfiguracionPage() {
       body: JSON.stringify(form),
     });
 
-    alert("Configuración guardada.");
+    toast.success("Configuración guardada.");
   }
 
   return (

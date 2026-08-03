@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MapPin, Phone, Pencil, Trash2, Save, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type Branch = {
   id: string;
@@ -58,7 +59,7 @@ export default function SucursalesPage() {
 
     if (!res.ok) {
       const error = await res.json();
-      alert(error.error || "No se pudo guardar la sucursal.");
+      toast.error("No se pudo guardar la sucursal.");
       return;
     }
 
@@ -75,7 +76,7 @@ export default function SucursalesPage() {
 
     if (!res.ok) {
       const error = await res.json();
-      alert(error.error || "No se pudo eliminar la sucursal.");
+      toast.error("No se pudo eliminar la sucursal.");
       return;
     }
 

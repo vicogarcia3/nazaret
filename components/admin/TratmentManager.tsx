@@ -91,7 +91,7 @@ return (
     <div className="flex justify-end">
       <button
         onClick={saveTreatment}
-        className="bg-[#1f3f36] text-white px-3 py-3 text-[10px] font-bold tracking-[0.22em] uppercase flex items-center gap-2"
+        className="flex items-center gap-2 bg-[#263F3B] px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
       >
         <Plus size={15} />
         {editingId ? "Guardar cambios" : "Agregar tratamiento"}

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, ListChecks, Percent, Pencil, Trash2, Wallet } from "lucide-react";
+import { toast } from "sonner";
 
 type Plan = {
   id: string;
@@ -62,7 +63,11 @@ export default function PlanesPage() {
     });
 
     if (!res.ok) {
-      alert(editingId ? "No se pudo guardar el plan." : "No se pudo crear el plan.");
+      toast.error(
+        editingId
+          ? "No se pudo guardar el plan."
+          : "No se pudo crear el plan."
+      );
       return;
     }
 
@@ -91,7 +96,7 @@ export default function PlanesPage() {
     });
 
     if (!res.ok) {
-      alert("No se pudo eliminar el plan.");
+      toast.error("No se pudo eliminar el plan.");
       return;
     }
 

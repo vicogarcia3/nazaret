@@ -2,6 +2,7 @@
 
 import { CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 export default function MarkAsPaidButton({
   paymentId,
@@ -18,7 +19,7 @@ export default function MarkAsPaidButton({
     });
 
     if (!res.ok) {
-      alert("No se pudo actualizar el pago.");
+      toast.error("No se pudo actualizar el pago.");
       return;
     }
 
