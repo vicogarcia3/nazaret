@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Image, Save } from "lucide-react";
+import { toast } from "sonner";
 
 export default function ConfiguracionPage() {
   const [form, setForm] = useState({
