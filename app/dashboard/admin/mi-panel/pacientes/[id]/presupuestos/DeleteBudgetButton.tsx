@@ -2,6 +2,7 @@
 
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Props = {
   budgetId: string;
@@ -9,9 +10,17 @@ type Props = {
 
 export default function DeleteBudgetButton({ budgetId }: Props) {
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   async function handleDelete() {
-    if (!confirm("¿Eliminar este presupuesto?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar presupuesto",
+      description:
+        "El presupuesto será eliminado definitivamente. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/budgets/${budgetId}`, {
       method: "DELETE",

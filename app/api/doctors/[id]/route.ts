@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
@@ -9,15 +8,144 @@ type RouteContext = {
   }>;
 };
 
-function normalizeNullableText(value: unknown) {
+function normalizeNullableText(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
   }
 
   const normalizedValue = value.trim();
+
   return normalizedValue || null;
 }
 
+function normalizeBranchIds(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return Array.from(
+    new Set(
+      value.filter(
+        (branchId): branchId is string =>
+          typeof branchId === "string" &&
+          branchId.trim().length > 0
+      )
+    )
+  );
+}
+
+/**
+ * Cambia solamente estados simples del especialista.
+ * Se usa, por ejemplo, para el checkbox "Visible".
+ */
+export async function PATCH(
+  request: Request,
+  context: RouteContext
+) {
+  try {
+    const session = await auth();
+
+    if (!session?.user || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        {
+          error: "No autorizado.",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const { id } = await context.params;
+    const body = await request.json();
+
+    const data: {
+      visible?: boolean;
+      active?: boolean;
+    } = {};
+
+    if (typeof body.visible === "boolean") {
+      data.visible = body.visible;
+    }
+
+    if (typeof body.active === "boolean") {
+      data.active = body.active;
+    }
+
+    if (
+      data.visible === undefined &&
+      data.active === undefined
+    ) {
+      return NextResponse.json(
+        {
+          error: "No se enviaron cambios válidos.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const existingDoctor = await prisma.doctor.findUnique({
+      where: {
+        id,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existingDoctor) {
+      return NextResponse.json(
+        {
+          error: "El especialista no fue encontrado.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
+    const updatedDoctor = await prisma.doctor.update({
+      where: {
+        id,
+      },
+      data,
+      include: {
+        user: true,
+        branches: {
+          include: {
+            branch: true,
+          },
+        },
+      },
+    });
+
+    return NextResponse.json({
+      message: "Estado del especialista actualizado correctamente.",
+      doctor: updatedDoctor,
+    });
+  } catch (error) {
+    console.error(
+      "Error actualizando el estado del especialista:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error: "No se pudo actualizar el especialista.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+/**
+ * Edita la ficha pública del especialista en la sección Equipo.
+ * No crea, valida ni modifica usuarios o correos electrónicos.
+ */
 export async function PUT(
   request: Request,
   context: RouteContext
@@ -27,112 +155,76 @@ export async function PUT(
 
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json(
-        { error: "No autorizado." },
-        { status: 401 }
+        {
+          error: "No autorizado.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
     const { id } = await context.params;
     const body = await request.json();
 
-    const doctor = await prisma.doctor.findUnique({
-      where: { id },
+    const existingDoctor = await prisma.doctor.findUnique({
+      where: {
+        id,
+      },
       select: {
         id: true,
-        userId: true,
       },
     });
 
-    if (!doctor) {
+    if (!existingDoctor) {
       return NextResponse.json(
-        { error: "El especialista no fue encontrado." },
-        { status: 404 }
+        {
+          error: "El especialista no fue encontrado.",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
     const name =
       typeof body.name === "string"
         ? body.name.trim()
-        : undefined;
+        : "";
 
-    const email =
-      typeof body.email === "string"
-        ? body.email.trim().toLowerCase()
-        : undefined;
-
-    const branchIds: string[] | undefined = Array.isArray(
-      body.branchIds
-    )
-      ? Array.from(
-          new Set<string>(
-            body.branchIds.filter(
-              (branchId: unknown): branchId is string =>
-                typeof branchId === "string" &&
-                branchId.trim().length > 0
-            )
-          )
-        )
-      : undefined;
-
-    if (name !== undefined && !name) {
+    if (!name) {
       return NextResponse.json(
-        { error: "Ingresá el nombre completo." },
-        { status: 400 }
+        {
+          error: "Ingresá el nombre completo.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (email !== undefined && !email) {
-      return NextResponse.json(
-        { error: "Ingresá un correo electrónico válido." },
-        { status: 400 }
-      );
-    }
+    const branchIds = normalizeBranchIds(body.branchIds);
 
     if (branchIds !== undefined && branchIds.length === 0) {
       return NextResponse.json(
-        { error: "Seleccioná al menos una sucursal." },
-        { status: 400 }
+        {
+          error: "Seleccioná al menos una sucursal.",
+        },
+        {
+          status: 400,
+        }
       );
     }
 
-    if (email !== undefined) {
-      const existingUser = await prisma.user.findFirst({
+    if (branchIds !== undefined) {
+      const existingBranchesCount = await prisma.branch.count({
         where: {
-          email,
-          ...(doctor.userId
-            ? {
-                id: {
-                  not: doctor.userId,
-                },
-              }
-            : {}),
-        },
-        select: {
-          id: true,
+          id: {
+            in: branchIds,
+          },
+          active: true,
         },
       });
-
-      if (existingUser) {
-        return NextResponse.json(
-          {
-            error:
-              "Ya existe otro usuario registrado con ese correo.",
-          },
-          { status: 409 }
-        );
-      }
-    }
-
-    if (branchIds !== undefined) {
-      const existingBranchesCount =
-        await prisma.branch.count({
-          where: {
-            id: {
-              in: branchIds,
-            },
-            active: true,
-          },
-        });
 
       if (existingBranchesCount !== branchIds.length) {
         return NextResponse.json(
@@ -140,55 +232,41 @@ export async function PUT(
             error:
               "Una o más sucursales seleccionadas no existen o están inactivas.",
           },
-          { status: 400 }
+          {
+            status: 400,
+          }
         );
       }
     }
 
     const updatedDoctor = await prisma.$transaction(
       async (transaction) => {
-        const shouldUpdateUser =
-          name !== undefined || email !== undefined;
-
-        if (shouldUpdateUser) {
-          if (doctor.userId) {
-            await transaction.user.update({
-              where: {
-                id: doctor.userId,
-              },
-              data: {
-                ...(name !== undefined && { name }),
-                ...(email !== undefined && { email }),
-              },
-            });
-          }
-        }
-
         if (branchIds !== undefined) {
           await transaction.doctorBranch.deleteMany({
             where: {
-              doctorId: doctor.id,
+              doctorId: id,
             },
           });
         }
 
         return transaction.doctor.update({
           where: {
-            id: doctor.id,
+            id,
           },
           data: {
-            ...(body.specialty !== undefined && {
-              specialty: normalizeNullableText(body.specialty),
-            }),
-            ...(body.description !== undefined && {
-              description: normalizeNullableText(body.description),
-            }),
-            ...(body.photo !== undefined && {
-              photo: normalizeNullableText(body.photo),
-            }),
+            name,
+            specialty: normalizeNullableText(body.specialty),
+            description: normalizeNullableText(body.description),
+            photo: normalizeNullableText(body.photo),
+
             ...(typeof body.active === "boolean" && {
               active: body.active,
             }),
+
+            ...(typeof body.visible === "boolean" && {
+              visible: body.visible,
+            }),
+
             ...(branchIds !== undefined && {
               branches: {
                 create: branchIds.map((branchId) => ({
@@ -201,22 +279,11 @@ export async function PUT(
               },
             }),
           },
-          select: {
-            id: true,
-            specialty: true,
-            description: true,
-            photo: true,
-            active: true,
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
+          include: {
+            user: true,
             branches: {
-              select: {
-                branchId: true,
+              include: {
+                branch: true,
               },
             },
           },
@@ -236,13 +303,19 @@ export async function PUT(
         error:
           "No se pudieron guardar los cambios del especialista.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }
 
+/**
+ * Elimina la ficha del especialista de Equipo.
+ * No elimina la cuenta de usuario asociada.
+ */
 export async function DELETE(
-  request: Request,
+  _request: Request,
   context: RouteContext
 ) {
   try {
@@ -250,8 +323,12 @@ export async function DELETE(
 
     if (!session?.user || session.user.role !== "ADMIN") {
       return NextResponse.json(
-        { error: "No autorizado." },
-        { status: 401 }
+        {
+          error: "No autorizado.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
@@ -264,19 +341,17 @@ export async function DELETE(
       select: {
         id: true,
         name: true,
-        userId: true,
-        user: {
-          select: {
-            name: true,
-          },
-        },
       },
     });
 
     if (!doctor) {
       return NextResponse.json(
-        { error: "El especialista no fue encontrado." },
-        { status: 404 }
+        {
+          error: "El especialista no fue encontrado.",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
@@ -300,7 +375,9 @@ export async function DELETE(
       if (appointmentsCount > 0) {
         reasons.push(
           `${appointmentsCount} ${
-            appointmentsCount === 1 ? "turno asociado" : "turnos asociados"
+            appointmentsCount === 1
+              ? "turno asociado"
+              : "turnos asociados"
           }`
         );
       }
@@ -319,7 +396,7 @@ export async function DELETE(
         {
           error: `No se puede eliminar este especialista porque tiene ${reasons.join(
             " y "
-          )}. Podés editarlo y marcarlo como inactivo.`,
+          )}. Podés ocultarlo del sitio o marcarlo como inactivo.`,
         },
         {
           status: 400,
@@ -329,6 +406,18 @@ export async function DELETE(
 
     await prisma.$transaction(async (transaction) => {
       await transaction.doctorSchedule.deleteMany({
+        where: {
+          doctorId: doctor.id,
+        },
+      });
+
+      await transaction.doctorSpecificSchedule.deleteMany({
+        where: {
+          doctorId: doctor.id,
+        },
+      });
+
+      await transaction.doctorScheduleException.deleteMany({
         where: {
           doctorId: doctor.id,
         },
@@ -345,75 +434,56 @@ export async function DELETE(
           id: doctor.id,
         },
       });
-
-      if (doctor.userId) {
-        await transaction.user.delete({
-          where: {
-            id: doctor.userId,
-          },
-        });
-      }
     });
 
     return NextResponse.json({
       message: `${
-        doctor.name || doctor.user?.name || "El especialista"
+        doctor.name || "El especialista"
       } fue eliminado correctamente.`,
     });
   } catch (error) {
-      console.error("Error eliminando especialista:", error);
+    console.error("Error eliminando especialista:", error);
 
-      const errorMessage =
-        error instanceof Error ? String(error) : String(error);
+    const errorMessage =
+      error instanceof Error ? error.message : String(error);
 
-      if (
-        errorMessage.includes("DoctorSchedule_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "DoctorSchedule"') ||
-        errorMessage.includes("DoctorSpecificSchedule_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "DoctorSpecificSchedule"') ||
-        errorMessage.includes("DoctorScheduleException_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "DoctorScheduleException"')
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "No se puede eliminar este especialista porque tiene horarios configurados. Eliminá primero sus disponibilidades o marcá al especialista como inactivo.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (
-        errorMessage.includes("Appointment_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "Appointment"')
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "No se puede eliminar este especialista porque tiene turnos asociados.",
-          },
-          { status: 400 }
-        );
-      }
-
-      if (
-        errorMessage.includes("Budget_doctorId_fkey") ||
-        errorMessage.includes('referenced from table "Budget"')
-      ) {
-        return NextResponse.json(
-          {
-            error:
-              "No se puede eliminar este especialista porque tiene presupuestos asociados.",
-          },
-          { status: 400 }
-        );
-      }
-
+    if (
+      errorMessage.includes("Appointment_doctorId_fkey") ||
+      errorMessage.includes('referenced from table "Appointment"')
+    ) {
       return NextResponse.json(
         {
-          error: "Ocurrió un error al eliminar el especialista.",
+          error:
+            "No se puede eliminar este especialista porque tiene turnos asociados.",
         },
-        { status: 500 }
+        {
+          status: 400,
+        }
       );
     }
+
+    if (
+      errorMessage.includes("Budget_doctorId_fkey") ||
+      errorMessage.includes('referenced from table "Budget"')
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede eliminar este especialista porque tiene presupuestos asociados.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        error: "Ocurrió un error al eliminar el especialista.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }

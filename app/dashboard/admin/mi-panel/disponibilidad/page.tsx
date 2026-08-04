@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Doctor = {
   id: string;
@@ -33,6 +35,7 @@ type Availability = {
 };
 
 export default function DisponibilidadPage() {
+  const confirmDialog = useConfirm();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [availabilities, setAvailabilities] = useState<Availability[]>([]);
@@ -89,7 +92,14 @@ export default function DisponibilidadPage() {
   }
 
   async function deleteAvailability(id: string) {
-  if (!confirm("¿Eliminar este horario?")) return;
+  const confirmed = await confirmDialog({
+    title: "Eliminar horario",
+    description:
+      "Este horario dejará de estar disponible.",
+    confirmText: "Eliminar",
+  });
+
+  if (!confirmed) return;
 
   const res = await fetch(`/api/doctor-availability/${id}`, {
     method: "DELETE",

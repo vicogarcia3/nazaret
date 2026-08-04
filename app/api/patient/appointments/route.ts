@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
@@ -23,27 +24,61 @@ function formatAppointmentTime(date: Date) {
   }).format(date);
 }
 
+function isTransactionConflict(error: unknown) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2034"
+  );
+}
+
 export async function POST(req: Request) {
   try {
     const session = await auth();
 
-    if (!session || session.user.role !== "PATIENT") {
+    if (
+      !session?.user?.id ||
+      session.user.role !== "PATIENT"
+    ) {
       return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
+        {
+          error: "No autorizado.",
+        },
+        {
+          status: 401,
+        }
       );
     }
 
     const body = await req.json();
 
-    const { doctorId, date, time, treatmentName } = body;
+    const doctorId =
+      typeof body.doctorId === "string"
+        ? body.doctorId.trim()
+        : "";
+
+    const date =
+      typeof body.date === "string"
+        ? body.date.trim()
+        : "";
+
+    const time =
+      typeof body.time === "string"
+        ? body.time.trim()
+        : "";
+
+    const treatmentName =
+      typeof body.treatmentName === "string"
+        ? body.treatmentName.trim()
+        : "";
 
     if (!doctorId) {
       return NextResponse.json(
         {
           error: "Tenés que seleccionar un especialista.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -52,7 +87,9 @@ export async function POST(req: Request) {
         {
           error: "Tenés que seleccionar fecha y horario.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -68,8 +105,12 @@ export async function POST(req: Request) {
 
     if (!patient) {
       return NextResponse.json(
-        { error: "Paciente no encontrado" },
-        { status: 404 }
+        {
+          error: "Paciente no encontrado.",
+        },
+        {
+          status: 404,
+        }
       );
     }
 
@@ -94,7 +135,9 @@ export async function POST(req: Request) {
           error:
             "El especialista no pertenece a tu sucursal.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -107,28 +150,21 @@ export async function POST(req: Request) {
         {
           error: "La fecha o el horario no son válidos.",
         },
-        { status: 400 }
+        {
+          status: 400,
+        }
       );
     }
 
-    const existingAppointment =
-      await prisma.appointment.findFirst({
-        where: {
-          doctorId,
-          branchId: patient.branchId,
-          date: appointmentDate,
-          status: {
-            not: "CANCELED",
-          },
-        },
-      });
-
-    if (existingAppointment) {
+    if (appointmentDate.getTime() <= Date.now()) {
       return NextResponse.json(
         {
-          error: "Ese horario ya no está disponible.",
+          error:
+            "No se puede solicitar un turno en una fecha pasada.",
         },
-        { status: 409 }
+        {
+          status: 400,
+        }
       );
     }
 
@@ -137,10 +173,7 @@ export async function POST(req: Request) {
       `${patient.firstName} ${patient.lastName}`.trim();
 
     const treatment =
-      typeof treatmentName === "string" &&
-      treatmentName.trim()
-        ? treatmentName.trim()
-        : "Turno solicitado";
+      treatmentName || "Turno solicitado";
 
     const formattedDate =
       formatAppointmentDate(appointmentDate);
@@ -148,60 +181,148 @@ export async function POST(req: Request) {
     const formattedTime =
       formatAppointmentTime(appointmentDate);
 
+    let appointment:
+      | Awaited<
+          ReturnType<typeof prisma.appointment.create>
+        >
+      | null = null;
+
     /*
-     * El turno y la notificación interna se crean juntos.
-     * Si alguno falla, no se guarda ninguno.
+     * Una transacción serializable impide que dos pacientes
+     * reserven simultáneamente el mismo horario.
+     *
+     * Si PostgreSQL detecta un conflicto, Prisma devuelve P2034.
+     * Se reintenta hasta tres veces.
      */
-    const appointment = await prisma.$transaction(
-      async (transaction) => {
-        const createdAppointment =
-          await transaction.appointment.create({
-            data: {
-              patientId: patient.id,
-              doctorId: doctor.id,
-              branchId: patient.branchId,
-              date: appointmentDate,
-              notes: treatment,
-              status: "PENDING",
-            },
-          });
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        appointment = await prisma.$transaction(
+          async (transaction) => {
+            const existingAppointment =
+              await transaction.appointment.findFirst({
+                where: {
+                  doctorId: doctor.id,
+                  branchId: patient.branchId,
+                  date: appointmentDate,
+                  status: {
+                    not: "CANCELED",
+                  },
+                },
+                select: {
+                  id: true,
+                },
+              });
 
-        await transaction.notification.create({
-          data: {
-            doctorId: doctor.id,
+            if (existingAppointment) {
+              throw new Error(
+                "APPOINTMENT_TIME_NOT_AVAILABLE"
+              );
+            }
 
-            title: "Nueva solicitud de turno",
+            const createdAppointment =
+              await transaction.appointment.create({
+                data: {
+                  patientId: patient.id,
+                  doctorId: doctor.id,
+                  branchId: patient.branchId,
+                  date: appointmentDate,
+                  notes: treatment,
+                  status: "PENDING",
+                },
+              });
 
-            message: [
-              `Paciente: ${patientName}`,
-              `Tratamiento: ${treatment}`,
-              `Fecha: ${formattedDate}`,
-              `Horario: ${formattedTime} hs`,
-              `Sucursal: ${patient.branch.name}`,
-              `Dirección: ${patient.branch.address}, ${patient.branch.city}`,
-              "Estado: Pendiente",
-            ].join("\n"),
+            await transaction.notification.create({
+              data: {
+                doctorId: doctor.id,
+                title: "Nueva solicitud de turno",
 
-            type: "APPOINTMENT",
-            actor: "PATIENT",
+                message: [
+                  `Paciente: ${patientName}`,
+                  `Tratamiento: ${treatment}`,
+                  `Fecha: ${formattedDate}`,
+                  `Horario: ${formattedTime} hs`,
+                  `Sucursal: ${patient.branch.name}`,
+                  `Dirección: ${patient.branch.address}, ${patient.branch.city}`,
+                  "Estado: Pendiente",
+                ].join("\n"),
 
-            appointmentId: createdAppointment.id,
+                type: "APPOINTMENT",
+                actor: "PATIENT",
+                appointmentId: createdAppointment.id,
+                actionUrl:
+                  "/dashboard/doctor/notificaciones",
+              },
+            });
 
-            actionUrl:
-              "/dashboard/doctor/notificaciones",
+            return createdAppointment;
           },
-        });
+          {
+            isolationLevel:
+              Prisma.TransactionIsolationLevel.Serializable,
+          }
+        );
 
-        return createdAppointment;
+        break;
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message ===
+            "APPOINTMENT_TIME_NOT_AVAILABLE"
+        ) {
+          return NextResponse.json(
+            {
+              error:
+                "Ese horario acaba de ser reservado. Elegí otro.",
+            },
+            {
+              status: 409,
+            }
+          );
+        }
+
+        if (isTransactionConflict(error) && attempt < 3) {
+          continue;
+        }
+
+        if (isTransactionConflict(error)) {
+          return NextResponse.json(
+            {
+              error:
+                "Ese horario acaba de ser reservado. Elegí otro.",
+            },
+            {
+              status: 409,
+            }
+          );
+        }
+
+        throw error;
       }
-    );
+    }
+
+    if (!appointment) {
+      return NextResponse.json(
+        {
+          error:
+            "No se pudo confirmar la disponibilidad del horario.",
+        },
+        {
+          status: 409,
+        }
+      );
+    }
 
     /*
-     * El correo se envía después.
-     * Si Resend falla, el turno y la notificación interna se conservan.
+     * El correo se envía después de confirmar el turno.
+     * Si Resend falla, el turno se conserva.
      */
     try {
       if (doctor.user?.email) {
+        const doctorName =
+          doctor.name ||
+          doctor.user.name ||
+          "Odontólogo";
+
         await resend.emails.send({
           from:
             process.env.RESEND_FROM_EMAIL ||
@@ -212,45 +333,99 @@ export async function POST(req: Request) {
           subject: "Nueva solicitud de turno",
 
           html: `
-            <div style="font-family: Arial, sans-serif; color: #263F3B; line-height: 1.6;">
-              <h2 style="color: #263F3B;">
-                Nueva solicitud de turno
-              </h2>
+          <div style="margin:0;padding:32px;background:#F5F3EE;font-family:Arial,sans-serif;">
+            <table align="center" cellpadding="0" cellspacing="0" width="600"
+              style="background:#FFFFFF;border:1px solid #DED9CD;border-radius:10px;overflow:hidden;">
 
-              <p>
-                alt={doctor.name || doctor.user?.name || "Odontólogo"}:
-              </p>
+              <tr>
+                <td style="background:#A7B58A;padding:28px;text-align:center;">
+                  <h1 style="margin:0;color:#FFFFFF;font-size:34px;font-weight:700;">
+                    Consultorios Nazaret
+                  </h1>
+                </td>
+              </tr>
 
-              <p>
-                <strong>${patientName}</strong> solicitó un turno contigo.
-              </p>
+              <tr>
+                <td style="padding:36px;">
 
-              <p>
-                Más detalles en tu portal especialista.
-              </p>
+                  <h2 style="margin:0 0 22px;color:#2F3F3A;font-size:30px;">
+                    Nueva solicitud de turno
+                  </h2>
 
-              <div style="margin-top: 24px; padding: 16px; background: #F2F5EF; border: 1px solid #D5DDCF;">
-                <p style="margin: 0 0 8px;">
-                  <strong>Fecha:</strong> ${formattedDate}
-                </p>
+                  <p style="margin:0 0 18px;font-size:17px;color:#4F5A55;">
+                    Hola, <strong>${doctorName}</strong>.
+                  </p>
 
-                <p style="margin: 0 0 8px;">
-                  <strong>Horario:</strong> ${formattedTime} hs
-                </p>
+                  <p style="margin:0 0 28px;font-size:16px;color:#4F5A55;line-height:1.7;">
+                    El paciente <strong>${patientName}</strong> solicitó un nuevo turno.
+                    Podés revisar la solicitud desde tu portal de especialista.
+                  </p>
 
-                <p style="margin: 0 0 8px;">
-                  <strong>Sucursal:</strong> ${patient.branch.name}
-                </p>
+                  <table cellpadding="0" cellspacing="0" width="100%"
+                    style="background:#F2F5EF;border:1px solid #D5DDCF;border-radius:8px;">
 
-                <p style="margin: 0;">
-                  <strong>Tratamiento:</strong> ${treatment}
-                </p>
-              </div>
+                    <tr>
+                      <td style="padding:24px;">
 
-              <p style="margin-top: 24px; color: #6B7774;">
-                Consultorios Nazaret
-              </p>
-            </div>
+                        <h3 style="
+                          margin:0 0 18px;
+                          color:#8A9A6F;
+                          font-size:15px;
+                          letter-spacing:3px;
+                          text-transform:uppercase;
+                        ">
+                          Datos del turno
+                        </h3>
+
+                        <p style="margin:10px 0;font-size:16px;color:#2F3F3A;">
+                          <strong>📅 Fecha:</strong> ${formattedDate}
+                        </p>
+
+                        <p style="margin:10px 0;font-size:16px;color:#2F3F3A;">
+                          <strong>🕒 Horario:</strong> ${formattedTime} hs
+                        </p>
+
+                        <p style="margin:10px 0;font-size:16px;color:#2F3F3A;">
+                          <strong>📍 Sucursal:</strong> ${patient.branch.name}
+                        </p>
+
+                        <p style="margin:10px 0;font-size:16px;color:#2F3F3A;">
+                          <strong>🦷 Tratamiento:</strong> ${treatment}
+                        </p>
+
+                      </td>
+                    </tr>
+
+                  </table>
+
+                  <div style="text-align:center;margin-top:34px;">
+                    <a
+                      href="${process.env.NEXTAUTH_URL}/dashboard/doctor/notificaciones"
+                      style="
+                        display:inline-block;
+                        padding:14px 30px;
+                        background:#A7B58A;
+                        color:#FFFFFF;
+                        text-decoration:none;
+                        border-radius:8px;
+                        font-size:16px;
+                        font-weight:600;
+                      "
+                    >
+                      Ver solicitud
+                    </a>
+                  </div>
+
+                  <p style="margin-top:38px;color:#7B847D;font-size:14px;line-height:1.6;">
+                    Este correo fue enviado automáticamente por
+                    <strong>Consultorios Nazaret</strong>.
+                  </p>
+
+                </td>
+              </tr>
+
+            </table>
+          </div>
           `,
         });
       }
@@ -265,16 +440,15 @@ export async function POST(req: Request) {
       status: 201,
     });
   } catch (error) {
-    console.error(
-      "Error al solicitar el turno:",
-      error
-    );
+    console.error("Error al solicitar el turno:", error);
 
     return NextResponse.json(
       {
         error: "No se pudo solicitar el turno.",
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
 }

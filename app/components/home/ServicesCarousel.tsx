@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import Image from "next/image";
 
 type Service = {
   id: string;
@@ -77,10 +78,13 @@ export default function ServicesCarousel({
                   key={service.id}
                   className="relative h-full min-w-full"
                 >
-                  <img
+                  <Image
                     src={service.image || ""}
                     alt={service.title}
-                    className="h-full w-full object-cover"
+                    fill
+                    priority={currentIndex === 0}
+                    sizes="100vw"
+                    className="object-cover"
                   />
 
                   <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/35 to-transparent" />

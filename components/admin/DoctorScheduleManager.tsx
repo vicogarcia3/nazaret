@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useConfirm } from "../ui/ConfirmProvider";
 import {
   CalendarDays,
   CalendarX,
@@ -179,6 +180,7 @@ export default function DoctorScheduleManager({
 }: DoctorScheduleManagerProps) {
   const [schedules, setSchedules] = useState<DoctorSchedule[]>([]);
   const [form, setForm] = useState(EMPTY_FORM);
+  const confirmDialog = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -383,7 +385,14 @@ export default function DoctorScheduleManager({
   }
 
   async function deleteSpecificSchedule(id: string) {
-    if (!confirm("¿Eliminar esta fecha específica?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar fecha",
+      description:
+        "La fecha específica será eliminada de la agenda.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/doctor-specific-schedules/${id}`, {
       method: "DELETE",
@@ -393,7 +402,14 @@ export default function DoctorScheduleManager({
   }
 
   async function deleteException(id: string) {
-    if (!confirm("¿Eliminar este bloqueo?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar bloqueo",
+      description:
+        "Este bloqueo dejará de existir y el horario volverá a estar disponible.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/doctor-schedule-exceptions/${id}`, {
       method: "DELETE",
@@ -491,7 +507,14 @@ export default function DoctorScheduleManager({
   }
 
   async function deleteSchedule(id: string) {
-    if (!confirm("¿Eliminar este horario semanal?")) {
+    const confirmed = await confirmDialog({
+      title: "Eliminar horario semanal",
+      description:
+        "El horario semanal será eliminado.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) {
       return;
     }
 

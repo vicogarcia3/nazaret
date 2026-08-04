@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MoreVertical, Check, X, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Props = {
   appointmentId: string;
@@ -15,6 +17,7 @@ export default function AppointmentActionsMenu({
 }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const confirmDialog = useConfirm();
 
   async function updateStatus(newStatus: "COMPLETED" | "CANCELED") {
     await fetch(`/api/appointments/${appointmentId}/status`, {
@@ -28,7 +31,14 @@ export default function AppointmentActionsMenu({
   }
 
   async function deleteAppointment() {
-    if (!confirm("¿Seguro que querés eliminar este turno?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar turno",
+      description:
+        "El turno será eliminado de la agenda. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/appointments/${appointmentId}`, {
       method: "DELETE",

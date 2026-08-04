@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { MapPin, Phone, Pencil, Trash2, Save, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Branch = {
   id: string;
@@ -13,6 +14,7 @@ type Branch = {
 };
 
 export default function SucursalesPage() {
+  const confirmDialog = useConfirm();
   const [branches, setBranches] = useState<Branch[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -68,7 +70,14 @@ export default function SucursalesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Seguro que querés eliminar esta sucursal?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar sucursal",
+      description:
+        "La sucursal será eliminada definitivamente. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     const res = await fetch(`/api/branches/${id}`, {
       method: "DELETE",

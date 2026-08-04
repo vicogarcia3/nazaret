@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CheckCircle, ListChecks, Percent, Pencil, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Plan = {
   id: string;
@@ -17,6 +18,7 @@ export default function PlanesPage() {
   const [plans, setPlans] = useState<Plan[]>([]);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const confirmDialog = useConfirm();
 
   const [form, setForm] = useState({
     name: "",
@@ -89,20 +91,35 @@ export default function PlanesPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Seguro que querés eliminar este plan?")) return;
-
-    const res = await fetch(`/api/plans/${id}`, {
-      method: "DELETE",
+    const confirmed = await confirmDialog({
+      title: "Eliminar plan",
+      description:
+        "El plan será eliminado definitivamente. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
     });
 
-    if (!res.ok) {
-      toast.error("No se pudo eliminar el plan.");
+    if (!confirmed) {
       return;
     }
 
-    await loadPlans();
-  }
+    try {
+      const res = await fetch(`/api/plans/${id}`, {
+        method: "DELETE",
+      });
 
+      if (!res.ok) {
+        toast.error("No se pudo eliminar el plan.");
+        return;
+      }
+
+      await loadPlans();
+
+      toast.success("Plan eliminado correctamente.");
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudo eliminar el plan.");
+    }
+  }
   function resetForm() {
     setEditingId(null);
     setOpen(false);

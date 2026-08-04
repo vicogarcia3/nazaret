@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, MoreVertical, Check, X, Clock, Trash2, ChevronLeft, ChevronRight, } from "lucide-react";
 import NewGeneralAppointmentForm from "./NewGeneralAppointmentForm";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Branch = {
   id: string;
@@ -57,6 +58,7 @@ export default function TurnosPage() {
   const [view, setView] = useState<"mes" | "semana" | "dia">("mes");
   const [patients, setPatients] = useState<Patient[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const confirmDialog = useConfirm();
 
   async function loadData() {
     try {
@@ -246,7 +248,14 @@ export default function TurnosPage() {
   }
 
   async function deleteAppointment(appointmentId: string) {
-    if (!confirm("¿Seguro que querés eliminar este turno?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar turno",
+      description:
+        "El turno será eliminado definitivamente. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/appointments/${appointmentId}`, {
       method: "DELETE",

@@ -5,18 +5,23 @@ import {
   Plus,
   Pencil,
   Trash2,
+  Save,
 } from "lucide-react";
+import { useConfirm } from "../ui/ConfirmProvider";
 
 type Treatment = {
   id: string;
   name: string;
   description: string | null;
   price: number | null;
+  active: boolean;
 };
 
 export default function TreatmentManager() {
   const [active, setActive] = useState(true);
   const [treatments, setTreatments] = useState<Treatment[]>([]);
+  const confirmDialog = useConfirm();
+  const [showForm, setShowForm] = useState(false);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -25,7 +30,9 @@ export default function TreatmentManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   async function loadTreatments() {
-    const res = await fetch("/api/treatments");
+    const res = await fetch("/api/treatments?includeInactive=true", {
+      cache: "no-store",
+    });
     const data = await res.json();
 
     const sorted = data.sort((a: Treatment, b: Treatment) => {
@@ -44,40 +51,51 @@ export default function TreatmentManager() {
 
   async function saveTreatment() {
     const body = {
-      name,
-      description,
-      price,
+      name: name.trim(),
+      description: description.trim() || null,
+      price: price ? Number(price) : null,
       active,
     };
 
-    if (editingId) {
-      await fetch(`/api/treatments/${editingId}`, {
-        method: "PATCH",
+    const response = await fetch(
+      editingId
+        ? `/api/treatments/${editingId}`
+        : "/api/treatments",
+      {
+        method: editingId ? "PATCH" : "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(body),
-      });
-    } else {
-      await fetch("/api/treatments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
+      }
+    );
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error("Error guardando tratamiento:", data);
+      return;
     }
 
     setEditingId(null);
     setName("");
     setDescription("");
     setPrice("");
+    setActive(true);
+    setShowForm(false);
 
-    loadTreatments();
+    await loadTreatments();
   }
 
   async function deleteTreatment(id: string) {
-    if (!confirm("¿Eliminar tratamiento?")) return;
+    const confirmed = await confirmDialog({
+      title: "Eliminar tratamiento",
+      description:
+        "El tratamiento será eliminado definitivamente.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) return;
 
     await fetch(`/api/treatments/${id}`, {
       method: "DELETE",
@@ -89,15 +107,55 @@ export default function TreatmentManager() {
 return (
   <div className="space-y-6">
     <div className="flex justify-end">
-      <button
-        onClick={saveTreatment}
-        className="flex items-center gap-2 bg-[#263F3B] px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
-      >
-        <Plus size={15} />
-        {editingId ? "Guardar cambios" : "Agregar tratamiento"}
-      </button>
-    </div>
+      <div className="flex justify-end gap-3">
+        {editingId && (
+          <button
+            type="button"
+            onClick={() => {
+              setEditingId(null);
+              setName("");
+              setDescription("");
+              setPrice("");
+              setActive(true);
+              setShowForm(false);
+            }}
+            className="border border-[#DED9CD] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7774] hover:bg-[#F7F6F2]"
+          >
+            Cancelar
+          </button>
+        )}
 
+        <button
+          type="button"
+          onClick={() => {
+            if (showForm) {
+              setShowForm(false);
+              setEditingId(null);
+              setName("");
+              setDescription("");
+              setPrice("");
+              setActive(true);
+              return;
+            }
+
+            setEditingId(null);
+            setName("");
+            setDescription("");
+            setPrice("");
+            setActive(true);
+            setShowForm(true);
+          }}
+          className="flex items-center gap-2 bg-[#263F3B] px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
+        >
+          <Plus size={15} />
+
+          {showForm ? "Cerrar" : "Agregar tratamiento"}
+        </button>
+
+      </div>
+    </div>
+    
+    {showForm && (
     <div className="border border-[#d8d2c4] bg-white p-8">
       <div className="grid md:grid-cols-3 gap-6">
         <div>
@@ -129,16 +187,14 @@ return (
 
         <div>
           <div className="flex justify-end items-center h-full">
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B7774]">
               <input
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-                className="h-4 w-4 accent-blue-600"
+                className="h-4 w-4 accent-[#6F855F]"
               />
-              <span className="text-xs tracking-[0.2em] uppercase text-[#6B7774]">
-                Visible
-              </span>
+              Visible
             </label>
           </div>
         </div>
@@ -155,22 +211,38 @@ return (
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-      </div>
 
-      {editingId && (
-        <button
-          onClick={() => {
-            setEditingId(null);
-            setName("");
-            setDescription("");
-            setPrice("");
-          }}
-          className="mt-4 text-xs tracking-[0.2em] uppercase text-gray-500"
-        >
-          Cancelar edición
-        </button>
-      )}
+        <div className="mt-6 flex justify-end gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setEditingId(null);
+              setName("");
+              setDescription("");
+              setPrice("");
+              setActive(true);
+              setShowForm(false);
+            }}
+            className="border border-[#DED9CD] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7774] hover:bg-[#F7F6F2]"
+          >
+            Cancelar
+          </button>
+
+          <button
+            type="button"
+            onClick={saveTreatment}
+            className="flex items-center gap-2 bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1D302D]"
+          >
+            <Save size={15} />
+
+            {editingId
+              ? "Guardar cambios"
+              : "Guardar tratamiento"}
+          </button>
+        </div>
+      </div>
     </div>
+    )}
 
     {treatments.map((t, index) => (
       <div
@@ -183,8 +255,14 @@ return (
           </span>
 
           <div className="flex items-center gap-2">
-            <span className="text-[#6B7774] text-xs tracking-[0.2em] uppercase">
-              Visible
+            <span
+              className={`text-xs font-semibold uppercase tracking-[0.2em] ${
+                t.active
+                  ? "text-[#6F855F]"
+                  : "text-gray-400"
+              }`}
+            >
+              {t.active ? "Visible" : "Oculto"}
             </span>
 
             <button onClick={() => deleteTreatment(t.id)}>
@@ -242,6 +320,8 @@ return (
               setName(t.name);
               setDescription(t.description || "");
               setPrice(String(t.price || ""));
+              setActive(t.active);
+              setShowForm(true);
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
             className="bg-[#1f3f36] text-white px-3 py-3 text-[10px] font-bold tracking-[0.22em] uppercase flex items-center gap-2"

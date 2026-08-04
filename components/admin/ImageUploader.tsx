@@ -80,10 +80,40 @@ export default function ImageUploader({
     setCropSource(objectUrl);
   }
 
+  async function deleteStoredImage(url: string) {
+    if (
+      !url ||
+      !url.startsWith("https://") ||
+      !url.includes(".public.blob.vercel-storage.com/")
+    ) {
+      return;
+    }
+
+    const response = await fetch("/api/upload/delete", {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        url,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data.error || "No se pudo eliminar la imagen anterior."
+      );
+    }
+  }
+
   async function uploadCroppedFile(file: File) {
     try {
       setUploading(true);
       setError("");
+
+      const previousImageUrl = value;
 
       const formData = new FormData();
       formData.append("file", file);
@@ -103,6 +133,20 @@ export default function ImageUploader({
 
       onChange(data.url);
       closeCropper();
+
+      if (
+        previousImageUrl &&
+        previousImageUrl !== data.url
+      ) {
+        try {
+          await deleteStoredImage(previousImageUrl);
+        } catch (deleteError) {
+          console.error(
+            "La nueva imagen se guardó, pero no se pudo eliminar la anterior:",
+            deleteError
+          );
+        }
+      }
     } catch (uploadError) {
       console.error("Error al subir imagen:", uploadError);
 
@@ -113,6 +157,31 @@ export default function ImageUploader({
       );
 
       throw uploadError;
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function removeImage() {
+    if (!value || uploading) {
+      return;
+    }
+
+    try {
+      setUploading(true);
+      setError("");
+
+      await deleteStoredImage(value);
+
+      onChange("");
+    } catch (removeError) {
+      console.error("Error al eliminar imagen:", removeError);
+
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : "No se pudo eliminar la imagen."
+      );
     } finally {
       setUploading(false);
     }
@@ -167,7 +236,7 @@ export default function ImageUploader({
             {value && (
               <button
                 type="button"
-                onClick={() => onChange("")}
+                onClick={removeImage}
                 disabled={uploading}
                 className="flex items-center gap-2 border border-[#D8CACA] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#B06B6B] transition hover:bg-[#FAF3F3] disabled:opacity-50"
               >

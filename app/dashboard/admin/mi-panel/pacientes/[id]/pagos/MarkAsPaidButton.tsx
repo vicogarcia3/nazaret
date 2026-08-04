@@ -3,6 +3,7 @@
 import { CheckCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 export default function MarkAsPaidButton({
   paymentId,
@@ -10,9 +11,17 @@ export default function MarkAsPaidButton({
   paymentId: string;
 }) {
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   async function handleClick() {
-    if (!confirm("¿Registrar este pago como abonado?")) return;
+    const confirmed = await confirmDialog({
+      title: "Registrar pago",
+      description:
+        "El pago quedará registrado como abonado.",
+      confirmText: "Registrar",
+    });
+
+    if (!confirmed) return;
 
     const res = await fetch(`/api/payments/${paymentId}/pay`, {
       method: "PUT",

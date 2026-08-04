@@ -17,6 +17,7 @@ import {
   UsersRound,
   X,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Branch = {
   id: string;
@@ -98,6 +99,7 @@ export default function OdontologosPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const confirm = useConfirm();
 
   const loadData = useCallback(async () => {
     try {
@@ -353,14 +355,18 @@ export default function OdontologosPage() {
       setSaving(false);
     }
   }
+  const confirmDialog = useConfirm();
 
   async function handleDelete(doctor: Doctor) {
     const displayName =
       doctor.name || doctor.user?.name || "este especialista";
 
-    const confirmed = window.confirm(
-      `¿Seguro que querés eliminar a ${displayName}? Esta acción puede afectar sus turnos, pacientes y presupuestos asociados.`
-    );
+    const confirmed = await confirmDialog({
+      title: "Eliminar especialista",
+      description:
+        "Esta acción eliminará el especialista y no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
 
     if (!confirmed) return;
 

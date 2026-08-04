@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, User, Phone, MapPin, BadgeCheck } from "lucide-react";
 import { toast } from "sonner";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Branch = {
   id: string;
@@ -41,7 +42,7 @@ export default function PacientesClient({
   plans: Plan[];
 }) {
   const router = useRouter();
-
+  const confirmDialog = useConfirm();
   const [search, setSearch] = useState("");
   const [branchFilter, setBranchFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -124,7 +125,14 @@ export default function PacientesClient({
   }
 
   async function handleDeletePatient(id: string) {
-    if (!confirm("¿Seguro que querés eliminar este paciente?")) {
+    const confirmed = await confirmDialog({
+      title: "Eliminar paciente",
+      description:
+        "El paciente será eliminado del sistema. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) {
       return;
     }
 

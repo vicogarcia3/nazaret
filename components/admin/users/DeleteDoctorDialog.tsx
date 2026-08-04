@@ -32,7 +32,6 @@ export default function DeleteDoctorDialog({
       confirmText="Eliminar especialista"
       cancelText="Cancelar"
       loading={loading}
-      variant="danger"
       onConfirm={onConfirm}
       onCancel={onCancel}
     />

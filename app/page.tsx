@@ -2,28 +2,31 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
 import ServicesCarousel from "./components/home/ServicesCarousel";
+import Header from "@/components/home/Header";
+import Image from "next/image";
 
 const GOOGLE_REVIEWS_URL =
   "https://www.google.com/maps/place/CONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)/@-31.3915773,-64.2255825,17z/data=!4m18!1m9!3m8!1s0x943298c48f0d390b:0x61d7bfb34430fa99!2sCONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728!3m7!1s0x943298c48f0d390b:0x61d7bfb34430fa99!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
 
 export default async function HomePage() {
 
-  const [config, services, doctors, branches, testimonials, servicesWithImages] =
+  const [config, doctors, branches, testimonials, servicesWithImages] =
     await Promise.all([
       prisma.siteConfig.findFirst(),
 
-      prisma.service.findMany({
-        where: { active: true },
-        orderBy: { title: "asc" },
-      }),
-
       prisma.doctor.findMany({
-        where: { active: true },
+        where: { 
+          active: true,
+          visible: true, 
+        },
         include: { user: true },
         orderBy: { id: "desc" },
       }),
 
       prisma.branch.findMany({
+        where: {
+          active: true,
+        },
         orderBy: {
           name: "asc",
         },
@@ -71,34 +74,10 @@ export default async function HomePage() {
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] text-[#1f1f1f]">
-      <header className="flex items-center justify-between px-8 py-5 md:px-16">
-        <h1 className="font-serif text-xl font-semibold uppercase tracking-tight text-gray-800">
-          {config?.clinicName || "Consultorios Nazaret"}
-        </h1>
-
-        <nav className="hidden space-x-10 text-xs font-medium uppercase tracking-widest md:flex">
-          <Link href="/#servicios">Servicios</Link>
-          <Link href="/#equipo">Equipo</Link>
-          <Link href="/#testimonios">Testimonios</Link>
-          <Link href="/#contacto">Contacto</Link>
-        </nav>
-
-        <div className="flex gap-3 text-sm">
-          <Link
-            href="/login"
-            className="rounded-full border border-[#A2B38B] px-4 py-2.5 text-[#6f7f5f] hover:bg-[#FFFCF7]"
-          >
-            Iniciar sesión
-          </Link>
-
-          <Link
-            href="/dashboard/patient/turnos"
-            className="rounded-full bg-[#A2B38B] px-5 py-2.5 text-white hover:bg-[#8FA178]"
-          >
-            Reservar turno
-          </Link>
-        </div>
-      </header>
+      <Header
+        clinicName={config?.clinicName}
+        showServices={servicesWithImages.length > 0}
+      />
 
       <section className="grid min-h-[78vh] items-center gap-12 px-8 py-12 md:grid-cols-2 md:px-16 lg:px-24">
         <div>
@@ -119,12 +98,14 @@ export default async function HomePage() {
               Reservar un turno
             </Link>
 
-            <a
-              href="#servicios"
-              className="rounded-full border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#6f7f5f] hover:bg-white"
-            >
-              Ver servicios
-            </a>
+            {servicesWithImages.length > 0 && (
+              <a
+                href="#servicios"
+                className="rounded-full border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#6F7F5F] transition hover:bg-white"
+              >
+                Ver servicios
+              </a>
+            )}
           </div>
         </div>
 
@@ -133,9 +114,13 @@ export default async function HomePage() {
 
           <div className="relative overflow-hidden rounded-[2rem] shadow-xl">
             {config?.heroImage ? (
-              <img
+              <Image
                 src={config.heroImage}
                 alt={config.clinicName || "Consultorio odontológico"}
+                width={900}
+                height={1200}
+                priority
+                sizes="(max-width: 768px) 100vw, 50vw"
                 className="aspect-[3/4] w-full rounded-[2rem] object-cover outline outline-1 -outline-offset-1 outline-black/5"
               />
             ) : (
@@ -157,14 +142,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section
-        id="servicios"
-        className="scroll-mt-8 bg-white"
-      >
-        {servicesWithImages.length > 0 && (
+      {servicesWithImages.length > 0 && (
+        <section
+          id="servicios"
+          className="scroll-mt-24 bg-white"
+        >
           <ServicesCarousel services={servicesWithImages} />
-        )}
-      </section>
+        </section>
+      )}
 
       <section
         id="equipo"
@@ -186,9 +171,12 @@ export default async function HomePage() {
                 className="rounded-3xl border bg-white p-6 shadow-sm"
               >
                 {doctor.photo ? (
-                  <img
+                  <Image
                     src={doctor.photo}
                     alt={doctor.name || doctor.user?.name || "Odontólogo"}
+                    width={96}
+                    height={96}
+                    sizes="96px"
                     className="mb-4 h-24 w-24 rounded-full object-cover"
                   />
                 ) : null}
@@ -225,7 +213,9 @@ export default async function HomePage() {
 
           <TestimonialsCarousel
             testimonials={publicTestimonials}
-            googleReviewsUrl={GOOGLE_REVIEWS_URL}
+            googleReviewsUrl={
+              config?.googleReviewsUrl || GOOGLE_REVIEWS_URL
+            }
           />
         </div>
       </section>

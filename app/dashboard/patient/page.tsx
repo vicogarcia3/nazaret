@@ -200,11 +200,7 @@ export default async function PatientDashboardPage() {
                 </h3>
 
                 <p className="mt-2 text-sm">
-                  {new Date(nextAppointment.date).toLocaleTimeString("es-AR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}{" "}
-                  h
+                  {formatAppointmentTime(nextAppointment.date)} hs
                 </p>
 
                 <p className="mt-3 flex items-center gap-2 text-sm text-[#6B7774]">
@@ -291,6 +287,15 @@ function formatAppointmentDate(date: Date) {
     month: "short",
     year: "numeric",
   });
+}
+
+function formatAppointmentTime(date: Date) {
+  return new Intl.DateTimeFormat("es-AR", {
+    timeZone: "America/Argentina/Cordoba",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(date));
 }
 
 function PatientCard({

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Treatment = {
   id: string;
@@ -17,6 +18,7 @@ export default function TratamientosClient() {
   const [price, setPrice] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const confirmDialog = useConfirm();
 
   async function loadTreatments() {
     const res = await fetch("/api/treatments");
@@ -79,7 +81,12 @@ export default function TratamientosClient() {
   }
 
   async function handleDelete(id: string) {
-    const confirmDelete = confirm("¿Eliminar este tratamiento?");
+    const confirmDelete = await confirmDialog({
+      title: "Eliminar tratamiento",
+      description:
+        "Este tratamiento será eliminado definitivamente.",
+      confirmText: "Eliminar",
+    });
     if (!confirmDelete) return;
 
     await fetch(`/api/treatments/${id}`, {

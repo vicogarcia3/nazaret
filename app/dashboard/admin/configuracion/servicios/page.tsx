@@ -15,6 +15,7 @@ import {
 import TreatmentManager from "@/components/admin/TratmentManager";
 import DoctorScheduleManager from "@/components/admin/DoctorScheduleManager";
 import ImageUploader from "@/components/admin/ImageUploader";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Service = {
   id: string;
@@ -97,6 +98,7 @@ export default function ServiciosPage() {
   const doctorFormRef = useRef<HTMLFormElement>(null);
   const editSectionRef = useRef<HTMLFormElement>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const confirmDialog = useConfirm();
   
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(false);
@@ -286,7 +288,7 @@ async function handleDoctorSubmit(e: React.FormEvent) {
       description: doctorForm.description,
       photo: doctorForm.photo,
       active: true,
-      visible: doctorForm.active,
+      visible: doctorForm.visible,
       branchIds: doctorForm.branchIds,
     }),
   });
@@ -435,13 +437,43 @@ async function handleContactSubmit(e: React.FormEvent) {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("¿Seguro que querés eliminar este servicio?")) return;
-
-    await fetch(`/api/services/${id}`, {
-      method: "DELETE",
+    const confirmed = await confirmDialog({
+      title: "Eliminar servicio",
+      description:
+        "El servicio será eliminado definitivamente y dejará de aparecer en el sitio.",
+      confirmText: "Eliminar",
     });
 
-    loadServices();
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/services/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        toast.error(
+          data.error || "No se pudo eliminar el servicio."
+        );
+        return;
+      }
+
+      setServices((currentServices) =>
+        currentServices.filter(
+          (service) => service.id !== id
+        )
+      );
+
+      toast.success("Servicio eliminado correctamente.");
+    } catch (error) {
+      console.error("Error eliminando servicio:", error);
+
+      toast.error("No se pudo eliminar el servicio.");
+    }
   }
 
   const tabs = [
@@ -579,7 +611,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                       <span>#{editingId ? "Editando" : services.length + 1}</span>
                     </div>
 
-                    <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
+                    <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B7774]">
                       <input
                         type="checkbox"
                         checked={form.active}
@@ -589,6 +621,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                             active: e.target.checked,
                           })
                         }
+                        className="h-4 w-4 accent-[#6F855F]"
                       />
                       Visible
                     </label>
@@ -706,7 +739,13 @@ async function handleContactSubmit(e: React.FormEvent) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="text-xs uppercase tracking-[0.2em] text-[#6B7774]">
+                      <span
+                        className={`text-xs font-semibold uppercase tracking-[0.2em] ${
+                          service.active
+                            ? "text-[#6F855F]"
+                            : "text-gray-400"
+                        }`}
+                      >
                         {service.active ? "Visible" : "Oculto"}
                       </span>
 
@@ -842,13 +881,14 @@ async function handleContactSubmit(e: React.FormEvent) {
                   <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
                     <input
                       type="checkbox"
-                      checked={doctorForm.active}
+                      checked={doctorForm.visible}
                       onChange={(e) =>
                         setDoctorForm({
                           ...doctorForm,
-                          active: e.target.checked,
+                          visible: e.target.checked,
                         })
                       }
+                      className="h-4 w-4 accent-[#6F855F]"
                     />
                     Visible
                   </label>
@@ -970,47 +1010,48 @@ async function handleContactSubmit(e: React.FormEvent) {
                   <span className="text-sm text-[#A2B38B]">#{index + 1}</span>
 
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-[#6B7774]">
-                      <input
-                        type="checkbox"
-                        checked={doctor.active}
-                        onChange={async (e) => {
-                          await fetch(`/api/doctors/${doctor.id}`, {
-                            method: "PUT",
-                            headers: {
-                              "Content-Type": "application/json",
-                            },
-                            body: JSON.stringify({
-                              ...doctor,
-                              active: e.target.checked,
-                              branchIds: doctor.branches.map((b) => b.branch.id),
-                              name: doctor.name || doctor.user?.name || "",
-                              email: doctor.user?.email || "",
-                            }),
-                          });
-
-                          loadDoctors();
-                        }}
-                      />
-                      Visible
-                    </label>
+                    <span
+                      className={`text-xs font-semibold uppercase tracking-[0.2em] ${
+                        doctor.visible
+                          ? "text-[#6F855F]"
+                          : "text-gray-400"
+                      }`}
+                    >
+                      {doctor.visible ? "Visible" : "Oculto"}
+                    </span>
 
                     <button
                       type="button"
                       onClick={async () => {
-                        if (!confirm("¿Seguro que querés eliminar este especialista?")) return;
+                        const confirmed = await confirmDialog({
+                          title: "Eliminar especialista",
+                          description:
+                            "Esta acción eliminará al especialista de la sección Equipo y no se puede deshacer.",
+                          confirmText: "Eliminar",
+                        });
+
+                        if (!confirmed) return;
 
                         const res = await fetch(`/api/doctors/${doctor.id}`, {
                           method: "DELETE",
                         });
 
+                        const data = await res.json();
+
                         if (!res.ok) {
-                          const data = await res.json();
-                          toast.error("No se pudo eliminar al especialista.");
+                          toast.error(
+                            data.error || "No se pudo eliminar el especialista."
+                          );
                           return;
                         }
 
-                        loadDoctors();
+                        setDoctors((currentDoctors) =>
+                          currentDoctors.filter(
+                            (currentDoctor) => currentDoctor.id !== doctor.id
+                          )
+                        );
+
+                        toast.success("Especialista eliminado correctamente.");
                       }}
                       className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D97A7A] hover:underline"
                     >
@@ -1219,25 +1260,23 @@ async function handleContactSubmit(e: React.FormEvent) {
 
                         <div className="flex flex-wrap gap-2">
                           <span
-                            className={`border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                            className={`text-xs font-semibold uppercase tracking-[0.2em] ${
                               testimonial.approved
-                                ? "border-[#A2B38B] bg-[#F2F5EF] text-[#56705F]"
-                                : "border-[#E3C98A] bg-[#FFF8E8] text-[#927025]"
+                                ? "text-[#6F855F]"
+                                : "text-[#B8902F]"
                             }`}
                           >
-                            {testimonial.approved
-                              ? "Aprobada"
-                              : "Pendiente"}
+                            {testimonial.approved ? "Aprobado" : "Pendiente"}
                           </span>
 
                           <span
-                            className={`border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                            className={`text-xs font-semibold uppercase tracking-[0.2em] ${
                               testimonial.visible
-                                ? "border-[#A2B38B] bg-[#F2F5EF] text-[#56705F]"
-                                : "border-[#D8CACA] bg-[#FAF3F3] text-[#9A6868]"
+                                ? "text-[#6F855F]"
+                                : "text-gray-400"
                             }`}
                           >
-                            {testimonial.visible ? "Visible" : "Oculta"}
+                            {testimonial.visible ? "Visible" : "Oculto"}
                           </span>
                         </div>
                       </div>
@@ -1397,6 +1436,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                             onChange={(e) =>
                               updateBranchField(branch.id, "active", e.target.checked)
                             }
+                            className="h-4 w-4 accent-[#6F855F]"
                           />
                           Visible
                         </label>

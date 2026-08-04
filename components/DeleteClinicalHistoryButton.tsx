@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useConfirm } from "./ui/ConfirmProvider";
 
 type Props = {
   patientId: string;
@@ -12,13 +13,17 @@ export default function DeleteClinicalHistoryButton({
   patientId,
 }: Props) {
   const router = useRouter();
+  const confirmDialog = useConfirm();
 
   const [loading, setLoading] = useState(false);
 
   async function handleDelete() {
-    const confirmed = window.confirm(
-      "¿Eliminar la historia clínica?\n\nEsta acción no se puede deshacer."
-    );
+    const confirmed = await confirmDialog({
+      title: "Eliminar historia clínica",
+      description:
+        "La historia clínica será eliminada definitivamente. Esta acción no se puede deshacer.",
+      confirmText: "Eliminar",
+    });
 
     if (!confirmed) return;
 

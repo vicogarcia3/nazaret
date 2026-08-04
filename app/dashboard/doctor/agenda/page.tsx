@@ -17,6 +17,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type AppointmentStatus =
   | "PENDING"
@@ -1204,6 +1205,7 @@ function AppointmentDrawer({
   ) => void;
   onSaveNotes: () => void;
 }) {
+  const confirmDialog = useConfirm();
   return (
     <div className="fixed inset-0 z-50">
       <button
@@ -1384,17 +1386,17 @@ function AppointmentDrawer({
                     label="Cancelar turno"
                     danger
                     disabled={saving}
-                    onClick={() => {
-                      const confirmed =
-                        window.confirm(
-                          "¿Seguro que querés cancelar este turno?"
-                        );
+                    onClick={async () => {
+                      const confirmed = await confirmDialog({
+                        title: "Cancelar turno",
+                        description:
+                          "¿Seguro que querés cancelar este turno?",
+                        confirmText: "Cancelar turno",
+                      });
 
-                      if (confirmed) {
-                        onUpdateStatus(
-                          "CANCELED"
-                        );
-                      }
+                      if (!confirmed) return;
+
+                      onUpdateStatus("CANCELED");
                     }}
                   />
                 )}

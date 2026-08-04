@@ -7,6 +7,369 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Payment {
+  id                     String        @id @default(cuid())
+  amount                 Decimal @db.Decimal(12, 2)
+  concept                String?
+  status                 PaymentStatus @default(PENDING)
+  dueDate                DateTime
+  paidAt                 DateTime?
+  patientId              String
+  budgetId               String?
+  createdAt              DateTime      @default(now())
+  whatsappReminderSent   Boolean       @default(false)
+  whatsappReminderSentAt DateTime?
+  paymentMethod          String?
+  budget                 Budget?       @relation(fields: [budgetId], references: [id])
+  patient                Patient       @relation(fields: [patientId], references: [id])
+
+  @@index([patientId])
+  @@index([budgetId])
+  @@index([status])
+  @@index([paidAt])
+}
+
+model User {
+  id                      String                   @id @default(cuid())
+  name                    String
+  email                   String                   @unique
+  password                String?
+  role                    Role
+  lastLoginAt             DateTime?
+  image                   String?
+  emailVerified           DateTime?
+  doctor                  Doctor?
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  patient                 Patient?
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  userId    String
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Branch {
+  id                  String                    @id @default(cuid())
+  name                String
+  city                String
+  address             String
+  phone               String?
+  active              Boolean                   @default(true)
+  mapUrl              String?
+  mondayToFridayHours String?
+  saturdayHours       String?
+  sundayHours         String?
+  appointments        Appointment[]
+  doctors             DoctorBranch[]
+  doctorSchedules     DoctorSchedule[]
+  scheduleExceptions  DoctorScheduleException[]
+  specificSchedules   DoctorSpecificSchedule[]
+  expenses            Expense[]
+  galleryImages       GalleryImage[]
+  patients            Patient[]
+}
+
+model Doctor {
+  id                 String                    @id @default(cuid())
+  userId             String?                   @unique
+  specialty          String?
+  description        String?
+  photo              String?
+  active             Boolean                   @default(true)
+  name               String
+  visible            Boolean                   @default(true)
+  appointments       Appointment[]
+  budgets            Budget[]
+  user               User?                     @relation(fields: [userId], references: [id])
+  branches           DoctorBranch[]
+  schedules          DoctorSchedule[]
+  scheduleExceptions DoctorScheduleException[]
+  specificSchedules  DoctorSpecificSchedule[]
+  notifications      Notification[]
+  patients           Patient[]
+}
+
+model DoctorBranch {
+  doctorId String
+  branchId String
+  branch   Branch @relation(fields: [branchId], references: [id])
+  doctor   Doctor @relation(fields: [doctorId], references: [id])
+
+  @@id([doctorId, branchId])
+}
+
+model Plan {
+  id          String    @id @default(cuid())
+  name        String
+  description String
+  price       Decimal?  @db.Decimal(12, 2)
+  active      Boolean   @default(true)
+  discount    Decimal   @default(0) @db.Decimal(5, 2)
+  patients    Patient[]
+}
+
+model Patient {
+  id            String            @id @default(cuid())
+  firstName     String
+  lastName      String
+  dni           String?
+  phone         String
+  email         String?
+  birthDate     DateTime?
+  branchId      String
+  doctorId      String?
+  planId        String?
+  createdAt     DateTime          @default(now())
+  userId        String?           @unique
+  appointments  Appointment[]
+  budgets       Budget[]
+  histories     ClinicalHistory[]
+  notifications Notification[]
+  odontogram    Odontogram?
+  branch        Branch            @relation(fields: [branchId], references: [id])
+  doctor        Doctor?           @relation(fields: [doctorId], references: [id])
+  plan          Plan?             @relation(fields: [planId], references: [id])
+  user          User?             @relation(fields: [userId], references: [id])
+  payments      Payment[]
+  testimonial   Testimonial?
+}
+
+model Appointment {
+  id           String            @id @default(cuid())
+  date         DateTime
+  status       AppointmentStatus @default(PENDING)
+  notes        String?
+  patientId    String
+  doctorId     String
+  branchId     String
+  createdAt    DateTime          @default(now())
+  reminderSent Boolean           @default(false)
+  branch       Branch            @relation(fields: [branchId], references: [id])
+  doctor       Doctor            @relation(fields: [doctorId], references: [id])
+  patient      Patient           @relation(fields: [patientId], references: [id])
+
+  @@index([doctorId, branchId, date])
+  @@index([branchId, date])
+  @@index([patientId, date])
+  @@index([status])
+}
+
+model Budget {
+  id               String       @id @default(cuid())
+  total            Decimal
+  description      String?
+  patientId        String
+  doctorId         String
+  createdAt        DateTime     @default(now())
+  discount         Decimal      @default(0)
+  subtotal         Decimal
+  status           String       @default("CREATED")
+  updatedAt        DateTime     @default(now()) @updatedAt
+  doctorSignature  String?
+  patientSignature String?
+  doctor           Doctor       @relation(fields: [doctorId], references: [id])
+  patient          Patient      @relation(fields: [patientId], references: [id])
+  items            BudgetItem[]
+  payments         Payment[]
+
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+}
+
+model ClinicalHistory {
+  id        String   @id @default(cuid())
+  diagnosis String?
+  treatment String?
+  patientId String
+  createdAt DateTime @default(now())
+  data      Json?
+  updatedAt DateTime @updatedAt
+  patient   Patient  @relation(fields: [patientId], references: [id])
+}
+
+model SiteConfig {
+  id                    Int      @id @default(1)
+  heroTitle             String
+  heroSubtitle          String
+  whatsapp              String?
+  instagram             String?
+  facebook              String?
+  updatedAt             DateTime @updatedAt
+  clinicName            String
+  heroImage             String?
+  logo                  String?
+  createdAt             DateTime @default(now())
+  businessHoursSaturday String?
+  businessHoursSunday   String?
+  businessHoursWeek     String?
+  googleReviewsUrl      String?
+}
+
+model Service {
+  id          String  @id @default(cuid())
+  title       String
+  description String
+  image       String?
+  active      Boolean @default(true)
+}
+
+model GalleryImage {
+  id       String  @id @default(cuid())
+  imageUrl String
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
+}
+
+model BudgetItem {
+  id          String @id @default(cuid())
+  budgetId    String
+  serviceName String
+  quantity    Int    @default(1)
+  unitPrice   Float
+  total       Float
+  budget      Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+
+  @@index([budgetId])
+}
+
+model Odontogram {
+  id        String   @id @default(cuid())
+  patientId String   @unique
+  data      Json
+  updatedAt DateTime @updatedAt
+  patient   Patient  @relation(fields: [patientId], references: [id])
+}
+
+model OdontogramCondition {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+}
+
+model DoctorSchedule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  branchId  String
+  weekday   Int
+  startTime String
+  endTime   String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, weekday])
+  @@index([branchId, weekday])
+}
+
+model DoctorScheduleException {
+  id        String   @id @default(cuid())
+  doctorId  String
+  branchId  String
+  date      DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, date])
+  @@index([branchId, date])
+}
+
+model DoctorSpecificSchedule {
+  id        String   @id @default(cuid())
+  doctorId  String
+  branchId  String
+  date      DateTime @db.Date
+  startTime String
+  endTime   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  branch    Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, date])
+  @@index([branchId, date])
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  concept   String
+  category  String
+  amount    Float
+  date      DateTime
+  branchId  String?
+  createdAt DateTime @default(now())
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+}
+
+model Treatment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Decimal? @db.Decimal(12, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  rating    Int
+  comment   String?
+  visible   Boolean  @default(true)
+  patientId String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  approved  Boolean  @default(false)
+  patient   Patient  @relation(fields: [patientId], references: [id])
+}
+
+model Notification {
+  id                String            @id @default(cuid())
+  patientId         String?
+  title             String
+  message           String
+  type              NotificationType
+  read              Boolean           @default(false)
+  actionUrl         String?
+  appointmentId     String?
+  budgetId          String?
+  paymentId         String?
+  clinicalHistoryId String?
+  createdAt         DateTime          @default(now())
+  actor             NotificationActor @default(SYSTEM)
+  doctorId          String?
+  doctor            Doctor?           @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient           Patient?          @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, read])
+  @@index([doctorId, read])
+  @@index([createdAt])
+}
+
 enum Role {
   ADMIN
   DOCTOR
@@ -37,472 +400,4 @@ enum NotificationActor {
   DOCTOR
   ADMIN
   SYSTEM
-}
-
-model Payment {
-  id String @id @default(cuid())
-
-  amount        Float
-  concept       String?
-  paymentMethod String?
-
-  status PaymentStatus @default(PENDING)
-
-  dueDate DateTime
-  paidAt  DateTime?
-
-  whatsappReminderSent   Boolean   @default(false)
-  whatsappReminderSentAt DateTime?
-
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  budgetId String?
-  budget   Budget? @relation(fields: [budgetId], references: [id])
-
-  createdAt DateTime @default(now())
-
-  @@index([patientId])
-  @@index([budgetId])
-  @@index([status])
-  @@index([paidAt])
-}
-
-model User {
-  id String @id @default(cuid())
-
-  name     String
-  email    String  @unique
-  password String?
-  image    String?
-
-  role Role
-
-  doctor  Doctor?
-  patient Patient?
-
-  lastLoginAt   DateTime?
-  emailVerified DateTime?
-
-  passwordResetTokens     PasswordResetToken[]
-  emailVerificationTokens EmailVerificationToken[]
-}
-
-model EmailVerificationToken {
-  id String @id @default(cuid())
-
-  token     String   @unique
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-}
-
-model PasswordResetToken {
-  id String @id @default(cuid())
-
-  tokenHash String    @unique
-  expiresAt DateTime
-  usedAt    DateTime?
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([expiresAt])
-}
-
-model Branch {
-  id String @id @default(cuid())
-
-  name    String
-  city    String
-  address String
-
-  phone  String?
-  mapUrl String?
-
-  mondayToFridayHours String?
-  saturdayHours       String?
-  sundayHours         String?
-
-  active Boolean @default(true)
-
-  doctors            DoctorBranch[]
-  patients           Patient[]
-  appointments       Appointment[]
-  galleryImages      GalleryImage[]
-  doctorSchedules    DoctorSchedule[]
-  specificSchedules  DoctorSpecificSchedule[]
-  scheduleExceptions DoctorScheduleException[]
-  expenses           Expense[]
-}
-
-model Doctor {
-  id String @id @default(cuid())
-
-  name String
-
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  specialty   String?
-  description String?
-  photo       String?
-
-  active  Boolean @default(true)
-  visible Boolean @default(true)
-
-  branches           DoctorBranch[]
-  patients           Patient[]
-  appointments       Appointment[]
-  budgets            Budget[]
-  schedules          DoctorSchedule[]
-  specificSchedules  DoctorSpecificSchedule[]
-  scheduleExceptions DoctorScheduleException[]
-  notifications      Notification[]
-}
-
-model DoctorBranch {
-  doctorId String
-  branchId String
-
-  doctor Doctor @relation(fields: [doctorId], references: [id])
-  branch Branch @relation(fields: [branchId], references: [id])
-
-  @@id([doctorId, branchId])
-}
-
-model Plan {
-  id String @id @default(cuid())
-
-  name        String
-  description String
-  price       Float?
-
-  discount Float   @default(0)
-  active   Boolean @default(true)
-
-  patients Patient[]
-}
-
-model Patient {
-  id String @id @default(cuid())
-
-  userId String? @unique
-  user   User?   @relation(fields: [userId], references: [id])
-
-  firstName String
-  lastName  String
-
-  dni         String?
-  phone       String
-  email       String?
-  testimonial Testimonial?
-
-  birthDate DateTime?
-
-  branchId String
-  branch   Branch @relation(fields: [branchId], references: [id])
-
-  doctorId String?
-  doctor   Doctor? @relation(fields: [doctorId], references: [id])
-
-  planId String?
-  plan   Plan?   @relation(fields: [planId], references: [id])
-
-  appointments  Appointment[]
-  budgets       Budget[]
-  histories     ClinicalHistory[]
-  payments      Payment[]
-  notifications Notification[]
-
-  createdAt  DateTime    @default(now())
-  odontogram Odontogram?
-}
-
-model Appointment {
-  id String @id @default(cuid())
-
-  date DateTime
-
-  status       AppointmentStatus @default(PENDING)
-  reminderSent Boolean           @default(false)
-
-  notes String?
-
-  patientId String
-  doctorId  String
-  branchId  String
-
-  patient Patient @relation(fields: [patientId], references: [id])
-  doctor  Doctor  @relation(fields: [doctorId], references: [id])
-  branch  Branch  @relation(fields: [branchId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
-model Budget {
-  id String @id @default(cuid())
-
-  description String?
-
-  patientId String
-  doctorId  String
-
-  subtotal Decimal
-  discount Decimal @default(0)
-  total    Decimal
-
-  status String @default("CREATED")
-
-  patient Patient @relation(fields: [patientId], references: [id])
-  doctor  Doctor  @relation(fields: [doctorId], references: [id])
-
-  payments Payment[]
-  items    BudgetItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
-
-  @@index([patientId])
-  @@index([doctorId])
-  @@index([status])
-}
-
-model ClinicalHistory {
-  id String @id @default(cuid())
-
-  patientId String
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  diagnosis String?
-  treatment String?
-
-  data Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model SiteConfig {
-  id Int @id @default(1)
-
-  clinicName            String
-  heroTitle             String
-  heroSubtitle          String
-  businessHoursWeek     String?
-  businessHoursSaturday String?
-  businessHoursSunday   String?
-
-  logo      String?
-  heroImage String?
-
-  whatsapp         String?
-  instagram        String?
-  facebook         String?
-  googleReviewsUrl String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Service {
-  id String @id @default(cuid())
-
-  title       String
-  description String
-  image       String?
-
-  active Boolean @default(true)
-}
-
-model GalleryImage {
-  id String @id @default(cuid())
-
-  imageUrl String
-
-  branchId String?
-
-  branch Branch? @relation(fields: [branchId], references: [id])
-}
-
-model BudgetItem {
-  id String @id @default(cuid())
-
-  budgetId String
-
-  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-
-  serviceName String
-
-  quantity Int @default(1)
-
-  unitPrice Float
-
-  total Float
-
-  @@index([budgetId])
-}
-
-model Odontogram {
-  id String @id @default(cuid())
-
-  patientId String @unique
-
-  patient Patient @relation(fields: [patientId], references: [id])
-
-  data Json
-
-  updatedAt DateTime @updatedAt
-}
-
-model OdontogramCondition {
-  id String @id @default(cuid())
-
-  name  String
-  color String
-
-  createdAt DateTime @default(now())
-}
-
-model DoctorSchedule {
-  id String @id @default(cuid())
-
-  doctorId String
-  branchId String
-
-  // 0 domingo, 1 lunes, 2 martes...
-  weekday Int
-
-  startTime String
-  endTime   String
-
-  active Boolean @default(true)
-
-  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([doctorId, weekday])
-  @@index([branchId, weekday])
-}
-
-model DoctorScheduleException {
-  id String @id @default(cuid())
-
-  doctorId String
-  branchId String
-
-  date   DateTime @db.Date
-  reason String?
-
-  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-
-  @@unique([doctorId, date])
-  @@index([branchId, date])
-}
-
-model DoctorSpecificSchedule {
-  id String @id @default(cuid())
-
-  doctorId String
-  branchId String
-
-  date DateTime @db.Date
-
-  startTime String
-  endTime   String
-
-  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([doctorId, date])
-  @@index([branchId, date])
-}
-
-model Expense {
-  id       String   @id @default(cuid())
-  concept  String
-  category String
-  amount   Float
-  date     DateTime
-
-  branchId String?
-  branch   Branch? @relation(fields: [branchId], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
-model Treatment {
-  id String @id @default(cuid())
-
-  name        String
-  description String?
-  price       Float?
-  active      Boolean @default(true)
-
-  createdAt DateTime @default(now())
-}
-
-model Testimonial {
-  id String @id @default(cuid())
-
-  rating Int
-
-  comment String?
-
-  visible Boolean @default(true)
-
-  approved Boolean @default(false)
-
-  patientId String  @unique
-  patient   Patient @relation(fields: [patientId], references: [id])
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Notification {
-  id String @id @default(cuid())
-
-  patientId String?
-  patient   Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
-
-  doctorId String?
-  doctor   Doctor? @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-
-  title   String
-  message String
-
-  type  NotificationType
-  actor NotificationActor @default(SYSTEM)
-
-  read Boolean @default(false)
-
-  actionUrl String?
-
-  appointmentId     String?
-  budgetId          String?
-  paymentId         String?
-  clinicalHistoryId String?
-
-  createdAt DateTime @default(now())
-
-  @@index([patientId, read])
-  @@index([doctorId, read])
-  @@index([createdAt])
 }
