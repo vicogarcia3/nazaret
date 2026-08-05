@@ -1104,6 +1104,16 @@ async function handleContactSubmit(e: React.FormEvent) {
                     </p>
 
                     <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                      Matrícula profesional
+                    </p>
+
+                    <p className="mt-2 border border-[#DED9CD] p-2">
+                      {doctor.professionalLicense
+                        ? `MP ${doctor.professionalLicense}`
+                        : "Sin matrícula cargada"}
+                    </p>
+
+                    <p className="mt-6 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                       Sucursales
                     </p>
 
