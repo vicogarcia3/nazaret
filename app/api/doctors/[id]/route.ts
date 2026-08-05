@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 type RouteContext = {
   params: Promise<{
@@ -291,6 +292,10 @@ export async function PUT(
       }
     );
 
+    revalidatePath("/");
+    revalidatePath("/dashboard/admin/configuracion/servicios");
+    revalidatePath("/dashboard/admin/configuracion/odontologos");
+
     return NextResponse.json({
       message: "Especialista actualizado correctamente.",
       doctor: updatedDoctor,
@@ -435,6 +440,10 @@ export async function DELETE(
         },
       });
     });
+
+    revalidatePath("/");
+    revalidatePath("/dashboard/admin/configuracion/servicios");
+    revalidatePath("/dashboard/admin/configuracion/odontologos");
 
     return NextResponse.json({
       message: `${
