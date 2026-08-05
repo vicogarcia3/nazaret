@@ -291,10 +291,11 @@ async function handleDoctorSubmit(e: React.FormEvent) {
     body: JSON.stringify({
       name: doctorForm.name,
       email: doctorForm.email,
-      specialty: doctorForm.specialty,
-      professionalLicense: doctorForm.specialty.trim() || null,
-      description: doctorForm.description,
-      photo: doctorForm.photo,
+      specialty: doctorForm.specialty.trim() || null,
+      professionalLicense:
+        doctorForm.professionalLicense.trim() || null,
+      description: doctorForm.description.trim() || null,
+      photo: doctorForm.photo || null,
       active: true,
       visible: doctorForm.visible,
       branchIds: doctorForm.branchIds,
