@@ -4,6 +4,8 @@ import TestimonialsCarousel from "@/components/home/TestimonialsCarousel";
 import ServicesCarousel from "./components/home/ServicesCarousel";
 import Header from "@/components/home/Header";
 import Image from "next/image";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const GOOGLE_REVIEWS_URL =
   "https://www.google.com/maps/place/CONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)/@-31.3915773,-64.2255825,17z/data=!4m18!1m9!3m8!1s0x943298c48f0d390b:0x61d7bfb34430fa99!2sCONSULTORIOS+NAZARET-+BARRIO+LAS+ROSAS+(CORDOBA+CAPITAL)!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728!3m7!1s0x943298c48f0d390b:0x61d7bfb34430fa99!8m2!3d-31.3915773!4d-64.2255825!9m1!1b1!16s%2Fg%2F11f5dbt728?entry=ttu&g_ep=EgoyMDI2MDcyNi4wIKXMDSoASAFQAw%3D%3D";
@@ -206,6 +208,12 @@ export default async function HomePage() {
                 <h3 className="text-lg font-semibold">
                   {doctor.name || doctor.user?.name || "Especialista"}
                 </h3>
+
+                {doctor.professionalLicense && (
+                  <p className="mt-1 text-xs text-[#6B7774]">
+                    MP {doctor.professionalLicense}
+                  </p>
+                )}
 
                 <p className="mt-1 text-sm text-[#A2B38B]">
                   {doctor.specialty || "Odontología general"}
