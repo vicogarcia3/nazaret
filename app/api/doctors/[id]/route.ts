@@ -257,11 +257,9 @@ export async function PUT(
           data: {
             name,
             specialty: normalizeNullableText(body.specialty),
+            professionalLicense: normalizeNullableText(body.professionalLicense),
             description: normalizeNullableText(body.description),
             photo: normalizeNullableText(body.photo),
-            professionalLicense: normalizeNullableText(
-              body.professionalLicense
-            ),
 
             ...(typeof body.active === "boolean" && {
               active: body.active,

@@ -119,6 +119,12 @@ export async function POST(request: Request) {
         ? body.specialty.trim()
         : null;
 
+    const professionalLicense =
+      typeof body.professionalLicense === "string" &&
+      body.professionalLicense.trim()
+        ? body.professionalLicense.trim()
+        : null;
+
     const description =
       typeof body.description === "string" && body.description.trim()
         ? body.description.trim()
@@ -188,6 +194,7 @@ export async function POST(request: Request) {
         name,
         userId: null,
         specialty,
+        professionalLicense,
         description,
         photo,
         active,

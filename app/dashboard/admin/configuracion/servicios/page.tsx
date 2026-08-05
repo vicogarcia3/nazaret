@@ -292,6 +292,7 @@ async function handleDoctorSubmit(e: React.FormEvent) {
       name: doctorForm.name,
       email: doctorForm.email,
       specialty: doctorForm.specialty,
+      professionalLicense: doctorForm.specialty.trim() || null,
       description: doctorForm.description,
       photo: doctorForm.photo,
       active: true,
