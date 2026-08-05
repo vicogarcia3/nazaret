@@ -358,7 +358,7 @@ export async function POST(req: Request) {
 
                   <p style="margin:0 0 28px;font-size:16px;color:#4F5A55;line-height:1.7;">
                     El paciente <strong>${patientName}</strong> solicitó un nuevo turno.
-                    Podés revisar la solicitud desde tu portal de especialista.
+                    Podés revisar la solicitud desde tu portal.
                   </p>
 
                   <table cellpadding="0" cellspacing="0" width="100%"

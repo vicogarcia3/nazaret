@@ -4,6 +4,7 @@ export type DoctorProfile = {
   id: string;
   name: string | null;
   specialty: string | null;
+  professionalLicense: string | null;
   description: string | null;
   photo: string | null;
   active: boolean;
@@ -33,6 +34,7 @@ export type AvailableDoctor = {
   id: string;
   name: string | null;
   specialty: string | null;
+  professionalLicense: string | null;
   photo: string | null;
   active: boolean;
   visible: boolean;
@@ -50,6 +52,7 @@ export type DoctorFormValues = {
   name: string;
   email: string;
   specialty: string;
+  professionalLicense: string;
   description: string;
   photo: string;
   active: boolean;

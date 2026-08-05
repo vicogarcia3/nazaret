@@ -95,6 +95,7 @@ model Doctor {
   specialty          String?
   description        String?
   photo              String?
+  professionalLicense String?
   active             Boolean                   @default(true)
   name               String
   visible            Boolean                   @default(true)

@@ -32,7 +32,8 @@ type Doctor = {
     name: string;
     email: string;
   } | null;
-  specialty: string | null;
+  specialty: string |null;
+  professionalLicense: string | null;
   description: string | null;
   photo: string | null;
   active: boolean;
@@ -109,6 +110,7 @@ export default function ServiciosPage() {
     name: string;
     email: string;
     specialty: string;
+    professionalLicense: string;
     description: string;
     photo: string;
     active: boolean;
@@ -118,6 +120,7 @@ export default function ServiciosPage() {
     name: "",
     email: "",
     specialty: "",
+    professionalLicense: "",
     description: "",
     photo: "",
     active: true,
@@ -209,12 +212,16 @@ export default function ServiciosPage() {
       name: doctor.name || doctor.user?.name || "",
       email: doctor.user?.email || "",
       specialty: doctor.specialty || "",
+      professionalLicense: doctor.professionalLicense || "",
       description: doctor.description || "",
       photo: doctor.photo || "",
       active: doctor.active,
       visible: doctor.visible,
-      branchIds: doctor.branches.map((branch) => branch.branchId),
+      branchIds: doctor.branches.map(
+        (branch) => branch.branchId
+      ),
     });
+
     setShowDoctorForm(true);
 
     requestAnimationFrame(() => {
@@ -305,6 +312,7 @@ async function handleDoctorSubmit(e: React.FormEvent) {
     name: "",
     email: "",
     specialty: "",
+    professionalLicense: "",
     description: "",
     photo: "",
     active: true,
@@ -808,6 +816,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                       name: "",
                       email: "",
                       specialty: "",
+                      professionalLicense: "",
                       description: "",
                       photo: "",
                       active: true,
@@ -826,6 +835,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                     name: "",
                     email: "",
                     specialty: "",
+                    professionalLicense: "",
                     description: "",
                     photo: "",
                     active: true,
@@ -914,6 +924,25 @@ async function handleContactSubmit(e: React.FormEvent) {
                       required
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                    Matrícula profesional
+                  </label>
+
+                  <input
+                    type="text"
+                    value={doctorForm.professionalLicense}
+                    onChange={(event) =>
+                      setDoctorForm((current) => ({
+                        ...current,
+                        professionalLicense: event.target.value,
+                      }))
+                    }
+                    placeholder="Ej: MP 12345"
+                    className="mt-2 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                  />
                 </div>
 
                 <div className="mt-6">

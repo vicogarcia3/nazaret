@@ -27,6 +27,7 @@ const EMPTY_FORM: DoctorFormValues = {
   name: "",
   email: "",
   specialty: "",
+  professionalLicense: "",
   description: "",
   photo: "",
   active: true,
@@ -69,6 +70,7 @@ export default function EditDoctorModal({
       name: user.name || "",
       email: user.email,
       specialty: user.doctor.specialty || "",
+      professionalLicense: user.doctor.professionalLicense || "",
       description: user.doctor.description || "",
       photo: user.doctor.photo || "",
       active: user.doctor.active,
@@ -170,6 +172,7 @@ export default function EditDoctorModal({
           name: form.name.trim(),
           email: form.email.trim().toLowerCase(),
           specialty: form.specialty.trim() || null,
+          professionalLicense: form.professionalLicense.trim() || null,
           description: form.description.trim() || null,
           photo: form.photo || null,
           active: form.active,
@@ -296,7 +299,19 @@ export default function EditDoctorModal({
                 }
               />
 
-              <label className="mt-7 flex items-center justify-between border border-[#DED9CD] px-4 py-3">
+              <TextField
+                label="Matrícula profesional"
+                value={form.professionalLicense}
+                placeholder="Ejemplo: 12345"
+                onChange={(value) =>
+                  setForm((current) => ({
+                    ...current,
+                    professionalLicense: value,
+                  }))
+                }
+              />
+
+              <label className="flex items-center justify-between border border-[#DED9CD] px-4 py-3 md:col-span-2">
                 <span>
                   <span className="block text-sm font-medium text-[#12302A]">
                     Especialista activo
