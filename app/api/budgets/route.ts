@@ -412,6 +412,28 @@ export async function POST(request: Request) {
       },
     });
 
+    const doctorName =
+      budget.doctor.name ||
+      budget.doctor.user?.name ||
+      "Tu odontólogo";
+
+    await prisma.notification.create({
+      data: {
+        patientId: budget.patientId,
+        doctorId: budget.doctorId,
+        budgetId: budget.id,
+
+        title: "Nuevo presupuesto",
+
+        message: `${doctorName} creó un nuevo presupuesto. Más detalles en "Presupuestos".`,
+
+        type: "BUDGET",
+        actor: "DOCTOR",
+
+        actionUrl: "/dashboard/patient/presupuestos",
+      },
+    });
+
     return NextResponse.json(
       {
         ...budget,

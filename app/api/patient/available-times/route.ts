@@ -36,19 +36,11 @@ function minutesToTime(minutes: number) {
   ).padStart(2, "0")}`;
 }
 
-/*
- * Ejemplo:
- *
- * Agenda: 09:30 a 18:30
- *
- * Primer turno: 10:00
- * Último turno: 18:00
- */
 function generateSlots(startTime: string, endTime: string) {
   const slots: string[] = [];
 
-  const firstSlot = timeToMinutes(startTime) + 30;
-  const lastSlot = timeToMinutes(endTime) - 30;
+  const firstSlot = timeToMinutes(startTime);
+  const lastSlot = timeToMinutes(endTime);
 
   if (firstSlot > lastSlot) {
     return slots;
@@ -245,6 +237,22 @@ export async function GET(request: NextRequest) {
       )
     ).sort();
 
+    function getArgentinaNow() {
+      return new Date(
+        new Date().toLocaleString("en-US", {
+          timeZone: "America/Argentina/Cordoba",
+        })
+      );
+    }
+
+    function formatLocalDateKey(date: Date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+
+      return `${year}-${month}-${day}`;
+    }
+
     /*
      * 4. Obtenemos los turnos ocupados.
      */
@@ -272,13 +280,24 @@ export async function GET(request: NextRequest) {
       )
     );
 
-    /*
-     * 5. Devolvemos solamente los horarios libres,
-     * en el formato que espera ReservarTurnoClient.
-     */
-    const availableTimes = generatedTimes.filter(
-      (time) => !occupiedTimes.has(time)
-    );
+    const nowInArgentina = getArgentinaNow();
+    const todayKey = formatLocalDateKey(nowInArgentina);
+
+    const currentMinutes =
+      nowInArgentina.getHours() * 60 +
+      nowInArgentina.getMinutes();
+
+    const availableTimes = generatedTimes.filter((time) => {
+      if (occupiedTimes.has(time)) {
+        return false;
+      }
+
+      if (dateParam === todayKey) {
+        return timeToMinutes(time) > currentMinutes;
+      }
+
+      return true;
+    });
 
     return NextResponse.json(availableTimes);
   } catch (error) {

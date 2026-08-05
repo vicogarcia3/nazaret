@@ -22,7 +22,7 @@ export default async function HomePage() {
       user: true,
     },
     orderBy: {
-      id: "desc",
+      name: "asc",
     },
   });
 

@@ -71,6 +71,15 @@ export default async function PatientDashboardPage() {
     redirect("/login");
   }
 
+  const siteConfig = await prisma.siteConfig.findFirst({
+    select: {
+      whatsapp: true,
+    },
+  });
+
+  const whatsappNumber =
+    siteConfig?.whatsapp?.replace(/\D/g, "") || "";
+
   const nextAppointment = patient.appointments[0];
 
   return (
@@ -260,20 +269,36 @@ export default async function PatientDashboardPage() {
             <h2 className="font-semibold">¿Necesitás ayuda?</h2>
 
             <p className="mt-1 text-sm leading-5 text-[#6B7774]">
-              Estamos para ayudarte. Contactanos por WhatsApp o teléfono.
+              Estamos para ayudarte. Contactanos por WhatsApp o consultá las preguntas frecuentes.
             </p>
           </div>
         </div>
 
         <div className="grid w-full grid-cols-1 gap-3 sm:grid-cols-2 md:flex md:w-auto">
-          <button className="w-full border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto">
-            WhatsApp
-          </button>
+          {whatsappNumber ? (
+            <a
+              href={`https://wa.me/${whatsappNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center justify-center gap-2 border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto"
+            >
+              <Phone className="h-4 w-4 shrink-0" />
+              WhatsApp
+            </a>
+          ) : (
+            <span className="flex w-full cursor-not-allowed items-center justify-center gap-2 border border-[#DED9CD] px-6 py-3 text-sm text-[#9A9F9D] md:w-auto">
+              <Phone className="h-4 w-4 shrink-0" />
+              WhatsApp no disponible
+            </span>
+          )}
 
-          <button className="flex w-full items-center justify-center gap-2 border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto">
-            <Phone className="h-4 w-4 shrink-0" />
-            Llamar
-          </button>
+          <Link
+            href="/dashboard/patient/ayuda"
+            className="flex w-full items-center justify-center gap-2 border border-[#A2B38B] px-6 py-3 text-sm font-medium text-[#263F3B] transition hover:bg-[#F0EDE6] md:w-auto"
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            Ver preguntas frecuentes
+          </Link>
         </div>
       </section>
     </div>

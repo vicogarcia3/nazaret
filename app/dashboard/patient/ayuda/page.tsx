@@ -3,24 +3,15 @@ import {
   CalendarCheck,
   CalendarDays,
   ChevronRight,
-  CircleHelp,
   Clock3,
   CreditCard,
   FileText,
-  Headphones,
   Mail,
   MessageCircle,
   ShieldCheck,
   UserRound,
 } from "lucide-react";
-
-const contactInfo = {
-  whatsappNumber: "5493518881921",
-  whatsappDisplay: "351 888 1921",
-  email: "info@consultoriosnazaret.com.ar",
-  weekdayHours: "Lunes a viernes de 8:00 a 20:00",
-  saturdayHours: "Sábados de 8:00 a 13:00",
-};
+import { prisma } from "@/lib/prisma";
 
 const faqs = [
   {
@@ -55,10 +46,58 @@ const faqs = [
   },
 ];
 
-export default function PatientHelpPage() {
-  const whatsappUrl = `https://wa.me/${contactInfo.whatsappNumber}?text=${encodeURIComponent(
-    "Hola, necesito ayuda con mi cuenta del portal de pacientes."
-  )}`;
+export default async function PatientHelpPage() {
+  const [siteConfig, adminUser, branches] = await Promise.all([
+    prisma.siteConfig.findFirst({
+      select: {
+        whatsapp: true,
+      },
+    }),
+
+    prisma.user.findFirst({
+      where: {
+        role: "ADMIN",
+      },
+      select: {
+        email: true,
+      },
+      orderBy: {
+        id: "asc",
+      },
+    }),
+
+    prisma.branch.findMany({
+      where: {
+        active: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+      select: {
+        id: true,
+        name: true,
+        city: true,
+        address: true,
+        mondayToFridayHours: true,
+        saturdayHours: true,
+        sundayHours: true,
+      },
+    }),
+  ]);
+
+  const whatsappValue = siteConfig?.whatsapp || "";
+
+  const contactInfo = {
+    whatsappNumber: whatsappValue.replace(/\D/g, ""),
+    whatsappDisplay: whatsappValue || "No configurado",
+    email: adminUser?.email || "No configurado",
+  };
+
+  const whatsappUrl = contactInfo.whatsappNumber
+    ? `https://wa.me/${contactInfo.whatsappNumber}?text=${encodeURIComponent(
+        "Hola, necesito ayuda con mi cuenta del portal de pacientes."
+      )}`
+    : "#";
 
   return (
     <div className="space-y-7">
@@ -193,11 +232,52 @@ export default function PatientHelpPage() {
                   Horarios de atención
                 </p>
 
-                <p className="mt-2 text-sm leading-6 text-[#6B7774]">
-                  {contactInfo.weekdayHours}
-                  <br />
-                  {contactInfo.saturdayHours}
-                </p>
+                <div className="mt-3 space-y-4 text-sm leading-6 text-[#6B7774]">
+                  {branches.length > 0 ? (
+                    branches.map((branch) => (
+                      <div
+                        key={branch.id}
+                        className="border-t border-[#E5E1D8] pt-3 first:border-t-0 first:pt-0"
+                      >
+                        <p className="font-medium text-[#263F3B]">
+                          {branch.name}
+                        </p>
+
+                        <p className="mt-1">
+                          {branch.address}, {branch.city}
+                        </p>
+
+                        {branch.mondayToFridayHours && (
+                          <p className="mt-1">
+                            Lunes a viernes: {branch.mondayToFridayHours}
+                          </p>
+                        )}
+
+                        {branch.saturdayHours && (
+                          <p>
+                            Sábados: {branch.saturdayHours}
+                          </p>
+                        )}
+
+                        {branch.sundayHours && (
+                          <p>
+                            Domingos: {branch.sundayHours}
+                          </p>
+                        )}
+
+                        {!branch.mondayToFridayHours &&
+                          !branch.saturdayHours &&
+                          !branch.sundayHours && (
+                            <p className="mt-1">
+                              Horarios no configurados.
+                            </p>
+                          )}
+                      </div>
+                    ))
+                  ) : (
+                    <p>No hay sucursales activas.</p>
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -237,47 +317,5 @@ export default function PatientHelpPage() {
         </Link>
       </section>
     </div>
-  );
-}
-
-function HelpCard({
-  icon,
-  title,
-  description,
-  href,
-  action,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  href: string;
-  action: string;
-}) {
-  return (
-    <a
-      href={href}
-      className="group border border-[#DED9CD] bg-white p-6 transition hover:-translate-y-0.5 hover:border-[#A2B38B] hover:shadow-sm"
-    >
-      <div className="flex items-start gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#F0F2EA] text-[#6F855F] [&>svg]:h-6 [&>svg]:w-6">
-          {icon}
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold text-[#263F3B]">
-            {title}
-          </h2>
-
-          <p className="mt-2 text-sm leading-6 text-[#6B7774]">
-            {description}
-          </p>
-
-          <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-[#6F855F]">
-            {action}
-            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-1" />
-          </span>
-        </div>
-      </div>
-    </a>
   );
 }
