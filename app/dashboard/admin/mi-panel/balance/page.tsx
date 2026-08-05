@@ -11,8 +11,10 @@ import {
   AlertCircle,
   BarChart3,
   Clock,
+  Trash2,
   Wallet,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Branch = {
   id: string;
@@ -46,6 +48,19 @@ type MonthlyData = {
   result: number;
 };
 
+type BalanceDetail = {
+  id: string;
+  type: "PAYMENT" | "BUDGET" | "EXPENSE";
+  patientId: string | null;
+  patientName: string;
+  concept: string;
+  date: string;
+  amount: number;
+  branchId: string | null;
+  branchName: string;
+  budgetId: string | null;
+};
+
 type BalanceResponse = {
   summary: {
     totalPaid: number;
@@ -53,16 +68,21 @@ type BalanceResponse = {
     totalOverdue: number;
     totalExpenses: number;
     netResult: number;
+    paidCount: number;
+    pendingCount: number;
+    overdueCount: number;
+    expenseCount: number;
   };
 
-  pendingBreakdown: {
-    budgets: number;
-    standalonePayments: number;
+  details: {
+    paid: BalanceDetail[];
+    pending: BalanceDetail[];
+    overdue: BalanceDetail[];
+    expenses: BalanceDetail[];
   };
 
   branches: Branch[];
   branchRows: BranchRow[];
-  expenses: Expense[];
   monthlyData: MonthlyData[];
 };
 
@@ -91,6 +111,7 @@ function formatCurrency(value: number) {
 }
 
 export default function BalancePage() {
+  const confirmDialog = useConfirm();
   const currentDate = new Date();
 
   const [balance, setBalance] =
@@ -111,6 +132,10 @@ export default function BalancePage() {
     useState(false);
 
   const [loading, setLoading] = useState(true);
+
+  const [openHistory, setOpenHistory] = useState<
+    "paid" | "pending" | "overdue" | "expenses" | null
+  >(null);
 
   const [expenseForm, setExpenseForm] = useState({
     concept: "",
@@ -216,6 +241,48 @@ export default function BalancePage() {
     await loadBalance();
   }
 
+  async function handleDeleteExpense(expense: BalanceDetail) {
+    const confirmed = await confirmDialog({
+      title: "Eliminar gasto",
+      description: `¿Querés eliminar el gasto "${expense.concept}" por ${formatCurrency(
+        expense.amount
+      )}?`,
+      confirmText: "Eliminar",
+    });
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/expenses/${expense.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        toast.error(
+          data.error || "No se pudo eliminar el gasto."
+        );
+        return;
+      }
+
+      toast.success("Gasto eliminado correctamente.");
+
+      await loadBalance();
+    } catch (error) {
+      console.error("Error al eliminar gasto:", error);
+
+      toast.error(
+        "No se pudo eliminar el gasto. Intentá nuevamente."
+      );
+    }
+  }
+
   if (loading && !balance) {
     return (
       <div className="min-h-screen bg-[#F7F5EF] p-8 text-[#263F3B]">
@@ -316,27 +383,44 @@ export default function BalancePage() {
             title="Cobrado"
             value={balance.summary.totalPaid}
             icon={<BarChart3 />}
+            detail={`${balance.summary.paidCount} ${
+              balance.summary.paidCount === 1 ? "pago" : "pagos"
+            }`}
+            onClick={() => setOpenHistory("paid")}
           />
 
           <Metric
             title="Pendiente"
             value={balance.summary.totalPending}
             icon={<Clock />}
-            detail={`Presupuestos: ${formatCurrency(
-              balance.pendingBreakdown.budgets
-            )}`}
+            detail={`${balance.summary.pendingCount} ${
+              balance.summary.pendingCount === 1
+                ? "saldo pendiente"
+                : "saldos pendientes"
+            }`}
+            onClick={() => setOpenHistory("pending")}
           />
 
           <Metric
             title="Demorado"
             value={balance.summary.totalOverdue}
             icon={<AlertCircle />}
+            detail={`${balance.summary.overdueCount} ${
+              balance.summary.overdueCount === 1
+                ? "saldo demorado"
+                : "saldos demorados"
+            }`}
+            onClick={() => setOpenHistory("overdue")}
           />
 
           <Metric
             title="Gastos"
             value={balance.summary.totalExpenses}
             icon={<Wallet />}
+            detail={`${balance.summary.expenseCount} ${
+              balance.summary.expenseCount === 1 ? "gasto" : "gastos"
+            }`}
+            onClick={() => setOpenHistory("expenses")}
           />
 
           <Metric
@@ -428,30 +512,40 @@ export default function BalancePage() {
             </h2>
 
             <div className="mt-6 space-y-4">
-              {balance.expenses.map((expense) => (
+              {balance.details.expenses.map((expense) => (
                 <div
                   key={expense.id}
-                  className="grid gap-2 border-b border-[#DED9CD] pb-4 text-sm md:grid-cols-4"
+                  className="grid items-center gap-3 border-b border-[#DED9CD] pb-4 text-sm md:grid-cols-[90px_1fr_1.4fr_auto_auto]"
                 >
                   <span>
-                    {new Date(
-                      expense.date
-                    ).toLocaleDateString("es-AR")}
+                    {new Date(expense.date).toLocaleDateString(
+                      "es-AR"
+                    )}
                   </span>
 
                   <span>{expense.concept}</span>
 
-                  <span>{expense.category}</span>
+                  <span className="text-[#6B7774]">
+                    {expense.branchName}
+                  </span>
 
                   <span className="font-semibold">
-                    {formatCurrency(
-                      Number(expense.amount)
-                    )}
+                    {formatCurrency(expense.amount)}
                   </span>
+
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteExpense(expense)}
+                    title="Eliminar gasto"
+                    aria-label={`Eliminar gasto ${expense.concept}`}
+                    className="flex h-8 w-8 items-center justify-center text-red-400 transition hover:opacity-70"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
               ))}
 
-              {balance.expenses.length === 0 && (
+              {balance.details.expenses.length === 0 && (
                 <p className="text-sm text-[#6B7774]">
                   No hay gastos registrados para este
                   filtro.
@@ -605,62 +699,114 @@ export default function BalancePage() {
 
         <section>
           <article className="border border-[#DED9CD] bg-white p-6">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-              Comparación mensual del año
-            </h2>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                  Comparación mensual
+                </h2>
 
-            <div className="mt-6 flex h-72 items-end gap-3 overflow-x-auto">
-              {balance.monthlyData.map((item) => (
-                <div
-                  key={item.monthIndex}
-                  className="flex min-w-[60px] flex-1 flex-col items-center gap-2"
-                >
-                  <div className="flex h-56 items-end gap-1">
-                    <div className="group flex h-full flex-col items-center justify-end">
-                      <span className="mb-2 hidden whitespace-nowrap rounded bg-[#263F3B] px-2 py-1 text-xs text-white group-hover:block">
-                        Ingresos:{" "}
-                        {formatCurrency(item.income)}
-                      </span>
+                <p className="mt-2 text-sm text-[#6B7774]">
+                  Ingresos y gastos correspondientes al año{" "}
+                  {selectedYear}.
+                </p>
+              </div>
 
-                      <div
-                        className="w-5 bg-[#263F3B] transition-all duration-200"
-                        style={{
-                          height: `${
-                            (item.income /
-                              maxChartValue) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-
-                    <div className="group flex h-full flex-col items-center justify-end">
-                      <span className="mb-2 hidden whitespace-nowrap rounded bg-[#6B7774] px-2 py-1 text-xs text-white group-hover:block">
-                        Gastos:{" "}
-                        {formatCurrency(item.expense)}
-                      </span>
-
-                      <div
-                        className="w-5 bg-[#A2B38B] transition-all duration-200"
-                        style={{
-                          height: `${
-                            (item.expense /
-                              maxChartValue) *
-                            100
-                          }%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <span className="text-xs font-semibold uppercase text-[#6B7774]">
-                    {months[item.monthIndex]}
-                  </span>
+              <div className="flex items-center gap-5 text-xs text-[#6B7774]">
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 bg-[#263F3B]" />
+                  Ingresos
                 </div>
-              ))}
+
+                <div className="flex items-center gap-2">
+                  <span className="h-3 w-3 bg-[#A2B38B]" />
+                  Gastos
+                </div>
+              </div>
             </div>
+
+            <div className="mt-8 overflow-x-auto">
+              <div className="flex h-72 min-w-[850px] items-end gap-4 border-b border-[#DED9CD] px-2">
+                {balance.monthlyData.map((item) => {
+                  const incomeHeight =
+                    item.income > 0
+                      ? Math.max(
+                          (item.income / maxChartValue) * 100,
+                          3
+                        )
+                      : 0;
+
+                  const expenseHeight =
+                    item.expense > 0
+                      ? Math.max(
+                          (item.expense / maxChartValue) * 100,
+                          3
+                        )
+                      : 0;
+
+                  return (
+                    <div
+                      key={item.monthIndex}
+                      className="flex min-w-[54px] flex-1 flex-col items-center"
+                    >
+                      <div className="flex h-56 items-end gap-1.5">
+                        <div className="group relative flex h-full items-end">
+                          <div
+                            className="w-5 bg-[#263F3B] transition-all duration-300"
+                            style={{
+                              height: `${incomeHeight}%`,
+                            }}
+                          />
+
+                          {item.income > 0 && (
+                            <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap bg-[#263F3B] px-2 py-1 text-[10px] text-white group-hover:block">
+                              {formatCurrency(item.income)}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="group relative flex h-full items-end">
+                          <div
+                            className="w-5 bg-[#A2B38B] transition-all duration-300"
+                            style={{
+                              height: `${expenseHeight}%`,
+                            }}
+                          />
+
+                          {item.expense > 0 && (
+                            <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 hidden -translate-x-1/2 whitespace-nowrap bg-[#6B7774] px-2 py-1 text-[10px] text-white group-hover:block">
+                              {formatCurrency(item.expense)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className="mt-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B7774]">
+                        {months[item.monthIndex]}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {balance.monthlyData.every(
+              (item) => item.income === 0 && item.expense === 0
+            ) && (
+              <p className="mt-6 text-center text-sm text-[#6B7774]">
+                Todavía no hay ingresos ni gastos registrados en{" "}
+                {selectedYear}.
+              </p>
+            )}
           </article>
         </section>
+
+        {openHistory && (
+          <BalanceHistoryModal
+            type={openHistory}
+            items={balance.details[openHistory]}
+            onClose={() => setOpenHistory(null)}
+          />
+        )}
       </div>
     </div>
   );
@@ -671,14 +817,16 @@ function Metric({
   value,
   icon,
   detail,
+  onClick,
 }: {
   title: string;
   value: number;
   icon: React.ReactNode;
   detail?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <article className="border border-[#DED9CD] bg-white p-6">
+  const content = (
+    <>
       <div className="mb-4 h-5 w-5 text-[#A2B38B]">
         {icon}
       </div>
@@ -696,6 +844,174 @@ function Metric({
           {detail}
         </p>
       )}
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-full border border-[#DED9CD] bg-white p-6 text-left transition hover:-translate-y-1 hover:shadow-lg"
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <article className="border border-[#DED9CD] bg-white p-6">
+      {content}
     </article>
+  );
+}
+
+function BalanceHistoryModal({
+  type,
+  items,
+  onClose,
+}: {
+  type: "paid" | "pending" | "overdue" | "expenses";
+  items: BalanceDetail[];
+  onClose: () => void;
+}) {
+  const titles = {
+    paid: "Cobrado",
+    pending: "Pendiente",
+    overdue: "Demorado",
+    expenses: "Gastos",
+  };
+
+  const subtitles = {
+    paid: "Pagos registrados en el período seleccionado.",
+    pending: "Saldos que todavía se encuentran pendientes.",
+    overdue: "Saldos cuyo vencimiento ya pasó.",
+    expenses: "Gastos registrados en el período seleccionado.",
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+      <button
+        type="button"
+        aria-label="Cerrar historial"
+        onClick={onClose}
+        className="absolute inset-0"
+      />
+
+      <section className="relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden bg-[#F7F5EF] shadow-2xl">
+        <header className="flex items-start justify-between gap-5 border-b border-[#DED9CD] bg-white px-6 py-5">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+              Historial
+            </p>
+
+            <h2 className="mt-1 font-[var(--font-cormorant)] text-3xl font-medium">
+              {titles[type]}
+            </h2>
+
+            <p className="mt-2 text-sm text-[#6B7774]">
+              {subtitles[type]}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="border border-[#DED9CD] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] transition hover:bg-[#F7F5EF]"
+          >
+            Cerrar
+          </button>
+        </header>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-6">
+          {items.map((item) => (
+            <article
+              key={item.id}
+              className="border border-[#DED9CD] bg-white p-5"
+            >
+              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                <div>
+                  {item.patientName ? (
+                    <h3 className="font-[var(--font-cormorant)] text-2xl font-medium">
+                      {item.patientName}
+                    </h3>
+                  ) : (
+                    <h3 className="font-[var(--font-cormorant)] text-2xl font-medium">
+                      {item.concept}
+                    </h3>
+                  )}
+
+                  {item.patientName && (
+                    <p className="mt-1 text-sm text-[#6B7774]">
+                      {item.concept}
+                    </p>
+                  )}
+                </div>
+
+                <p
+                  className={`text-xl font-semibold ${
+                    type === "overdue"
+                      ? "text-red-600"
+                      : type === "expenses"
+                        ? "text-[#A45858]"
+                        : "text-[#263F3B]"
+                  }`}
+                >
+                  {formatCurrency(item.amount)}
+                </p>
+              </div>
+
+              <div className="mt-5 grid gap-4 border-t border-[#EEEAE1] pt-4 text-sm sm:grid-cols-2">
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                    Fecha
+                  </p>
+
+                  <p className="mt-1">
+                    {new Date(item.date).toLocaleDateString(
+                      "es-AR",
+                      {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      }
+                    )}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                    Sucursal
+                  </p>
+
+                  <p className="mt-1">
+                    {item.branchName || "General"}
+                  </p>
+                </div>
+              </div>
+
+              {item.patientId && (
+                <div className="mt-5 flex justify-end">
+                  <a
+                    href={`/dashboard/admin/mi-panel/pacientes/${item.patientId}`}
+                    className="border border-[#263F3B] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] transition hover:bg-[#263F3B] hover:text-white"
+                  >
+                    Ver paciente
+                  </a>
+                </div>
+              )}
+            </article>
+          ))}
+
+          {items.length === 0 && (
+            <div className="border border-dashed border-[#DED9CD] bg-white px-6 py-14 text-center">
+              <p className="text-sm text-[#6B7774]">
+                No hay movimientos para el período y la sucursal seleccionados.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
   );
 }

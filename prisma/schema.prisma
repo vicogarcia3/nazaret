@@ -9,7 +9,7 @@ datasource db {
 
 model Payment {
   id                     String        @id @default(cuid())
-  amount                 Decimal @db.Decimal(12, 2)
+  amount                 Decimal       @db.Decimal(12, 2)
   concept                String?
   status                 PaymentStatus @default(PENDING)
   dueDate                DateTime
@@ -124,8 +124,24 @@ model Plan {
   description String
   price       Decimal?  @db.Decimal(12, 2)
   active      Boolean   @default(true)
+  visible     Boolean   @default(false)
   discount    Decimal   @default(0) @db.Decimal(5, 2)
   patients    Patient[]
+}
+
+model HealthInsurance {
+  id String @id @default(cuid())
+
+  name String
+  logo String?
+
+  visible Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([visible])
+  @@index([name])
 }
 
 model Patient {

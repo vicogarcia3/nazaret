@@ -46,27 +46,31 @@ export async function DELETE(
   const session = await auth();
 
   if (!session || session.user.role !== "ADMIN") {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    return NextResponse.json(
+      { error: "No autorizado" },
+      { status: 401 }
+    );
   }
 
   const { id } = await context.params;
 
   try {
-    await prisma.treatment.update({
+    await prisma.treatment.delete({
       where: {
         id,
       },
-      data: {
-        active: false,
-      },
     });
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({
+      message: "Tratamiento eliminado correctamente.",
+    });
   } catch (error) {
     console.error("DELETE Treatment:", error);
 
     return NextResponse.json(
-      { error: "No se pudo eliminar el tratamiento." },
+      {
+        error: "No se pudo eliminar el tratamiento.",
+      },
       { status: 500 }
     );
   }

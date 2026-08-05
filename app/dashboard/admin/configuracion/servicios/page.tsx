@@ -648,24 +648,6 @@ async function handleContactSubmit(e: React.FormEvent) {
 
                     <div className="grid gap-6 md:grid-cols-2">
                       <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Título
-                        </label>
-
-                        <input
-                          className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                          value={form.title}
-                          onChange={(e) =>
-                            setForm((current) => ({
-                              ...current,
-                              title: e.target.value,
-                            }))
-                          }
-                          required
-                        />
-                      </div>
-
-                      <div>
                         <ImageUploader
                           value={form.image}
                           onChange={(image) =>
@@ -752,9 +734,10 @@ async function handleContactSubmit(e: React.FormEvent) {
                       <button
                         type="button"
                         onClick={() => handleDelete(service.id)}
-                        className="text-[#D97A7A] hover:text-red-700"
+                        title="Eliminar servicio"
+                        className="transition hover:opacity-70"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 size={15} className="text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -1004,12 +987,12 @@ async function handleContactSubmit(e: React.FormEvent) {
             {doctors.map((doctor, index) => (
               <div
                 key={doctor.id}
-                className="border border-[#DED9CD] bg-white p-8"
+                className="border border-[#DED9CD] bg-white p-7"
               >
-                <div className="mb-6 flex items-center justify-between">
+                <div className="mb-4 flex items-center justify-between">
                   <span className="text-sm text-[#A2B38B]">#{index + 1}</span>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
                     <span
                       className={`text-xs font-semibold uppercase tracking-[0.2em] ${
                         doctor.visible
@@ -1053,9 +1036,10 @@ async function handleContactSubmit(e: React.FormEvent) {
 
                         toast.success("Especialista eliminado correctamente.");
                       }}
-                      className="text-xs font-semibold uppercase tracking-[0.2em] text-[#D97A7A] hover:underline"
+                      title="Eliminar especialista"
+                      className="transition hover:opacity-70"
                     >
-                      Eliminar
+                      <Trash2 size={15} className="text-red-400" />
                     </button>
                   </div>
                 </div>

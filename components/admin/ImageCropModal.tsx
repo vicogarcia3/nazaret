@@ -53,7 +53,7 @@ export default function ImageCropModal({
       const croppedFile = await createCroppedImage(
         imageSource,
         cropAreaPixels,
-        `imagen-${Date.now()}.jpg`
+        `imagen-${Date.now()}.png`
       );
 
       await onConfirm(croppedFile);

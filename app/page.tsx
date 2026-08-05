@@ -10,60 +10,81 @@ const GOOGLE_REVIEWS_URL =
 
 export default async function HomePage() {
 
-  const [config, doctors, branches, testimonials, servicesWithImages] =
-    await Promise.all([
-      prisma.siteConfig.findFirst(),
+  const config = await prisma.siteConfig.findFirst();
+  const doctors = await prisma.doctor.findMany({
+    where: {
+      active: true,
+      visible: true,
+    },
+    include: {
+      user: true,
+    },
+    orderBy: {
+      id: "desc",
+    },
+  });
 
-      prisma.doctor.findMany({
-        where: { 
-          active: true,
-          visible: true, 
-        },
-        include: { user: true },
-        orderBy: { id: "desc" },
-      }),
+  const branches = await prisma.branch.findMany({
+    where: {
+      active: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
 
-      prisma.branch.findMany({
-        where: {
-          active: true,
-        },
-        orderBy: {
-          name: "asc",
-        },
-      }),
-
-      prisma.testimonial.findMany({
-        where: {
-          approved: true,
-          visible: true,
-        },
+  const testimonials = await prisma.testimonial.findMany({
+    where: {
+      approved: true,
+      visible: true,
+    },
+    include: {
+      patient: {
         include: {
-          patient: {
-            include: {
-              user: {
-                select: {
-                  name: true,
-                },
-              },
+          user: {
+            select: {
+              name: true,
             },
           },
         },
-        orderBy: {
-          createdAt: "desc",
-        },
-      }),
-      prisma.service.findMany({
-        where: {
-          active: true,
-          image: {
-            not: null,
-          },
-        },
-        orderBy: {
-          title: "asc",
-        },
-      }),
-    ]);
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const servicesWithImages = await prisma.service.findMany({
+    where: {
+      active: true,
+      image: {
+        not: null,
+      },
+    },
+    orderBy: {
+      title: "asc",
+    },
+  });
+
+  const healthInsurances =
+    await prisma.healthInsurance.findMany({
+      where: {
+        visible: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
+
+  const plans = await prisma.plan.findMany({
+    where: {
+      active: true,
+      visible: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+  });
 
   const publicTestimonials = testimonials.map((testimonial) => ({
     id: testimonial.id,
@@ -77,6 +98,7 @@ export default async function HomePage() {
       <Header
         clinicName={config?.clinicName}
         showServices={servicesWithImages.length > 0}
+        showHealthInsurances={healthInsurances.length > 0}
       />
 
       <section className="grid min-h-[78vh] items-center gap-12 px-8 py-12 md:grid-cols-2 md:px-16 lg:px-24">
@@ -167,9 +189,9 @@ export default async function HomePage() {
           {doctors.length > 0 ? (
             doctors.map((doctor) => (
               <div
-                key={doctor.id}
-                className="rounded-3xl border bg-white p-6 shadow-sm"
-              >
+                  key={doctor.id}
+                  className="rounded-3xl border border-[#DED9CD] bg-[#FCFBF8] p-6 shadow-sm transition duration-300 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl"
+                >
                 {doctor.photo ? (
                   <Image
                     src={doctor.photo}
@@ -198,6 +220,48 @@ export default async function HomePage() {
         </div>
       </section>
 
+      {healthInsurances.length > 0 && (
+        <section
+          id="obras-sociales"
+          className="scroll-mt-8 bg-white px-8 py-12 md:px-16 lg:px-24"
+        >
+          <div className="mx-auto max-w-7xl">
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
+              Coberturas
+            </p>
+
+            <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
+              Obras Sociales
+            </h2>
+
+            <div className="mt-8 flex flex-wrap justify-center gap-5">
+              {healthInsurances.map((insurance) => (
+                <article
+                  key={insurance.id}
+                  className="flex h-36 w-40 flex-col items-center justify-center rounded-2xl border border-[#DED9CD] bg-[#FCFBF8] p-5 text-center shadow-sm transition duration-300 hover:-translate-y-1 hover:scale-[1.03] hover:shadow-xl"
+                >
+                  {insurance.logo ? (
+                    <img
+                      src={insurance.logo}
+                      alt={insurance.name}
+                      className="h-16 w-full object-contain"
+                    />
+                  ) : (
+                    <div className="flex h-14 items-center text-xs text-[#9A9F9D]">
+                      Sin logo
+                    </div>
+                  )}
+
+                  <p className="mt-5 text-sm font-medium text-[#263F3B]">
+                    {insurance.name}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section
         id="testimonios"
         className="scroll-mt-8 bg-white px-8 py-16 md:px-16 lg:px-24"
@@ -219,6 +283,55 @@ export default async function HomePage() {
           />
         </div>
       </section>
+
+      {plans.length > 0 && (
+        <section className="scroll-mt-8 px-8 py-16 md:px-16 lg:px-24">
+          <div className="mx-auto max-w-7xl">
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
+              Beneficios Nazaret
+            </p>
+
+            <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
+              Planes del consultorio
+            </h2>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              {plans.map((plan) => (
+                <article
+                  key={plan.id}
+                  className="border border-[#DED9CD] bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
+                >
+                  <h3 className="font-serif text-2xl font-semibold text-[#263F3B]">
+                    {plan.name}
+                  </h3>
+
+                  <p className="mt-3 text-sm leading-6 text-[#6B7774]">
+                    {plan.description}
+                  </p>
+
+                  {Number(plan.discount) > 0 && (
+                    <div className="mt-6 border-t border-[#E7E2D8] pt-5">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                        Beneficio
+                      </p>
+
+                      <p className="mt-2 text-3xl font-semibold text-[#6F855F]">
+                        {Number(plan.discount)}% de descuento
+                      </p>
+                    </div>
+                  )}
+
+                  {plan.price !== null && (
+                    <p className="mt-5 text-sm font-semibold text-[#263F3B]">
+                      ${Number(plan.price).toLocaleString("es-AR")}
+                    </p>
+                  )}
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section
         id="contacto"

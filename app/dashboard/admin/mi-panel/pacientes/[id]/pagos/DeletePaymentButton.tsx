@@ -42,7 +42,7 @@ export default function DeletePaymentButton({ paymentId }: Props) {
       type="button"
       onClick={handleDelete}
       title="Eliminar pago"
-      className="text-[#D97A7A] transition hover:text-red-700"
+      className="text-red-400 transition hover:text-red-700"
     >
       <Trash2 className="h-4 w-4" />
     </button>

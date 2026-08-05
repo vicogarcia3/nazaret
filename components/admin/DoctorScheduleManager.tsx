@@ -841,7 +841,7 @@ export default function DoctorScheduleManager({
                           type="button"
                           disabled={deletingId === schedule.id}
                           onClick={() => deleteSchedule(schedule.id)}
-                          className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#D97A7A] hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="inline-flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-red-400 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           <Trash2 className="h-4 w-4" />
 

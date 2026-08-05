@@ -13,6 +13,7 @@ type Branch = {
 
 type Doctor = {
   id: string;
+  name: string | null;
   user: {
     name: string | null;
   };
@@ -263,7 +264,9 @@ export default function NewGeneralAppointmentForm({
 
               {filteredDoctors.map((doctor) => (
                 <option key={doctor.id} value={doctor.id}>
-                  {doctor.user?.name || "Especialista sin nombre"}
+                  {doctor.name ||
+                    doctor.user?.name ||
+                    "Especialista sin nombre"}
                 </option>
               ))}
             </select>

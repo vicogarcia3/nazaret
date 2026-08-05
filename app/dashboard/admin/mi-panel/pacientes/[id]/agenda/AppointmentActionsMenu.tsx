@@ -88,7 +88,7 @@ export default function AppointmentActionsMenu({
           <button
             type="button"
             onClick={deleteAppointment}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[#D97A7A] hover:bg-[#F8ECEC]"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-red-400 hover:bg-[#F8ECEC]"
           >
             <Trash2 className="h-3.5 w-3.5" />
             Eliminar

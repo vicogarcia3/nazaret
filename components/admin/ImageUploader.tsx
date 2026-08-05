@@ -238,7 +238,7 @@ export default function ImageUploader({
                 type="button"
                 onClick={removeImage}
                 disabled={uploading}
-                className="flex items-center gap-2 border border-[#D8CACA] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#B06B6B] transition hover:bg-[#FAF3F3] disabled:opacity-50"
+                className="flex items-center gap-2 border border-[#D8CACA] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-red-400 transition hover:bg-[#FAF3F3] disabled:opacity-50"
               >
                 <Trash2 className="h-4 w-4" />
                 Eliminar foto

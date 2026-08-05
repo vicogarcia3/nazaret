@@ -11,6 +11,7 @@ import {
   ListChecks,
   Calendar,
   BarChart3,
+  BadgePlus,
 } from "lucide-react";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -98,6 +99,16 @@ export default function AdminSidebar({ open, setOpen }: Props) {
           >
             <ListChecks className="h-4 w-4" />
             Planes
+          </Link>
+
+          <Link
+            href="/dashboard/admin/configuracion/obras-sociales"
+            className={menuClass(
+              "/dashboard/admin/configuracion/obras-sociales"
+            )}
+          >
+            <BadgePlus className="h-4 w-4" />
+            Obras Sociales
           </Link>
 
           <Link

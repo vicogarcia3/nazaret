@@ -151,7 +151,7 @@ export default function NewBudgetForm({
               <button
                 type="button"
                 onClick={() => removeItem(index)}
-                className="flex items-center justify-center text-[#D97A7A] hover:text-red-700"
+                className="flex items-center justify-center text-red-400 hover:text-red-700"
                 title="Eliminar tratamiento"
               >
                 <Trash2 className="h-4 w-4" />

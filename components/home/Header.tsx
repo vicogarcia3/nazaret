@@ -7,33 +7,47 @@ import { Menu, X } from "lucide-react";
 type HeaderProps = {
   clinicName?: string | null;
   showServices?: boolean;
+  showHealthInsurances: boolean;
 };
 
 export default function Header({
   clinicName,
   showServices = true,
+  showHealthInsurances = false,
 }: HeaderProps) {
 
   const navigationItems = [
     ...(showServices
-        ? [
-            {
+      ? [
+          {
             label: "Servicios",
-            href: "/#servicios",
-            },
+            href: "#servicios",
+          },
         ]
-        : []),
+      : []),
+
     {
-        label: "Equipo",
-        href: "/#equipo",
+      label: "Equipo",
+      href: "#equipo",
     },
+
+    ...(showHealthInsurances
+      ? [
+          {
+            label: "Obras Sociales",
+            href: "#obras-sociales",
+          },
+        ]
+      : []),
+
     {
-        label: "Testimonios",
-        href: "/#testimonios",
+      label: "Testimonios",
+      href: "#testimonios",
     },
+
     {
-        label: "Contacto",
-        href: "/#contacto",
+      label: "Contacto",
+      href: "#contacto",
     },
   ];
   const [menuOpen, setMenuOpen] = useState(false);
@@ -91,13 +105,13 @@ export default function Header({
 
         <nav className="hidden items-center gap-8 text-xs font-medium uppercase tracking-widest lg:flex">
           {navigationItems.map((item) => (
-            <Link
+            <a
               key={item.href}
               href={item.href}
               className="text-[#263F3B] transition hover:text-[#8FA178]"
             >
               {item.label}
-            </Link>
+            </a>
           ))}
         </nav>
 

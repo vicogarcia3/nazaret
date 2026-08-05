@@ -69,43 +69,74 @@ export async function DELETE(
 
   try {
     const patient = await prisma.patient.findUnique({
-      where: {
-        id,
-      },
+      where: { id },
       select: {
         id: true,
+        userId: true,
       },
     });
 
     if (!patient) {
       return NextResponse.json(
         {
-          error:
-            "El paciente ya fue eliminado o no existe.",
+          error: "El paciente ya fue eliminado o no existe.",
         },
         { status: 404 }
       );
     }
 
-    const appointmentsCount =
-      await prisma.appointment.count({
+    await prisma.$transaction(async (tx) => {
+      /*
+       * Primero buscamos los presupuestos porque sus ítems
+       * dependen de ellos.
+       */
+      const budgets = await tx.budget.findMany({
+        where: {
+          patientId: id,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      const budgetIds = budgets.map((budget) => budget.id);
+
+      /*
+       * Pagos: se eliminan antes de los presupuestos
+       * porque pueden estar relacionados con ambos.
+       */
+      await tx.payment.deleteMany({
         where: {
           patientId: id,
         },
       });
 
-    if (appointmentsCount > 0) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede eliminar este paciente porque tiene turnos asociados. Podés editar sus datos, pero no borrarlo.",
-        },
-        { status: 400 }
-      );
-    }
+      /*
+       * Ítems de los presupuestos.
+       */
+      if (budgetIds.length > 0) {
+        await tx.budgetItem.deleteMany({
+          where: {
+            budgetId: {
+              in: budgetIds,
+            },
+          },
+        });
+      }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.testimonial.deleteMany({
+      /*
+       * Presupuestos.
+       */
+      await tx.budget.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
+
+      /*
+       * Turnos y demás información relacionada.
+       */
+      await tx.appointment.deleteMany({
         where: {
           patientId: id,
         },
@@ -117,113 +148,45 @@ export async function DELETE(
         },
       });
 
-      const deletedPatient =
-        await tx.patient.deleteMany({
-          where: {
-            id,
-          },
-        });
+      await tx.testimonial.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
 
-      if (deletedPatient.count === 0) {
-        throw new Error("PATIENT_NOT_FOUND");
-      }
+      await tx.clinicalHistory.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
+
+      await tx.odontogram.deleteMany({
+        where: {
+          patientId: id,
+        },
+      });
+
+      /*
+       * Finalmente eliminamos al paciente.
+       */
+      await tx.patient.delete({
+        where: {
+          id,
+        },
+      });
     });
 
     return NextResponse.json({
-      message: "Paciente eliminado correctamente.",
+      message:
+        "Paciente y todos sus datos asociados fueron eliminados correctamente.",
     });
   } catch (error) {
-    console.error(
-      "Error al eliminar paciente:",
-      error
-    );
-
-    if (
-      error instanceof Error &&
-      error.message === "PATIENT_NOT_FOUND"
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "El paciente ya fue eliminado o no existe.",
-        },
-        { status: 404 }
-      );
-    }
-
-    const errorMessage =
-      error instanceof Error
-        ? error.message
-        : String(error);
-
-    if (
-      errorMessage.includes(
-        "Budget_patientId_fkey"
-      ) ||
-      errorMessage.includes(
-        'referenced from table "Budget"'
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede eliminar este paciente porque tiene presupuestos asociados. Para conservar su historial financiero, podés editar sus datos, pero no borrarlo.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      errorMessage.includes(
-        "Payment_patientId_fkey"
-      ) ||
-      errorMessage.includes(
-        'referenced from table "Payment"'
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede eliminar este paciente porque tiene pagos asociados. Para conservar su historial financiero, podés editar sus datos, pero no borrarlo.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      errorMessage.includes(
-        "Appointment_patientId_fkey"
-      ) ||
-      errorMessage.includes(
-        'referenced from table "Appointment"'
-      )
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede eliminar este paciente porque tiene turnos asociados. Podés editar sus datos, pero no borrarlo.",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (
-      errorMessage.includes("ClinicalHistory") ||
-      errorMessage.includes("MedicalRecord")
-    ) {
-      return NextResponse.json(
-        {
-          error:
-            "No se puede eliminar este paciente porque tiene historia clínica asociada. Podés editar sus datos, pero no borrarlo.",
-        },
-        { status: 400 }
-      );
-    }
+    console.error("Error al eliminar paciente:", error);
 
     return NextResponse.json(
       {
         error:
-          "Ocurrió un error al eliminar el paciente.",
+          "No se pudo eliminar completamente el paciente.",
       },
       { status: 500 }
     );

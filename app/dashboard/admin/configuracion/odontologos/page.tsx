@@ -618,7 +618,29 @@ function DoctorCard({
 
   return (
     <article className="border border-[#DED9CD] bg-white transition hover:border-[#8FA07F]">
-      <div className="grid gap-6 p-5 md:p-6 xl:grid-cols-[minmax(270px,1.1fr)_minmax(200px,0.8fr)_minmax(250px,1fr)_auto] xl:items-center">
+      <div className="flex items-center justify-between px-6 pt-6">
+        <StatusBadge active={doctor.active} />
+
+        <div className="flex items-center gap-2">
+          <VisibilityBadge visible={doctor.visible} />
+
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleting}
+            title="Eliminar especialista"
+            aria-label={`Eliminar a ${displayName}`}
+            className="transition hover:opacity-70 disabled:opacity-50"
+          >
+            {deleting ? (
+              <Loader2 className="h-[15px] w-[15px] animate-spin text-red-400" />
+            ) : (
+              <Trash2 className="h-[15px] w-[15px] text-red-400" />
+            )}
+          </button>
+        </div>
+      </div>
+      <div className="grid gap-6 px-6 pb-6 pt-4 md:px-6 xl:grid-cols-[minmax(270px,1.1fr)_minmax(200px,0.8fr)_minmax(250px,1fr)_auto] xl:items-center">
         <div className="flex min-w-0 items-center gap-4">
           {doctor.photo ? (
             <img
@@ -633,13 +655,9 @@ function DoctorCard({
           )}
 
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
               <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
                 Profesional
               </p>
-              <StatusBadge active={doctor.active} />
-              <VisibilityBadge visible={doctor.visible} />
-            </div>
             <h2 className="mt-1 truncate text-xl font-semibold tracking-tight md:text-2xl">
               {displayName}
             </h2>
@@ -690,20 +708,6 @@ function DoctorCard({
           >
             <Pencil className="h-4 w-4" />
             Editar
-          </button>
-
-          <button
-            type="button"
-            onClick={onDelete}
-            disabled={deleting}
-            aria-label={`Eliminar a ${displayName}`}
-            className="inline-flex h-11 w-11 items-center justify-center border border-[#D9A5A5] text-[#A45858] transition hover:bg-[#F8E6E6] disabled:opacity-50"
-          >
-            {deleting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Trash2 className="h-4 w-4" />
-            )}
           </button>
         </div>
       </div>

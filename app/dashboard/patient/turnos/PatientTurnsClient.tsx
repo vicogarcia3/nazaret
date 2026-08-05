@@ -298,7 +298,7 @@ export default function PatientTurnsClient({
                             setSuccessMessage("");
                             setAppointmentToCancel(appointment);
                           }}
-                          className="flex items-center justify-center gap-2 border border-red-200 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                          className="flex items-center justify-center gap-2 border border-red-400 px-5 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
                         >
                           <Trash2 className="h-4 w-4" />
                           Cancelar turno
@@ -397,7 +397,7 @@ function CancelAppointmentModal({
         </div>
 
         <div className="p-6">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-400">
             <Trash2 className="h-5 w-5" />
           </div>
 

@@ -33,7 +33,7 @@ export default function DeleteBudgetButton({ budgetId }: Props) {
     <button
       onClick={handleDelete}
       title="Eliminar presupuesto"
-      className="text-[#D97A7A] hover:text-red-700"
+      className="text-red-400 hover:text-red-700"
     >
       <Trash2 className="h-4 w-4" />
     </button>

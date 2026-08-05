@@ -98,6 +98,11 @@ export default function PacientesClient({
       branchId: patient.branch.id,
       planId: patient.plan?.id || "",
     });
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
   async function handleSubmit(e: React.FormEvent) {

@@ -215,7 +215,7 @@ export default function TratamientosClient() {
 
                     <button
                       onClick={() => handleDelete(treatment.id)}
-                      className="rounded-lg border p-2 text-red-500 hover:bg-red-50"
+                      className="rounded-lg border p-2 text-red-400 hover:bg-red-50"
                     >
                       <Trash2 size={16} />
                     </button>

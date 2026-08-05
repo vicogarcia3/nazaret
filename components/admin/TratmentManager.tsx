@@ -97,34 +97,28 @@ export default function TreatmentManager() {
 
     if (!confirmed) return;
 
-    await fetch(`/api/treatments/${id}`, {
+    const response = await fetch(`/api/treatments/${id}`, {
       method: "DELETE",
     });
 
-    loadTreatments();
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      console.error("Error eliminando tratamiento:", data);
+      return;
+    }
+
+    setTreatments((currentTreatments) =>
+      currentTreatments.filter(
+        (treatment) => treatment.id !== id
+      )
+    );
   }
 
 return (
   <div className="space-y-6">
     <div className="flex justify-end">
       <div className="flex justify-end gap-3">
-        {editingId && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingId(null);
-              setName("");
-              setDescription("");
-              setPrice("");
-              setActive(true);
-              setShowForm(false);
-            }}
-            className="border border-[#DED9CD] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-[#6B7774] hover:bg-[#F7F6F2]"
-          >
-            Cancelar
-          </button>
-        )}
-
         <button
           type="button"
           onClick={() => {
@@ -247,10 +241,10 @@ return (
     {treatments.map((t, index) => (
       <div
         key={t.id}
-        className="border border-[#d8d2c4] bg-white p-8"
+        className="border border-[#d8d2c4] bg-white p-7"
       >
-        <div className="flex justify-between items-start mb-4">
-          <span className="text-[#A2B38B] text-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <span className="text-sm text-[#A2B38B]">
             #{index + 1}
           </span>
 
@@ -265,7 +259,12 @@ return (
               {t.active ? "Visible" : "Oculto"}
             </span>
 
-            <button onClick={() => deleteTreatment(t.id)}>
+            <button
+              type="button"
+              onClick={() => deleteTreatment(t.id)}
+              title="Eliminar tratamiento"
+              className="transition hover:opacity-70"
+            >
               <Trash2 size={15} className="text-red-400" />
             </button>
           </div>

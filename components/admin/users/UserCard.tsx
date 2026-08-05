@@ -149,7 +149,7 @@ export default function UserCard({
                 type="button"
                 onClick={() => onDeleteDoctor(user)}
                 disabled={isDeleting}
-                className="flex h-10 items-center gap-2 border border-[#F1D3D3] px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                className="flex h-10 items-center gap-2 border border-[#F1D3D3] px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-red-400 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isDeleting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

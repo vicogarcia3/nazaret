@@ -1,335 +1,459 @@
 import { NextRequest, NextResponse } from "next/server";
+
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 
-function isSameMonthAndYear(
-  date: Date,
-  month: number,
-  year: number
-) {
-  return date.getMonth() === month && date.getFullYear() === year;
+type DetailItem = {
+  id: string;
+  type: "PAYMENT" | "BUDGET" | "EXPENSE";
+  patientId: string | null;
+  patientName: string;
+  concept: string;
+  date: string;
+  amount: number;
+  branchId: string | null;
+  branchName: string;
+  budgetId: string | null;
+};
+
+function getMonthRange(month: number, year: number) {
+  const start = new Date(year, month, 1, 0, 0, 0, 0);
+  const end = new Date(year, month + 1, 1, 0, 0, 0, 0);
+
+  return { start, end };
 }
 
-function isPaymentOverdue(payment: {
-  status: string;
-  dueDate: Date;
+function isInsidePeriod(
+  dateValue: Date | string,
+  start: Date,
+  end: Date
+) {
+  const date = new Date(dateValue);
+
+  return date >= start && date < end;
+}
+
+function sumAmounts(items: DetailItem[]) {
+  return items.reduce(
+    (total, item) => total + Number(item.amount),
+    0
+  );
+}
+
+function getPatientName(patient: {
+  firstName: string;
+  lastName: string;
 }) {
-  if (payment.status !== "PENDING") {
-    return false;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const dueDate = new Date(payment.dueDate);
-  dueDate.setHours(0, 0, 0, 0);
-
-  return dueDate < today;
+  return `${patient.lastName}, ${patient.firstName}`;
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const session = await auth();
+
+    if (!session?.user || session.user.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "No autorizado." },
+        { status: 401 }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
 
-    const currentDate = new Date();
+    const now = new Date();
 
-    const monthParam = Number(searchParams.get("month"));
-    const yearParam = Number(searchParams.get("year"));
+    const requestedMonth = Number(searchParams.get("month"));
+    const requestedYear = Number(searchParams.get("year"));
     const branchId = searchParams.get("branchId") || "";
 
-    const selectedMonth = Number.isInteger(monthParam)
-      ? monthParam
-      : currentDate.getMonth();
+    const selectedMonth =
+      Number.isInteger(requestedMonth) &&
+      requestedMonth >= 0 &&
+      requestedMonth <= 11
+        ? requestedMonth
+        : now.getMonth();
 
-    const selectedYear = Number.isInteger(yearParam)
-      ? yearParam
-      : currentDate.getFullYear();
+    const selectedYear =
+      Number.isInteger(requestedYear) && requestedYear > 2000
+        ? requestedYear
+        : now.getFullYear();
 
-    const [branches, payments, budgets, expenses] =
-      await Promise.all([
-        prisma.branch.findMany({
-          orderBy: {
-            name: "asc",
-          },
-        }),
-
-        prisma.payment.findMany({
-          include: {
-            patient: {
-              include: {
-                branch: true,
-              },
-            },
-            budget: true,
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        }),
-
-        prisma.budget.findMany({
-          include: {
-            patient: {
-              include: {
-                branch: true,
-              },
-            },
-            payments: {
-              where: {
-                status: "PAID",
-              },
-            },
-          },
-          orderBy: {
-            createdAt: "desc",
-          },
-        }),
-
-        prisma.expense.findMany({
-          include: {
-            branch: true,
-          },
-          orderBy: {
-            date: "desc",
-          },
-        }),
-      ]);
-
-    const paidPaymentsForPeriod = payments.filter((payment) => {
-      if (payment.status !== "PAID") {
-        return false;
-      }
-
-      const paymentDate =
-        payment.paidAt || payment.createdAt;
-
-      const matchesPeriod = isSameMonthAndYear(
-        new Date(paymentDate),
-        selectedMonth,
-        selectedYear
-      );
-
-      const matchesBranch =
-        !branchId ||
-        payment.patient.branchId === branchId;
-
-      return matchesPeriod && matchesBranch;
-    });
-
-    const standalonePendingPayments = payments.filter(
-      (payment) => {
-        if (
-          payment.status !== "PENDING" ||
-          payment.budgetId
-        ) {
-          return false;
-        }
-
-        const matchesPeriod = isSameMonthAndYear(
-          new Date(payment.dueDate),
-          selectedMonth,
-          selectedYear
-        );
-
-        const matchesBranch =
-          !branchId ||
-          payment.patient.branchId === branchId;
-
-        return (
-          matchesPeriod &&
-          matchesBranch &&
-          !isPaymentOverdue(payment)
-        );
-      }
-    );
-
-    const overdueStandalonePayments = payments.filter(
-      (payment) => {
-        if (payment.budgetId) {
-          return false;
-        }
-
-        const matchesPeriod = isSameMonthAndYear(
-          new Date(payment.dueDate),
-          selectedMonth,
-          selectedYear
-        );
-
-        const matchesBranch =
-          !branchId ||
-          payment.patient.branchId === branchId;
-
-        return (
-          matchesPeriod &&
-          matchesBranch &&
-          isPaymentOverdue(payment)
-        );
-      }
-    );
-
-    const budgetsForPeriod = budgets.filter((budget) => {
-      const matchesPeriod = isSameMonthAndYear(
-        new Date(budget.createdAt),
-        selectedMonth,
-        selectedYear
-      );
-
-      const matchesBranch =
-        !branchId ||
-        budget.patient.branchId === branchId;
-
-      return matchesPeriod && matchesBranch;
-    });
-
-    const normalizedBudgets = budgetsForPeriod.map(
-      (budget) => {
-        const total = Number(budget.total);
-
-        const paidAmount = budget.payments.reduce(
-          (accumulator, payment) =>
-            accumulator + Number(payment.amount),
-          0
-        );
-
-        const remainingAmount = Math.max(
-          total - paidAmount,
-          0
-        );
-
-        return {
-          id: budget.id,
-          branchId: budget.patient.branchId,
-          total,
-          paidAmount,
-          remainingAmount,
-          createdAt: budget.createdAt,
-        };
-      }
-    );
+    const { start: periodStart, end: periodEnd } =
+      getMonthRange(selectedMonth, selectedYear);
 
     /*
-     * GASTOS DEL PERÍODO
+     * Para decidir si algo está demorado:
+     * - si el mes seleccionado ya terminó, usamos el último momento del mes;
+     * - si es el mes actual, usamos hoy;
+     * - si es un mes futuro, usamos el inicio del mes.
      */
-    const expensesForPeriod = expenses.filter((expense) => {
-      const matchesPeriod = isSameMonthAndYear(
-        new Date(expense.date),
-        selectedMonth,
-        selectedYear
-      );
+    const referenceDate =
+      periodEnd <= now
+        ? new Date(periodEnd.getTime() - 1)
+        : periodStart <= now
+          ? now
+          : periodStart;
 
-      const matchesBranch =
-        !branchId ||
-        expense.branchId === branchId;
-
-      return matchesPeriod && matchesBranch;
+    const branches = await prisma.branch.findMany({
+      where: {
+        active: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        address: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
     });
 
-    const totalPaid = paidPaymentsForPeriod.reduce(
-      (accumulator, payment) =>
-        accumulator + Number(payment.amount),
-      0
-    );
+    const payments = await prisma.payment.findMany({
+      include: {
+        patient: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+          },
+        },
+        budget: {
+          select: {
+            id: true,
+            description: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    const totalBudgetPending = normalizedBudgets.reduce(
-      (accumulator, budget) =>
-        accumulator + budget.remainingAmount,
-      0
-    );
+    const budgets = await prisma.budget.findMany({
+      include: {
+        patient: {
+          include: {
+            branch: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+              },
+            },
+          },
+        },
+        payments: {
+          orderBy: {
+            dueDate: "asc",
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
-    const totalStandalonePending =
-      standalonePendingPayments.reduce(
-        (accumulator, payment) =>
-          accumulator + Number(payment.amount),
+    const expenses = await prisma.expense.findMany({
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            address: true,
+          },
+        },
+      },
+      orderBy: {
+        date: "desc",
+      },
+    });
+
+    /*
+     * COBRADO
+     *
+     * Solo pagos realmente marcados como PAID.
+     * Se usa paidAt; para datos antiguos sin paidAt,
+     * se toma createdAt como respaldo.
+     */
+    const paidItems: DetailItem[] = payments
+      .filter((payment) => {
+        if (payment.status !== "PAID") {
+          return false;
+        }
+
+        const paymentDate =
+          payment.paidAt ?? payment.createdAt;
+
+        const matchesPeriod = isInsidePeriod(
+          paymentDate,
+          periodStart,
+          periodEnd
+        );
+
+        const matchesBranch =
+          !branchId ||
+          payment.patient.branchId === branchId;
+
+        return matchesPeriod && matchesBranch;
+      })
+      .map((payment) => ({
+        id: payment.id,
+        type: "PAYMENT",
+        patientId: payment.patientId,
+        patientName: getPatientName(payment.patient),
+        concept:
+          payment.concept ||
+          payment.budget?.description ||
+          "Pago",
+        date: (
+          payment.paidAt ?? payment.createdAt
+        ).toISOString(),
+        amount: Number(payment.amount),
+        branchId: payment.patient.branchId,
+        branchName: `${payment.patient.branch.name} — ${payment.patient.branch.address}`,
+        budgetId: payment.budgetId,
+      }));
+
+    /*
+     * PENDIENTES Y DEMORADOS DE PRESUPUESTOS
+     *
+     * Se toman todos los presupuestos existentes hasta el final
+     * del período, sin importar el mes en que fueron creados.
+     *
+     * Saldo = total del presupuesto - pagos PAID.
+     */
+    const pendingItems: DetailItem[] = [];
+    const overdueItems: DetailItem[] = [];
+
+    for (const budget of budgets) {
+      if (budget.createdAt >= periodEnd) {
+        continue;
+      }
+
+      if (
+        branchId &&
+        budget.patient.branchId !== branchId
+      ) {
+        continue;
+      }
+
+      const paidAmount = budget.payments
+        .filter((payment) => payment.status === "PAID")
+        .reduce(
+          (total, payment) =>
+            total + Number(payment.amount),
+          0
+        );
+
+      const remainingAmount = Math.max(
+        Number(budget.total) - paidAmount,
         0
       );
 
-    const totalPending =
-      totalBudgetPending + totalStandalonePending;
+      if (remainingAmount <= 0) {
+        continue;
+      }
 
-    const totalOverdue =
-      overdueStandalonePayments.reduce(
-        (accumulator, payment) =>
-          accumulator + Number(payment.amount),
+      const openScheduledPayments = budget.payments.filter(
+        (payment) => payment.status === "PENDING"
+      );
+
+      const overdueScheduledAmount =
+        openScheduledPayments
+          .filter(
+            (payment) =>
+              new Date(payment.dueDate) < referenceDate
+          )
+          .reduce(
+            (total, payment) =>
+              total + Number(payment.amount),
+            0
+          );
+
+      const overdueAmount = Math.min(
+        overdueScheduledAmount,
+        remainingAmount
+      );
+
+      const pendingAmount = Math.max(
+        remainingAmount - overdueAmount,
         0
       );
 
-    const totalExpenses = expensesForPeriod.reduce(
-      (accumulator, expense) =>
-        accumulator + Number(expense.amount),
-      0
-    );
+      const patientName = getPatientName(
+        budget.patient
+      );
 
+      const branchName = `${budget.patient.branch.name} — ${budget.patient.branch.address}`;
+
+      const concept =
+        budget.description || "Presupuesto";
+
+      const nextPendingPayment =
+        openScheduledPayments.find(
+          (payment) =>
+            new Date(payment.dueDate) >= referenceDate
+        );
+
+      const firstOverduePayment =
+        openScheduledPayments.find(
+          (payment) =>
+            new Date(payment.dueDate) < referenceDate
+        );
+
+      if (pendingAmount > 0) {
+        pendingItems.push({
+          id: `budget-pending-${budget.id}`,
+          type: "BUDGET",
+          patientId: budget.patientId,
+          patientName,
+          concept,
+          date: (
+            nextPendingPayment?.dueDate ??
+            budget.createdAt
+          ).toISOString(),
+          amount: pendingAmount,
+          branchId: budget.patient.branchId,
+          branchName,
+          budgetId: budget.id,
+        });
+      }
+
+      if (overdueAmount > 0) {
+        overdueItems.push({
+          id: `budget-overdue-${budget.id}`,
+          type: "BUDGET",
+          patientId: budget.patientId,
+          patientName,
+          concept,
+          date: (
+            firstOverduePayment?.dueDate ??
+            budget.createdAt
+          ).toISOString(),
+          amount: overdueAmount,
+          branchId: budget.patient.branchId,
+          branchName,
+          budgetId: budget.id,
+        });
+      }
+    }
+
+    /*
+     * PAGOS SUELTOS
+     *
+     * Solo aquellos que no pertenecen a un presupuesto,
+     * para evitar contar dos veces el mismo saldo.
+     */
+    for (const payment of payments) {
+      if (
+        payment.status !== "PENDING" ||
+        payment.budgetId
+      ) {
+        continue;
+      }
+
+      if (
+        branchId &&
+        payment.patient.branchId !== branchId
+      ) {
+        continue;
+      }
+
+      if (payment.createdAt >= periodEnd) {
+        continue;
+      }
+
+      const item: DetailItem = {
+        id: payment.id,
+        type: "PAYMENT",
+        patientId: payment.patientId,
+        patientName: getPatientName(payment.patient),
+        concept: payment.concept || "Pago pendiente",
+        date: payment.dueDate.toISOString(),
+        amount: Number(payment.amount),
+        branchId: payment.patient.branchId,
+        branchName: `${payment.patient.branch.name} — ${payment.patient.branch.address}`,
+        budgetId: null,
+      };
+
+      if (new Date(payment.dueDate) < referenceDate) {
+        overdueItems.push(item);
+      } else {
+        pendingItems.push(item);
+      }
+    }
+
+    /*
+     * GASTOS DEL MES
+     */
+    const expenseItems: DetailItem[] = expenses
+      .filter((expense) => {
+        const matchesPeriod = isInsidePeriod(
+          expense.date,
+          periodStart,
+          periodEnd
+        );
+
+        const matchesBranch =
+          !branchId || expense.branchId === branchId;
+
+        return matchesPeriod && matchesBranch;
+      })
+      .map((expense) => ({
+        id: expense.id,
+        type: "EXPENSE",
+        patientId: null,
+        patientName: "",
+        concept: expense.concept,
+        date: expense.date.toISOString(),
+        amount: Number(expense.amount),
+        branchId: expense.branchId,
+        branchName: expense.branch
+          ? `${expense.branch.name} — ${expense.branch.address}`
+          : "Gasto general",
+        budgetId: null,
+      }));
+
+    const totalPaid = sumAmounts(paidItems);
+    const totalPending = sumAmounts(pendingItems);
+    const totalOverdue = sumAmounts(overdueItems);
+    const totalExpenses = sumAmounts(expenseItems);
     const netResult = totalPaid - totalExpenses;
 
     /*
      * RESUMEN POR SUCURSAL
      */
     const branchRows = branches.map((branch) => {
-      const branchPaid = paidPaymentsForPeriod
-        .filter(
-          (payment) =>
-            payment.patient.branchId === branch.id
+      const branchPaid = sumAmounts(
+        paidItems.filter(
+          (item) => item.branchId === branch.id
         )
-        .reduce(
-          (accumulator, payment) =>
-            accumulator + Number(payment.amount),
-          0
-        );
+      );
 
-      const branchBudgetPending = normalizedBudgets
-        .filter(
-          (budget) => budget.branchId === branch.id
+      const branchPending = sumAmounts(
+        pendingItems.filter(
+          (item) => item.branchId === branch.id
         )
-        .reduce(
-          (accumulator, budget) =>
-            accumulator + budget.remainingAmount,
-          0
-        );
+      );
 
-      const branchStandalonePending =
-        standalonePendingPayments
-          .filter(
-            (payment) =>
-              payment.patient.branchId === branch.id
-          )
-          .reduce(
-            (accumulator, payment) =>
-              accumulator + Number(payment.amount),
-            0
-          );
-
-      const branchPending =
-        branchBudgetPending +
-        branchStandalonePending;
-
-      const branchOverdue =
-        overdueStandalonePayments
-          .filter(
-            (payment) =>
-              payment.patient.branchId === branch.id
-          )
-          .reduce(
-            (accumulator, payment) =>
-              accumulator + Number(payment.amount),
-            0
-          );
-
-      const branchExpenses = expensesForPeriod
-        .filter(
-          (expense) =>
-            expense.branchId === branch.id
+      const branchOverdue = sumAmounts(
+        overdueItems.filter(
+          (item) => item.branchId === branch.id
         )
-        .reduce(
-          (accumulator, expense) =>
-            accumulator + Number(expense.amount),
-          0
-        );
+      );
+
+      const branchExpenses = sumAmounts(
+        expenseItems.filter(
+          (item) => item.branchId === branch.id
+        )
+      );
 
       return {
-        branch: {
-          id: branch.id,
-          name: branch.name,
-          address: branch.address,
-        },
+        branch,
         paid: branchPaid,
         pending: branchPending,
         overdue: branchOverdue,
@@ -338,22 +462,30 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    /*
+     * GRÁFICO MENSUAL DEL AÑO
+     */
     const monthlyData = Array.from(
       { length: 12 },
       (_, monthIndex) => {
-        const monthlyPaid = payments
+        const { start, end } = getMonthRange(
+          monthIndex,
+          selectedYear
+        );
+
+        const income = payments
           .filter((payment) => {
             if (payment.status !== "PAID") {
               return false;
             }
 
             const paymentDate =
-              payment.paidAt || payment.createdAt;
+              payment.paidAt ?? payment.createdAt;
 
-            const matchesPeriod = isSameMonthAndYear(
-              new Date(paymentDate),
-              monthIndex,
-              selectedYear
+            const matchesPeriod = isInsidePeriod(
+              paymentDate,
+              start,
+              end
             );
 
             const matchesBranch =
@@ -363,37 +495,36 @@ export async function GET(request: NextRequest) {
             return matchesPeriod && matchesBranch;
           })
           .reduce(
-            (accumulator, payment) =>
-              accumulator + Number(payment.amount),
+            (total, payment) =>
+              total + Number(payment.amount),
             0
           );
 
-        const monthlyExpenses = expenses
-          .filter((expense) => {
-            const matchesPeriod =
-              isSameMonthAndYear(
-                new Date(expense.date),
-                monthIndex,
-                selectedYear
-              );
+        const expense = expenses
+          .filter((item) => {
+            const matchesPeriod = isInsidePeriod(
+              item.date,
+              start,
+              end
+            );
 
             const matchesBranch =
               !branchId ||
-              expense.branchId === branchId;
+              item.branchId === branchId;
 
             return matchesPeriod && matchesBranch;
           })
           .reduce(
-            (accumulator, expense) =>
-              accumulator + Number(expense.amount),
+            (total, item) =>
+              total + Number(item.amount),
             0
           );
 
         return {
           monthIndex,
-          income: monthlyPaid,
-          expense: monthlyExpenses,
-          result: monthlyPaid - monthlyExpenses,
+          income,
+          expense,
+          result: income - expense,
         };
       }
     );
@@ -411,16 +542,22 @@ export async function GET(request: NextRequest) {
         totalOverdue,
         totalExpenses,
         netResult,
+
+        paidCount: paidItems.length,
+        pendingCount: pendingItems.length,
+        overdueCount: overdueItems.length,
+        expenseCount: expenseItems.length,
       },
 
-      pendingBreakdown: {
-        budgets: totalBudgetPending,
-        standalonePayments: totalStandalonePending,
+      details: {
+        paid: paidItems,
+        pending: pendingItems,
+        overdue: overdueItems,
+        expenses: expenseItems,
       },
 
       branches,
       branchRows,
-      expenses: expensesForPeriod,
       monthlyData,
     });
   } catch (error) {

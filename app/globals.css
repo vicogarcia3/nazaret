@@ -21,3 +21,7 @@ body {
 .font-logo {
   font-family: var(--font-cormorant);
 }
+
+html {
+  scroll-behavior: smooth;
+}
