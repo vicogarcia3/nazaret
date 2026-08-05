@@ -38,9 +38,7 @@ export async function GET() {
         user: true,
       },
       orderBy: {
-        user: {
-          name: "asc",
-        },
+        name: "asc",
       },
     });
 
@@ -48,7 +46,7 @@ export async function GET() {
 
     const formattedDoctors = doctors.map((doctor) => ({
       id: doctor.id,
-      name: doctor.user?.name || "Especialista",
+      name: doctor.name || doctor.user?.name || "Especialista",
       specialty: doctor.specialty || "Odontología general",
       imageUrl: doctor.photo || null,
     }));
