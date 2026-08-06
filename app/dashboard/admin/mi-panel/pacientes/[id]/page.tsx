@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import DeleteClinicalHistoryButton from "@/components/DeleteClinicalHistoryButton";
+import ClinicalReferralManager from "@/components/clinical-history/ClinicalReferralManager";
+import DeleteClinicalReferralButton from "@/components/clinical-history/DeleteClinicalReferralButton";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -15,6 +17,57 @@ type Props = {
   params: Promise<{
     id: string;
   }>;
+};
+
+function getReferralStatusLabel(status: string) {
+  switch (status) {
+    case "PENDING":
+      return "Pendiente";
+    case "OPENED":
+      return "Abierta";
+    case "COMPLETED":
+      return "Completada";
+    case "EXPIRED":
+      return "Vencida";
+    case "REVOKED":
+      return "Revocada";
+    default:
+      return status;
+  }
+}
+
+type ClinicalReferralWithDoctors = {
+  id: string;
+  reason: string | null;
+  instructions: string | null;
+  status:
+    | "PENDING"
+    | "OPENED"
+    | "COMPLETED"
+    | "EXPIRED"
+    | "REVOKED";
+  expiresAt: Date;
+  createdAt: Date;
+
+  specialist: {
+    id: string;
+    name: string;
+    specialty: string | null;
+    professionalLicense: string | null;
+    user: {
+      name: string | null;
+    } | null;
+  };
+
+  referredBy: {
+    id: string;
+    name: string;
+    specialty: string | null;
+    professionalLicense: string | null;
+    user: {
+      name: string | null;
+    } | null;
+  };
 };
 
 export default async function PacienteDetallePage({ params }: Props) {
@@ -35,6 +88,24 @@ export default async function PacienteDetallePage({ params }: Props) {
         },
       },
       odontogram: true,
+
+      clinicalReferrals: {
+        include: {
+          specialist: {
+            include: {
+              user: true,
+            },
+          },
+          referredBy: {
+            include: {
+              user: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+      },
     },
   });
 
@@ -42,12 +113,29 @@ export default async function PacienteDetallePage({ params }: Props) {
     notFound();
   }
 
+  const clinicalReferrals =
+    patient.clinicalReferrals as ClinicalReferralWithDoctors[];
+
   const paidPayments = patient.payments.filter(
     (payment) => payment.status === "PAID"
   );
 
   const latestHistory = patient.histories[0];
 
+  const doctors = await prisma.doctor.findMany({
+    where: {
+      active: true,
+    },
+    orderBy: {
+      name: "asc",
+    },
+    select: {
+      id: true,
+      name: true,
+      specialty: true,
+      professionalLicense: true,
+    },
+  });
 
   const nextAppointment = patient.appointments
     .filter(
@@ -194,21 +282,61 @@ export default async function PacienteDetallePage({ params }: Props) {
               </p>
             </div>
 
-            <div className="mt-8 flex justify-end gap-3">
-              {latestHistory && (
-                <DeleteClinicalHistoryButton
-                  patientId={patient.id}
-                />
-              )}
+            <div className="mt-8 border-t border-[#DED9CD] pt-6">
+              <div className="flex items-center justify-between gap-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                  Derivaciones
+                </p>
 
-              <Link
-                href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`}
-                className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]"
-              >
-                {latestHistory
-                  ? "Editar historia"
-                  : "Completar historia"}
-              </Link>
+                <Link
+                  href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/derivaciones`}
+                  className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6F855F] transition hover:text-[#536847]"
+                >
+                  Ver historial →
+                </Link>
+              </div>
+
+              <p className="mt-3 text-sm text-[#6B7774]">
+                {clinicalReferrals.length > 0
+                  ? `${clinicalReferrals.length} derivación${
+                      clinicalReferrals.length === 1 ? "" : "es"
+                    } registrada${
+                      clinicalReferrals.length === 1 ? "" : "s"
+                    }.`
+                  : "No hay derivaciones registradas."}
+              </p>
+            </div>
+
+            <div className="mt-8 border-t border-[#DED9CD] pt-6">
+              <div className="flex items-start justify-between gap-4">
+
+                <Link
+                  href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`}
+                  className="inline-flex items-center justify-center bg-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#1D302D]"
+                >
+                  {latestHistory
+                    ? "Editar historia"
+                    : "Completar historia"}
+                </Link>
+
+                <div className="flex flex-col items-end gap-3">
+
+                  {latestHistory && (
+                    <ClinicalReferralManager
+                      clinicalHistoryId={latestHistory.id}
+                      doctors={doctors}
+                    />
+                  )}
+
+                  {latestHistory && (
+                    <DeleteClinicalHistoryButton
+                      patientId={patient.id}
+                    />
+                  )}
+
+                </div>
+
+              </div>
             </div>
           </article>
 

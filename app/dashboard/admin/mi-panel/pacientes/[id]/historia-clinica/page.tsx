@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 import { ArrowLeft } from "lucide-react";
+
+import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 
 type Props = {
   params: Promise<{
@@ -10,21 +11,55 @@ type Props = {
   }>;
 };
 
-export default async function HistoriaClinicaPage({ params }: Props) {
+export default async function HistoriaClinicaPage({
+  params,
+}: Props) {
   const { id } = await params;
 
   const patient = await prisma.patient.findUnique({
-    where: { id },
+    where: {
+      id,
+    },
     include: {
       user: true,
       branch: true,
       plan: true,
+
+      histories: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        include: {
+          entries: {
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+        },
+      },
     },
   });
 
   if (!patient) {
     notFound();
   }
+
+  const history = patient.histories[0] ?? null;
+
+  const serializedEntries =
+    history?.entries.map((entry) => ({
+      id: entry.id,
+      professionalName: entry.professionalName,
+      professionalLicense: entry.professionalLicense,
+      diagnosis: entry.diagnosis,
+      treatment: entry.treatment,
+      evolution: entry.evolution,
+      indications: entry.indications,
+      notes: entry.notes,
+      createdAt: entry.createdAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
+    })) ?? [];
 
   return (
     <div className="space-y-8">
@@ -36,7 +71,10 @@ export default async function HistoriaClinicaPage({ params }: Props) {
         Volver al paciente
       </Link>
 
-      <ClinicalHistoryEditor patientId={patient.id} />
+      <ClinicalHistoryEditor
+        patientId={patient.id}
+        entries={serializedEntries}
+      />
     </div>
   );
 }

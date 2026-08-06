@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useConfirm } from "./ui/ConfirmProvider";
+import { Trash2, Loader2 } from "lucide-react";
 
 type Props = {
   patientId: string;
@@ -57,13 +58,22 @@ export default function DeleteClinicalHistoryButton({
   return (
     <button
       type="button"
-      disabled={loading}
       onClick={handleDelete}
-      className="border border-red-600 px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-red-600 transition hover:bg-red-600 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+      disabled={loading}
+      title="Eliminar historia clínica"
+      className="inline-flex items-center gap-2 text-xs font-medium text-[#B42318] transition hover:text-[#912018] disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {loading
-        ? "Eliminando..."
-        : "Eliminar historia"}
+      {loading ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : (
+        <Trash2 className="h-4 w-4" />
+      )}
+
+      <span className="underline underline-offset-2">
+        {loading
+          ? "Eliminando..."
+          : "Eliminar historia clínica"}
+      </span>
     </button>
   );
 }

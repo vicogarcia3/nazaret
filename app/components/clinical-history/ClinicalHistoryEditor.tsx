@@ -8,8 +8,22 @@ import SignaturePad from "@/app/components/clinical-history/SignaturePad";
 import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
 import PageNavigation from "./PageNavigation";
 
+type ClinicalEntry = {
+  id: string;
+  professionalName: string;
+  professionalLicense: string | null;
+  diagnosis: string | null;
+  treatment: string | null;
+  evolution: string | null;
+  indications: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type Props = {
   patientId: string;
+  entries?: ClinicalEntry[];
 };
 
 type FormState = Record<string, string>;
@@ -561,7 +575,10 @@ function PrintableOdontogram({
   );
 }
 
-export default function ClinicalHistoryEditor({ patientId }: Props) {
+export default function ClinicalHistoryEditor({
+  patientId,
+  entries = [],
+}: Props) {
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [odontogramData, setOdontogramData] = useState<Record<string, ToothMark>>({});
@@ -938,6 +955,86 @@ export default function ClinicalHistoryEditor({ patientId }: Props) {
           affiliationNumber={form.obraSocial}
           folioNumber=""
         />
+      )}
+
+      {entries.length > 0 && (
+        <section className="mt-10 rounded-xl border border-[#DED9CD] bg-white p-8">
+          <h2 className="mb-6 text-xl font-semibold text-[#263F3B]">
+            Interconsultas / Derivaciones
+          </h2>
+
+          <div className="space-y-6">
+            {entries.map((entry) => (
+              <div
+                key={entry.id}
+                className="rounded-lg border border-[#DED9CD] p-5"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold">
+                      {entry.professionalName}
+                    </h3>
+
+                    {entry.professionalLicense && (
+                      <p className="text-sm text-gray-500">
+                        MP {entry.professionalLicense}
+                      </p>
+                    )}
+                  </div>
+
+                  <span className="text-xs text-gray-500">
+                    {new Date(entry.createdAt).toLocaleDateString("es-AR")}
+                  </span>
+                </div>
+
+                {entry.diagnosis && (
+                  <div className="mb-4">
+                    <p className="mb-1 font-semibold">
+                      Diagnóstico
+                    </p>
+                    <p>{entry.diagnosis}</p>
+                  </div>
+                )}
+
+                {entry.treatment && (
+                  <div className="mb-4">
+                    <p className="mb-1 font-semibold">
+                      Tratamiento
+                    </p>
+                    <p>{entry.treatment}</p>
+                  </div>
+                )}
+
+                {entry.evolution && (
+                  <div className="mb-4">
+                    <p className="mb-1 font-semibold">
+                      Evolución
+                    </p>
+                    <p>{entry.evolution}</p>
+                  </div>
+                )}
+
+                {entry.indications && (
+                  <div className="mb-4">
+                    <p className="mb-1 font-semibold">
+                      Indicaciones
+                    </p>
+                    <p>{entry.indications}</p>
+                  </div>
+                )}
+
+                {entry.notes && (
+                  <div>
+                    <p className="mb-1 font-semibold">
+                      Observaciones
+                    </p>
+                    <p>{entry.notes}</p>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       )}
     </>
   );
