@@ -144,9 +144,13 @@ export async function GET(
             plan: true,
           },
         },
-        doctor: {
+        doctors: {
           include: {
-            user: true,
+            doctor: {
+              include: {
+                user: true,
+              },
+            },
           },
         },
         items: true,
@@ -168,7 +172,10 @@ export async function GET(
 
     const isAssignedDoctor =
       session.user.role === "DOCTOR" &&
-      budget.doctor.userId === session.user.id;
+      budget.doctors.some(
+        ({ doctor }) =>
+          doctor.userId === session.user.id
+      );
 
     const isBudgetPatient =
       session.user.role === "PATIENT" &&
@@ -184,6 +191,15 @@ export async function GET(
         }
       );
     }
+
+    const doctorNames = budget.doctors
+      .map(
+        ({ doctor }) =>
+          doctor.name ||
+          doctor.user?.name ||
+          "Especialista"
+      )
+      .join(", ");
 
     const doc = new jsPDF({
       orientation: "portrait",
@@ -309,7 +325,7 @@ export async function GET(
     doc.setTextColor(162, 179, 139);
 
     doc.text("DNI", leftX, y);
-    doc.text("ODONTÓLOGO", rightX, y);
+    doc.text("ESPECIALISTA", rightX, y);
 
     y += 6;
 
@@ -319,10 +335,13 @@ export async function GET(
 
     doc.text(budget.patient.dni || "-", leftX, y);
 
+    const doctorLines = doc.splitTextToSize(
+      doctorNames || "No asignado",
+      75
+    );
+
     doc.text(
-      budget.doctor?.user?.name ||
-        budget.doctor?.name ||
-        "No asignado",
+      doctorLines,
       rightX,
       y
     );

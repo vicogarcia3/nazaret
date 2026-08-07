@@ -83,7 +83,11 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
           {
             budgets: {
               some: {
-                doctorId: doctor.id,
+                doctors: {
+                  some: {
+                    doctorId: doctor.id,
+                  },
+                },
               },
             },
           },

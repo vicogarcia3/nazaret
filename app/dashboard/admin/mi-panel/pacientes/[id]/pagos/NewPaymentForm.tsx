@@ -55,6 +55,7 @@ export default function NewPaymentForm({
 
   const [submitting, setSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
 
   const [form, setForm] = useState({
     concept: "",
@@ -115,6 +116,7 @@ export default function NewPaymentForm({
           branchId: form.branchId,
           status: "PAID",
           budgetId: form.budgetId || null,
+          paymentMethod,
         }),
       });
 
@@ -137,6 +139,8 @@ export default function NewPaymentForm({
         branchId: defaultBranchId,
         budgetId: "",
       });
+
+      setPaymentMethod("");
 
       setOpen(false);
       router.refresh();
@@ -234,6 +238,21 @@ export default function NewPaymentForm({
                 }
                 required
               />
+
+              <select
+                value={paymentMethod}
+                onChange={(event) => setPaymentMethod(event.target.value)}
+                required
+                className="border border-[#DED9CD] bg-white px-4 py-3 text-sm text-[#263F3B] outline-none transition focus:border-[#A2B38B]"
+              >
+                <option value="">Método de pago</option>
+                <option value="Efectivo">Efectivo</option>
+                <option value="Transferencia">Transferencia</option>
+                <option value="Tarjeta de débito">Tarjeta de débito</option>
+                <option value="Tarjeta de crédito">Tarjeta de crédito</option>
+                <option value="Mercado Pago">Mercado Pago</option>
+                <option value="Otro">Otro</option>
+              </select>
 
               <select
                 className="border border-[#DED9CD] bg-white p-3 outline-none transition focus:border-[#263F3B]"

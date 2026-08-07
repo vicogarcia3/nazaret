@@ -116,7 +116,11 @@ export default async function DoctorPatientPage({ params }: Props) {
         {
           budgets: {
             some: {
-              doctorId: doctor.id,
+              doctors: {
+                some: {
+                  doctorId: doctor.id,
+                },
+              },
             },
           },
         },

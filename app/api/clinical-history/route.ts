@@ -71,7 +71,11 @@ async function canAccessPatient({
         {
           budgets: {
             some: {
-              doctorId: doctor.id,
+              doctors: {
+                some: {
+                  doctorId: doctor.id,
+                },
+              },
             },
           },
         },

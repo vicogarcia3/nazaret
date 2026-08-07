@@ -370,7 +370,11 @@ export async function DELETE(
 
       prisma.budget.count({
         where: {
-          doctorId: doctor.id,
+          doctors: {
+            some: {
+              doctorId: doctor.id,
+            },
+          },
         },
       }),
     ]);

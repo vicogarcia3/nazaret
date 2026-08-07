@@ -98,7 +98,11 @@ export async function GET() {
             {
               budgets: {
                 some: {
-                  doctorId: doctor.id,
+                  doctors: {
+                    some: {
+                      doctorId: doctor.id,
+                    },
+                  },
                 },
               },
             },
@@ -241,7 +245,11 @@ export async function POST(request: Request) {
           {
             budgets: {
               some: {
-                doctorId: doctor.id,
+                doctors: {
+                  some: {
+                    doctorId: doctor.id,
+                  },
+                },
               },
             },
           },

@@ -69,7 +69,11 @@ export default async function DoctorPacientesPage() {
           {
             budgets: {
               some: {
-                doctorId: doctor.id,
+                doctors: {
+                  some: {
+                    doctorId: doctor.id,
+                  },
+                },
               },
             },
           },

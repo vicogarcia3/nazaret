@@ -44,9 +44,13 @@ export default async function PresupuestosPacientePage({
 
       budgets: {
         include: {
-          doctor: {
+          doctors: {
             include: {
-              user: true,
+              doctor: {
+                include: {
+                  user: true,
+                },
+              },
             },
           },
 
@@ -112,7 +116,16 @@ export default async function PresupuestosPacientePage({
       remainingAmount,
       status: normalizeBudgetStatus(total, paidAmount),
       doctorName:
-        budget.doctor.name || budget.doctor.user?.name || "Sin especialista asignado",
+        budget.doctors.length > 0
+          ? budget.doctors
+              .map(
+                ({ doctor }) =>
+                  doctor.name ||
+                  doctor.user?.name ||
+                  "Especialista"
+              )
+              .join(", ")
+          : "Sin especialista asignado",
 
       payments: budget.payments.map((payment) => ({
         id: payment.id,

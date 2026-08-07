@@ -66,7 +66,11 @@ export default async function DoctorClinicalHistoryPage({
         {
           budgets: {
             some: {
-              doctorId: doctor.id,
+              doctors: {
+                some: {
+                  doctorId: doctor.id,
+                },
+              },
             },
           },
         },

@@ -20,9 +20,13 @@ export default async function PresupuestoDetallePage({ params }: Props) {
           plan: true,
         },
       },
-      doctor: {
+      doctors: {
         include: {
-          user: true,
+          doctor: {
+            include: {
+              user: true,
+            },
+          },
         },
       },
       items: true,

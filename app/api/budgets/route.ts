@@ -12,7 +12,7 @@ type CreateBudgetItem = {
 
 type CreateBudgetBody = {
   patientId?: string;
-  doctorId?: string;
+  doctorIds?: string[];
   description?: string | null;
   items?: CreateBudgetItem[];
 };
@@ -53,7 +53,8 @@ export async function GET() {
     ) {
       return NextResponse.json(
         {
-          error: "No tenés permisos para consultar presupuestos.",
+          error:
+            "No tenés permisos para consultar presupuestos.",
         },
         {
           status: 403,
@@ -61,7 +62,7 @@ export async function GET() {
       );
     }
 
-    let doctorId: string | undefined;
+    let sessionDoctorId: string | undefined;
 
     if (session.user.role === "DOCTOR") {
       const doctor = await prisma.doctor.findUnique({
@@ -76,7 +77,8 @@ export async function GET() {
       if (!doctor) {
         return NextResponse.json(
           {
-            error: "No se encontró el perfil profesional.",
+            error:
+              "No se encontró el perfil profesional.",
           },
           {
             status: 404,
@@ -84,13 +86,17 @@ export async function GET() {
         );
       }
 
-      doctorId = doctor.id;
+      sessionDoctorId = doctor.id;
     }
 
     const budgets = await prisma.budget.findMany({
-      where: doctorId
+      where: sessionDoctorId
         ? {
-            doctorId,
+            doctors: {
+              some: {
+                doctorId: sessionDoctorId,
+              },
+            },
           }
         : undefined,
 
@@ -102,9 +108,16 @@ export async function GET() {
           },
         },
 
-        doctor: {
+        doctors: {
           include: {
-            user: true,
+            doctor: {
+              include: {
+                user: true,
+              },
+            },
+          },
+          orderBy: {
+            id: "asc",
           },
         },
 
@@ -136,15 +149,20 @@ export async function GET() {
       const total = Number(budget.total);
 
       const paidAmount = budget.payments.reduce(
-        (accumulator, payment) => {
-          return accumulator + Number(payment.amount);
-        },
+        (accumulator, payment) =>
+          accumulator + Number(payment.amount),
         0
       );
 
-      const remainingAmount = Math.max(total - paidAmount, 0);
+      const remainingAmount = Math.max(
+        total - paidAmount,
+        0
+      );
 
-      const status = calculateBudgetStatus(total, paidAmount);
+      const status = calculateBudgetStatus(
+        total,
+        paidAmount
+      );
 
       return {
         ...budget,
@@ -157,20 +175,39 @@ export async function GET() {
         remainingAmount,
         status,
 
-        payments: budget.payments.map((payment) => ({
-          ...payment,
-          amount: Number(payment.amount),
-        })),
+        doctors: budget.doctors.map(
+          ({ doctor }) => ({
+            id: doctor.id,
+            name:
+              doctor.name ||
+              doctor.user?.name ||
+              "Especialista sin nombre",
+            specialty: doctor.specialty,
+            professionalLicense:
+              doctor.professionalLicense,
+          })
+        ),
+
+        payments: budget.payments.map(
+          (payment) => ({
+            ...payment,
+            amount: Number(payment.amount),
+          })
+        ),
       };
     });
 
     return NextResponse.json(normalizedBudgets);
   } catch (error) {
-    console.error("Error obteniendo presupuestos:", error);
+    console.error(
+      "Error obteniendo presupuestos:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: "No se pudieron obtener los presupuestos.",
+        error:
+          "No se pudieron obtener los presupuestos.",
       },
       {
         status: 500,
@@ -200,7 +237,8 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         {
-          error: "No tenés permisos para crear presupuestos.",
+          error:
+            "No tenés permisos para crear presupuestos.",
         },
         {
           status: 403,
@@ -208,23 +246,44 @@ export async function POST(request: Request) {
       );
     }
 
-    const body = (await request.json()) as CreateBudgetBody;
+    const body =
+      (await request.json()) as CreateBudgetBody;
 
     const patientId =
       typeof body.patientId === "string"
         ? body.patientId.trim()
         : "";
 
-    const doctorId =
-      typeof body.doctorId === "string"
-        ? body.doctorId.trim()
-        : "";
+    const doctorIds = Array.isArray(body.doctorIds)
+      ? [
+          ...new Set(
+            body.doctorIds
+              .filter(
+                (doctorId): doctorId is string =>
+                  typeof doctorId === "string"
+              )
+              .map((doctorId) => doctorId.trim())
+              .filter(Boolean)
+          ),
+        ]
+      : [];
 
-    if (!patientId || !doctorId) {
+    if (!patientId) {
+      return NextResponse.json(
+        {
+          error: "El paciente es obligatorio.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    if (doctorIds.length === 0) {
       return NextResponse.json(
         {
           error:
-            "El paciente y el especialista son obligatorios.",
+            "Seleccioná al menos un especialista.",
         },
         {
           status: 400,
@@ -252,20 +311,34 @@ export async function POST(request: Request) {
       );
     }
 
-    const doctor = await prisma.doctor.findUnique({
-      where: {
-        id: doctorId,
-      },
-      select: {
-        id: true,
-        active: true,
-      },
-    });
+    const selectedDoctors =
+      await prisma.doctor.findMany({
+        where: {
+          id: {
+            in: doctorIds,
+          },
+        },
+        select: {
+          id: true,
+          name: true,
+          active: true,
+          specialty: true,
+          professionalLicense: true,
+          user: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      });
 
-    if (!doctor) {
+    if (
+      selectedDoctors.length !== doctorIds.length
+    ) {
       return NextResponse.json(
         {
-          error: "Especialista no encontrado.",
+          error:
+            "Uno o más especialistas seleccionados no existen.",
         },
         {
           status: 404,
@@ -273,10 +346,19 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!doctor.active) {
+    const inactiveDoctor =
+      selectedDoctors.find(
+        (doctor) => !doctor.active
+      );
+
+    if (inactiveDoctor) {
       return NextResponse.json(
         {
-          error: "El especialista seleccionado está inactivo.",
+          error: `El especialista ${
+            inactiveDoctor.name ||
+            inactiveDoctor.user?.name ||
+            ""
+          } está inactivo.`,
         },
         {
           status: 400,
@@ -285,20 +367,36 @@ export async function POST(request: Request) {
     }
 
     if (session.user.role === "DOCTOR") {
-      const sessionDoctor = await prisma.doctor.findUnique({
-        where: {
-          userId: session.user.id,
-        },
-        select: {
-          id: true,
-        },
-      });
+      const sessionDoctor =
+        await prisma.doctor.findUnique({
+          where: {
+            userId: session.user.id,
+          },
+          select: {
+            id: true,
+          },
+        });
 
-      if (!sessionDoctor || sessionDoctor.id !== doctorId) {
+      if (!sessionDoctor) {
         return NextResponse.json(
           {
             error:
-              "No podés crear un presupuesto asignado a otro especialista.",
+              "No se encontró el perfil profesional.",
+          },
+          {
+            status: 404,
+          }
+        );
+      }
+
+      if (
+        doctorIds.length !== 1 ||
+        doctorIds[0] !== sessionDoctor.id
+      ) {
+        return NextResponse.json(
+          {
+            error:
+              "Los profesionales solamente pueden crear presupuestos asignados a sí mismos.",
           },
           {
             status: 403,
@@ -307,7 +405,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const items = Array.isArray(body.items) ? body.items : [];
+    const items = Array.isArray(body.items)
+      ? body.items
+      : [];
 
     const validItems = items
       .map((item) => {
@@ -316,16 +416,23 @@ export async function POST(request: Request) {
             ? item.serviceName.trim()
             : "";
 
-        const quantityValue = Number(item.quantity ?? 1);
-        const unitPriceValue = Number(item.unitPrice ?? 0);
+        const quantityValue = Number(
+          item.quantity ?? 1
+        );
+
+        const unitPriceValue = Number(
+          item.unitPrice ?? 0
+        );
 
         const quantity =
-          Number.isFinite(quantityValue) && quantityValue > 0
+          Number.isFinite(quantityValue) &&
+          quantityValue > 0
             ? Math.trunc(quantityValue)
             : 1;
 
         const unitPrice =
-          Number.isFinite(unitPriceValue) && unitPriceValue >= 0
+          Number.isFinite(unitPriceValue) &&
+          unitPriceValue >= 0
             ? unitPriceValue
             : 0;
 
@@ -336,13 +443,17 @@ export async function POST(request: Request) {
           total: quantity * unitPrice,
         };
       })
-      .filter((item) => item.serviceName.length > 0);
+      .filter(
+        (item) =>
+          item.serviceName.length > 0 &&
+          item.unitPrice > 0
+      );
 
     if (validItems.length === 0) {
       return NextResponse.json(
         {
           error:
-            "El presupuesto debe contener al menos un tratamiento.",
+            "El presupuesto debe contener al menos un tratamiento con un precio válido.",
         },
         {
           status: 400,
@@ -351,7 +462,8 @@ export async function POST(request: Request) {
     }
 
     const subtotal = validItems.reduce(
-      (accumulator, item) => accumulator + item.total,
+      (accumulator, item) =>
+        accumulator + item.total,
       0
     );
 
@@ -361,7 +473,8 @@ export async function POST(request: Request) {
         : 0;
 
     const total = Math.max(
-      subtotal - subtotal * (discount / 100),
+      subtotal -
+        subtotal * (discount / 100),
       0
     );
 
@@ -374,7 +487,6 @@ export async function POST(request: Request) {
     const budget = await prisma.budget.create({
       data: {
         patientId,
-        doctorId,
         description,
 
         subtotal: new Prisma.Decimal(subtotal),
@@ -382,6 +494,12 @@ export async function POST(request: Request) {
         total: new Prisma.Decimal(total),
 
         status: "CREATED",
+
+        doctors: {
+          create: doctorIds.map((doctorId) => ({
+            doctorId,
+          })),
+        },
 
         items: {
           create: validItems.map((item) => ({
@@ -401,9 +519,13 @@ export async function POST(request: Request) {
           },
         },
 
-        doctor: {
+        doctors: {
           include: {
-            user: true,
+            doctor: {
+              include: {
+                user: true,
+              },
+            },
           },
         },
 
@@ -412,27 +534,42 @@ export async function POST(request: Request) {
       },
     });
 
-    const doctorName =
-      budget.doctor.name ||
-      budget.doctor.user?.name ||
-      "Tu odontólogo";
+    const doctorNames = budget.doctors
+      .map(
+        ({ doctor }) =>
+          doctor.name ||
+          doctor.user?.name ||
+          "Especialista"
+      )
+      .join(", ");
 
-    await prisma.notification.create({
-      data: {
-        patientId: budget.patientId,
-        doctorId: budget.doctorId,
-        budgetId: budget.id,
+    /*
+     * Notification todavía tiene un único doctorId.
+     * Usamos el primer especialista como actor principal,
+     * pero en el mensaje se muestran todos.
+     */
+    const primaryDoctorId =
+      budget.doctors[0]?.doctorId;
 
-        title: "Nuevo presupuesto",
+    if (primaryDoctorId) {
+      await prisma.notification.create({
+        data: {
+          patientId: budget.patientId,
+          doctorId: primaryDoctorId,
+          budgetId: budget.id,
 
-        message: `${doctorName} creó un nuevo presupuesto. Más detalles en "Presupuestos".`,
+          title: "Nuevo presupuesto",
 
-        type: "BUDGET",
-        actor: "DOCTOR",
+          message: `${doctorNames} creó un nuevo presupuesto. Más detalles en "Presupuestos".`,
 
-        actionUrl: "/dashboard/patient/presupuestos",
-      },
-    });
+          type: "BUDGET",
+          actor: "DOCTOR",
+
+          actionUrl:
+            "/dashboard/patient/presupuestos",
+        },
+      });
+    }
 
     return NextResponse.json(
       {
@@ -442,8 +579,23 @@ export async function POST(request: Request) {
         discount: Number(budget.discount),
         total: Number(budget.total),
 
+        doctors: budget.doctors.map(
+          ({ doctor }) => ({
+            id: doctor.id,
+            name:
+              doctor.name ||
+              doctor.user?.name ||
+              "Especialista sin nombre",
+            specialty: doctor.specialty,
+            professionalLicense:
+              doctor.professionalLicense,
+          })
+        ),
+
         paidAmount: 0,
-        remainingAmount: Number(budget.total),
+        remainingAmount: Number(
+          budget.total
+        ),
         status: "CREATED",
       },
       {
@@ -451,11 +603,15 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    console.error("Error creando presupuesto:", error);
+    console.error(
+      "Error creando presupuesto:",
+      error
+    );
 
     return NextResponse.json(
       {
-        error: "No se pudo crear el presupuesto.",
+        error:
+          "No se pudo crear el presupuesto.",
       },
       {
         status: 500,

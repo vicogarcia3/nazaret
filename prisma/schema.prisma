@@ -20,13 +20,24 @@ model Payment {
   whatsappReminderSent   Boolean       @default(false)
   whatsappReminderSentAt DateTime?
   paymentMethod          String?
-  budget                 Budget?       @relation(fields: [budgetId], references: [id])
-  patient                Patient       @relation(fields: [patientId], references: [id])
+
+  // Comprobante generado al registrar el pago
+  receiptNumber   String?   @unique
+  receiptIssuedAt DateTime?
+  receiptData     Json?
+
+  // Registro de entrega al paciente
+  receiptNotifiedAt DateTime?
+  receiptEmailedAt  DateTime?
+
+  budget  Budget? @relation(fields: [budgetId], references: [id])
+  patient Patient @relation(fields: [patientId], references: [id])
 
   @@index([patientId])
   @@index([budgetId])
   @@index([status])
   @@index([paidAt])
+  @@index([receiptIssuedAt])
 }
 
 model User {
@@ -100,7 +111,7 @@ model Doctor {
   name                      String
   visible                   Boolean                   @default(true)
   appointments              Appointment[]
-  budgets                   Budget[]
+  budgets                   BudgetDoctor[]
   user                      User?                     @relation(fields: [userId], references: [id])
   branches                  DoctorBranch[]
   schedules                 DoctorSchedule[]
@@ -196,26 +207,38 @@ model Appointment {
 }
 
 model Budget {
-  id               String       @id @default(cuid())
+  id               String   @id @default(cuid())
   total            Decimal
   description      String?
   patientId        String
-  doctorId         String
-  createdAt        DateTime     @default(now())
-  discount         Decimal      @default(0)
+  createdAt        DateTime @default(now())
+  discount         Decimal  @default(0)
   subtotal         Decimal
-  status           String       @default("CREATED")
-  updatedAt        DateTime     @default(now()) @updatedAt
+  status           String   @default("CREATED")
+  updatedAt        DateTime @default(now()) @updatedAt
   doctorSignature  String?
   patientSignature String?
-  doctor           Doctor       @relation(fields: [doctorId], references: [id])
-  patient          Patient      @relation(fields: [patientId], references: [id])
-  items            BudgetItem[]
-  payments         Payment[]
+
+  patient  Patient        @relation(fields: [patientId], references: [id])
+  items    BudgetItem[]
+  payments Payment[]
+  doctors  BudgetDoctor[]
 
   @@index([patientId])
-  @@index([doctorId])
   @@index([status])
+}
+
+model BudgetDoctor {
+  id       String @id @default(cuid())
+  budgetId String
+  doctorId String
+
+  budget Budget @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@unique([budgetId, doctorId])
+  @@index([budgetId])
+  @@index([doctorId])
 }
 
 model ClinicalHistory {

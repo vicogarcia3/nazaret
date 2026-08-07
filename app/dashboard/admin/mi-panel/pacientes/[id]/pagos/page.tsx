@@ -13,6 +13,7 @@ import {
   Clock,
   FileText,
   Wallet,
+  Download,
 } from "lucide-react";
 
 type Props = {
@@ -81,12 +82,16 @@ export default async function PagosPacientePage({
 
       budgets: {
         include: {
-          doctor: {
-            select: {
-              name: true,
-              user: {
+          doctors: {
+            include: {
+              doctor: {
                 select: {
                   name: true,
+                  user: {
+                    select: {
+                      name: true,
+                    },
+                  },
                 },
               },
             },
@@ -156,9 +161,16 @@ export default async function PagosPacientePage({
             : "CREATED",
         createdAt: budget.createdAt,
         doctorName:
-          budget.doctor.name ||
-          budget.doctor.user?.name ||
-          "Sin especialista asignado",
+          budget.doctors.length > 0
+            ? budget.doctors
+                .map(
+                  ({ doctor }) =>
+                    doctor.name ||
+                    doctor.user?.name ||
+                    "Especialista"
+                )
+                .join(", ")
+            : "Sin especialista asignado",
       };
     }
   );
@@ -601,31 +613,39 @@ export default async function PagosPacientePage({
                       </p>
                     </div>
 
-                    {payment.status !== "PAID" && (
-                      <div className="mt-8 flex justify-end gap-3">
-                        <MarkAsPaidButton
-                          paymentId={payment.id}
-                        />
+                    <div className="mt-8 flex flex-wrap justify-end gap-3">
+                      {payment.status === "PAID" && payment.receiptNumber && (
+                        <Link
+                          href={`/api/payments/${payment.id}/receipt`}
+                          target="_blank"
+                          className="inline-flex items-center gap-2 border border-[#DED9CD] px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#263F3B] transition hover:bg-[#F7F5EF]"
+                        >
+                          <Download className="h-4 w-4" />
+                          Comprobante
+                        </Link>
+                      )}
 
-                        <WhatsAppReminderButton
-                          paymentId={payment.id}
-                          whatsappUrl={`https://wa.me/${formatPhoneForWhatsApp(
-                            patient.phone
-                          )}?text=${encodeURIComponent(
-                            getWhatsAppMessage({
-                              amount: Number(
-                                payment.amount
-                              ),
-                              createdAt:
-                                payment.createdAt,
-                            })
-                          )}`}
-                          sent={
-                            payment.whatsappReminderSent
-                          }
-                        />
-                      </div>
-                    )}
+                      {payment.status !== "PAID" && (
+                        <>
+                          <MarkAsPaidButton
+                            paymentId={payment.id}
+                          />
+
+                          <WhatsAppReminderButton
+                            paymentId={payment.id}
+                            whatsappUrl={`https://wa.me/${formatPhoneForWhatsApp(
+                              patient.phone
+                            )}?text=${encodeURIComponent(
+                              getWhatsAppMessage({
+                                amount: Number(payment.amount),
+                                createdAt: payment.createdAt,
+                              })
+                            )}`}
+                            sent={payment.whatsappReminderSent}
+                          />
+                        </>
+                      )}
+                    </div>
                   </article>
                 );
               })}

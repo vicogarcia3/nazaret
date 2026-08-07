@@ -20,9 +20,13 @@ export async function GET() {
   const budgets = await prisma.budget.findMany({
     where: { patientId: patient.id },
     include: {
-      doctor: {
+      doctors: {
         include: {
-          user: true,
+          doctor: {
+            include: {
+              user: true,
+            },
+          },
         },
       },
       items: true,

@@ -130,7 +130,11 @@ export async function GET(request: Request) {
           where: {
             budget: {
               is: {
-                doctorId: doctor.id,
+                doctors: {
+                  some: {
+                    doctorId: doctor.id,
+                  },
+                },
               },
             },
             ...paymentBranchFilter,
@@ -204,7 +208,11 @@ export async function GET(request: Request) {
           where: {
             budget: {
               is: {
-                doctorId: doctor.id,
+                doctors: {
+                  some: {
+                    doctorId: doctor.id,
+                  },
+                },
               },
             },
             status: "PAID",
