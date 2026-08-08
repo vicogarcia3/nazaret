@@ -11,6 +11,7 @@ import {
   Trash2,
   Save,
   ShieldPlus,
+  ChevronDown,
 } from "lucide-react";
 import TreatmentManager from "@/components/admin/TratmentManager";
 import DoctorScheduleManager from "@/components/admin/DoctorScheduleManager";
@@ -95,12 +96,14 @@ export default function ServiciosPage() {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [editingDoctorId, setEditingDoctorId] = useState<string | null>(null);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [openBranchId, setOpenBranchId] = useState<string | null>(null);
+  const branchRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [showDoctorForm, setShowDoctorForm] = useState(false);
   const doctorFormRef = useRef<HTMLFormElement>(null);
   const editSectionRef = useRef<HTMLFormElement>(null);
   const [showServiceForm, setShowServiceForm] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
   const confirmDialog = useConfirm();
-  
   const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [loadingTestimonials, setLoadingTestimonials] = useState(false);
   const [updatingTestimonialId, setUpdatingTestimonialId] =
@@ -1373,65 +1376,95 @@ async function handleContactSubmit(e: React.FormEvent) {
           <section className="border border-[#DED9CD] bg-white p-8">
             <Phone className="mb-5 h-5 w-5 text-[#A2B38B]" />
 
-            <h2 className="font-serif text-3xl font-medium">
-              Contacto
-            </h2>
-
-            <p className="mt-2 text-sm text-[#6B7774]">
-              Cargá los datos de contacto, redes sociales y sucursales visibles en el sitio.
-            </p>
-
-            <form onSubmit={handleContactSubmit} className="mt-8 space-y-8">
-              <div className="grid gap-6 md:grid-cols-3">
+            <div className="border border-[#DED9CD] bg-white">
+              <button
+                type="button"
+                onClick={() => setContactOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-4 p-8 text-left"
+              >
                 <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    WhatsApp
-                  </label>
+                  <h2 className="font-serif text-3xl font-medium">
+                    Contacto
+                  </h2>
 
-                  <input
-                    className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                    value={contactForm.whatsapp}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, whatsapp: e.target.value })
-                    }
-                  />
+                  <p className="mt-2 text-sm text-[#6B7774]">
+                    Cargá los datos de contacto y redes sociales visibles en el sitio.
+                  </p>
                 </div>
 
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Instagram
-                  </label>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 text-[#A2B38B] transition-transform duration-200 ${
+                    contactOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
 
-                  <input
-                    className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                    value={contactForm.instagram}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, instagram: e.target.value })
-                    }
-                  />
-                </div>
+              {contactOpen && (
+                <form
+                  onSubmit={handleContactSubmit}
+                  className="border-t border-[#DED9CD] p-8"
+                >
+                  <div className="grid gap-6 md:grid-cols-3">
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                        WhatsApp
+                      </label>
 
-                <div>
-                  <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                    Facebook
-                  </label>
+                      <input
+                        className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                        value={contactForm.whatsapp}
+                        onChange={(e) =>
+                          setContactForm({
+                            ...contactForm,
+                            whatsapp: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
 
-                  <input
-                    className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
-                    value={contactForm.facebook}
-                    onChange={(e) =>
-                      setContactForm({ ...contactForm, facebook: e.target.value })
-                    }
-                  />
-                </div>
-              </div>
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                        Instagram
+                      </label>
 
-              <div className="flex justify-end border-t border-[#DED9CD] pt-6">
-                <button className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
-                  Guardar contacto
-                </button>
-              </div>
-            </form>
+                      <input
+                        className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                        value={contactForm.instagram}
+                        onChange={(e) =>
+                          setContactForm({
+                            ...contactForm,
+                            instagram: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                        Facebook
+                      </label>
+
+                      <input
+                        className="mt-3 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                        value={contactForm.facebook}
+                        onChange={(e) =>
+                          setContactForm({
+                            ...contactForm,
+                            facebook: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-8 flex justify-end border-t border-[#DED9CD] pt-6">
+                    <button className="bg-[#263F3B] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white hover:bg-[#1d302d]">
+                      Guardar contacto
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
 
             <div className="mt-12 border-t border-[#DED9CD] pt-8">
               <h3 className="font-serif text-3xl font-medium">
@@ -1442,124 +1475,216 @@ async function handleContactSubmit(e: React.FormEvent) {
                 Administrá nombre, ciudad, dirección y horarios de atención por sucursal.
               </p>
 
-              <div className="mt-8 space-y-8">
+              <div className="mt-8 space-y-4">
                 {branches.map((branch, index) => (
                   <div
                     key={branch.id}
-                    className="border border-[#DED9CD] bg-white p-6"
+                    className="border border-[#DED9CD] bg-white"
                   >
-                    <div className="mb-6 flex items-center justify-between">
-                      <span className="text-[#A2B38B]">
-                        #{index + 1}
-                      </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const willOpen = openBranchId !== branch.id;
 
-                      <div className="flex items-center gap-5">
-                        <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B7774]">
-                          <input
-                            type="checkbox"
-                            checked={branch.active}
-                            onChange={(e) =>
-                              updateBranchField(branch.id, "active", e.target.checked)
-                            }
-                            className="h-4 w-4 accent-[#6F855F]"
-                          />
-                          Visible
-                        </label>
-                      </div>
-                    </div>
+                        setOpenBranchId(
+                          willOpen ? branch.id : null
+                        );
 
-                    <div className="grid gap-6 md:grid-cols-2">
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Nombre
-                        </label>
-                        <input
-                          className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                          value={branch.name}
-                          onChange={(e) =>
-                            updateBranchField(branch.id, "name", e.target.value)
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Ciudad
-                        </label>
-                        <input
-                          className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                          value={branch.city}
-                          onChange={(e) =>
-                            updateBranchField(branch.id, "city", e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-6">
-                      <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                        Dirección
-                      </label>
-                      <input
-                        className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                        value={branch.address}
-                        onChange={(e) =>
-                          updateBranchField(branch.id, "address", e.target.value)
+                        if (willOpen) {
+                          window.setTimeout(() => {
+                            branchRefs.current[branch.id]?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "center",
+                            });
+                          }, 150);
                         }
+                      }}
+                      className="flex w-full items-center justify-between gap-4 p-6 text-left"
+                    >
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#A2B38B]">
+                          Sucursal #{index + 1}
+                        </p>
+
+                        <p className="mt-2 text-base font-medium text-[#263F3B]">
+                          {branch.address}
+                          {branch.city ? ` — ${branch.city}` : ""}
+                        </p>
+                      </div>
+
+                      <ChevronDown
+                        className={`h-5 w-5 shrink-0 text-[#A2B38B] transition-transform duration-200 ${
+                          openBranchId === branch.id ? "rotate-180" : ""
+                        }`}
                       />
-                    </div>
+                    </button>
 
-                    <div className="mt-6 grid gap-6 md:grid-cols-3">
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Lunes a viernes
-                        </label>
+                    {openBranchId === branch.id && (
+                      <div
+                        ref={(element) => {
+                          branchRefs.current[branch.id] = element;
+                        }}
+                        className="border-t border-[#DED9CD] p-6"
+                      >
+                        <div className="mb-6 flex items-center justify-end">
+                          <label className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.25em] text-[#6B7774]">
+                            <input
+                              type="checkbox"
+                              checked={branch.active}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "active",
+                                  e.target.checked
+                                )
+                              }
+                              className="h-4 w-4 accent-[#6F855F]"
+                            />
+                            Visible
+                          </label>
+                        </div>
 
-                        <input
-                          className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                          placeholder="09:00 - 19:00"
-                          value={branch.mondayToFridayHours || ""}
-                          onChange={(e) =>
-                            updateBranchField(branch.id, "mondayToFridayHours", e.target.value)
-                          }
+                        <div className="grid gap-6 md:grid-cols-2">
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                              Nombre
+                            </label>
+
+                            <input
+                              className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                              value={branch.name}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "name",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                              Ciudad
+                            </label>
+
+                            <input
+                              className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                              value={branch.city}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "city",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-6">
+                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                            Dirección
+                          </label>
+
+                          <input
+                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                            value={branch.address}
+                            onChange={(e) =>
+                              updateBranchField(
+                                branch.id,
+                                "address",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-6">
+                          <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                            Ubicación en Google Maps
+                          </label>
+
+                          <input
+                            type="url"
+                            className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                            placeholder="https://maps.google.com/..."
+                            value={branch.mapUrl || ""}
+                            onChange={(e) =>
+                              updateBranchField(
+                                branch.id,
+                                "mapUrl",
+                                e.target.value
+                              )
+                            }
+                          />
+                        </div>
+
+                        <div className="mt-6 grid gap-6 md:grid-cols-3">
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                              Lunes a viernes
+                            </label>
+
+                            <input
+                              className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                              placeholder="09:00 - 19:00"
+                              value={branch.mondayToFridayHours || ""}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "mondayToFridayHours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                              Sábados
+                            </label>
+
+                            <input
+                              className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                              placeholder="09:00 - 13:00"
+                              value={branch.saturdayHours || ""}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "saturdayHours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+
+                          <div>
+                            <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                              Domingos
+                            </label>
+
+                            <input
+                              className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
+                              placeholder="Cerrado"
+                              value={branch.sundayHours || ""}
+                              onChange={(e) =>
+                                updateBranchField(
+                                  branch.id,
+                                  "sundayHours",
+                                  e.target.value
+                                )
+                              }
+                            />
+                          </div>
+                        </div>
+
+                        <DoctorScheduleManager
+                          branch={branch}
+                          doctors={doctors}
                         />
                       </div>
-
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Sábados
-                        </label>
-
-                        <input
-                          className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                          placeholder="09:00 - 13:00"
-                          value={branch.saturdayHours || ""}
-                          onChange={(e) =>
-                            updateBranchField(branch.id, "saturdayHours", e.target.value)
-                          }
-                        />
-                      </div>
-
-                      <div>
-                        <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
-                          Domingos
-                        </label>
-
-                        <input
-                          className="mt-2 w-full border border-[#DED9CD] bg-white p-3 outline-none focus:border-[#263F3B]"
-                          placeholder="Cerrado"
-                          value={branch.sundayHours || ""}
-                          onChange={(e) =>
-                            updateBranchField(branch.id, "sundayHours", e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-
-                    <DoctorScheduleManager
-                      branch={branch}
-                      doctors={doctors}
-                    />
+                    )}
                   </div>
                 ))}
               </div>

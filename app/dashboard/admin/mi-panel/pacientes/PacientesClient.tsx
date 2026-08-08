@@ -20,6 +20,7 @@ type Patient = {
   lastName: string;
   dni: string | null;
   phone: string;
+  email: string | null;
   branch: Branch;
   plan: {
     id: string;
@@ -53,6 +54,7 @@ export default function PacientesClient({
     lastName: "",
     dni: "",
     phone: "",
+    email: "",
     branchId: "",
     planId: "",
   });
@@ -81,6 +83,7 @@ export default function PacientesClient({
       lastName: "",
       dni: "",
       phone: "",
+      email: "",
       branchId: "",
       planId: "",
     });
@@ -95,6 +98,7 @@ export default function PacientesClient({
       lastName: patient.lastName,
       dni: patient.dni || "",
       phone: patient.phone,
+      email: patient.email || "",
       branchId: patient.branch.id,
       planId: patient.plan?.id || "",
     });
@@ -278,6 +282,30 @@ export default function PacientesClient({
 
               <div className="md:col-span-2">
                 <label className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                  Email
+                </label>
+
+                <input
+                  type="email"
+                  className="mt-2 w-full border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
+                  placeholder="paciente@correo.com"
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      email: e.target.value.toLowerCase(),
+                    })
+                  }
+                  required
+                />
+
+                <p className="mt-2 text-xs leading-5 text-[#6B7774]">
+                  El paciente deberá utilizar este mismo email cuando cree su cuenta.
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="text-[10px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Sucursal
                 </label>
 
@@ -433,6 +461,16 @@ export default function PacientesClient({
                   <span className="mt-1 flex items-center gap-2 text-[#263F3B]">
                     <Phone className="h-4 w-4 text-[#A2B38B]" />
                     {patient.phone}
+                  </span>
+                </p>
+
+                <p>
+                  <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                    Email
+                  </span>
+
+                  <span className="mt-1 block text-[#263F3B]">
+                    {patient.email || "Sin email"}
                   </span>
                 </p>
 

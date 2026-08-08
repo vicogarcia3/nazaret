@@ -15,7 +15,12 @@ async function updateBranch(req: Request, id: string) {
         city: body.city,
         address: body.address,
         phone: body.phone || null,
-        mapUrl: body.mapUrl || null,
+
+        mapUrl:
+          typeof body.mapUrl === "string" && body.mapUrl.trim()
+            ? body.mapUrl.trim()
+            : null,
+
         mondayToFridayHours: body.mondayToFridayHours || null,
         saturdayHours: body.saturdayHours || null,
         sundayHours: body.sundayHours || null,

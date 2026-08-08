@@ -35,6 +35,13 @@ export default async function HomePage() {
     },
   });
 
+  const mainBranch =
+    branches.find((branch) =>
+      branch.address
+        .toLowerCase()
+        .includes("nazaret 3182")
+    ) ?? branches[0];
+
   const testimonials = await prisma.testimonial.findMany({
     where: {
       approved: true,
@@ -363,17 +370,17 @@ export default async function HomePage() {
               <div className="space-y-1 text-xs font-semibold uppercase tracking-[0.18em] text-white/60">
                 <p>
                   LUNES A VIERNES:{" "}
-                  {config?.businessHoursWeek || "09:00 — 19:00"}
+                  {mainBranch?.mondayToFridayHours || "Sin horario cargado"}
                 </p>
 
                 <p>
                   SÁBADOS:{" "}
-                  {config?.businessHoursSaturday || "09:00 — 13:00"}
+                  {mainBranch?.saturdayHours || "Sin horario cargado"}
                 </p>
 
                 <p>
                   DOMINGOS:{" "}
-                  {config?.businessHoursSunday || "Cerrado"}
+                  {mainBranch?.sundayHours || "Cerrado"}
                 </p>
               </div>
             </div>
@@ -383,15 +390,33 @@ export default async function HomePage() {
                 Sucursales
               </h3>
 
-              <div className="space-y-4 text-xs text-white/70">
+              <div className="space-y-5">
                 {branches.map((branch) => (
-                  <div key={branch.id}>
-                    <p className="font-semibold text-white">{branch.name}</p>
+                  <div
+                    key={branch.id}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="text-xs text-white/70">
+                      <p className="font-semibold text-white">
+                        {branch.name}
+                      </p>
 
-                    <p>
-                      {branch.address}
-                      {branch.city ? ` — ${branch.city}` : ""}
-                    </p>
+                      <p>
+                        {branch.address}
+                        {branch.city ? ` — ${branch.city}` : ""}
+                      </p>
+                    </div>
+
+                    {branch.mapUrl && (
+                      <a
+                        href={branch.mapUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex w-fit items-center justify-center rounded-full border border-white/70 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.15em] text-white transition hover:bg-white hover:text-[#6F855F]"
+                      >
+                        Ver ubicación
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>

@@ -705,27 +705,6 @@ export default function DoctorScheduleManager({
             </div>
           </div>
 
-          {form.startTime &&
-            form.endTime &&
-            form.startTime < form.endTime && (
-              <div className="mt-5 flex items-start gap-3 border border-[#D5DDCF] bg-[#F2F5EF] px-4 py-4">
-                <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-[#56705F]" />
-
-                <div className="text-sm leading-6 text-[#56705F]">
-                  <p>
-                    Se generarán turnos automáticamente cada{" "}
-                    <strong>30 minutos</strong>.
-                  </p>
-
-                  <p>
-                    Primer turno: <strong>{firstAppointment}</strong>
-                    {" · "}
-                    Último turno: <strong>{lastAppointment}</strong>
-                  </p>
-                </div>
-              </div>
-            )}
-
           <div className="mt-6 flex justify-end">
             <button
               type="button"

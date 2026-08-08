@@ -151,15 +151,70 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
           </p>
 
           <div className="mt-2 grid grid-cols-3 gap-x-6 gap-y-2">
-            <Line label="DNI" value={patient.dni || data.documento} />
-            <Line label="Tel." value={patient.phone || data.telefono} />
-            <Line label="Cel." value={data.celular} />
-            <Line label="O. Social" value={data.obraSocial} />
-            <Line label="F. Nac." value={data.fechaNacimiento} />
-            <Line label="Edad" value={data.edad} />
-            <Line label="Estado civil" value={data.estadoCivil} />
-            <Line label="Nacionalidad" value={data.nacionalidad} />
-            <Line label="Sucursal" value={`${patient.branch.name} - ${patient.branch.address}`} />
+            <Line
+              label="DNI"
+              value={patient.dni || data.documento}
+            />
+
+            <Line
+              label="Tel."
+              value={patient.phone || data.telefono}
+            />
+
+            <Line
+              label="Cel."
+              value={data.celular}
+            />
+
+            <Line
+              label="Cobertura"
+              value={
+                data.tipoCobertura === "OBRA_SOCIAL"
+                  ? "Obra social"
+                  : data.tipoCobertura === "PARTICULAR"
+                    ? "Particular"
+                    : ""
+              }
+            />
+
+            {data.tipoCobertura === "OBRA_SOCIAL" && (
+              <>
+                <Line
+                  label="Obra social"
+                  value={data.obraSocial}
+                />
+
+                <Line
+                  label="N.º de afiliado"
+                  value={data.numeroAfiliado}
+                />
+              </>
+            )}
+
+            <Line
+              label="F. Nac."
+              value={data.fechaNacimiento}
+            />
+
+            <Line
+              label="Edad"
+              value={data.edad}
+            />
+
+            <Line
+              label="Estado civil"
+              value={data.estadoCivil}
+            />
+
+            <Line
+              label="Nacionalidad"
+              value={data.nacionalidad}
+            />
+
+            <Line
+              label="Sucursal"
+              value={`${patient.branch.name} - ${patient.branch.address}`}
+            />
           </div>
 
           <LineFull label="Domicilio" value={data.domicilio} />
@@ -330,7 +385,11 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
     <div className="print:break-before-page">
       <ClinicalHistoryAnnex
         patientName={`${patient.lastName}, ${patient.firstName}`}
-        affiliationNumber={data.afiliado || ""}
+        affiliationNumber={
+          data.tipoCobertura === "OBRA_SOCIAL"
+            ? data.numeroAfiliado || ""
+            : ""
+        }
         folioNumber=""
       />
     </div>

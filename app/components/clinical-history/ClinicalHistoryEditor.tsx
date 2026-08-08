@@ -42,7 +42,9 @@ const initialForm: FormState = {
   fecha: "",
   odontologo: "",
   matricula: "",
+  tipoCobertura: "",
   obraSocial: "",
+  numeroAfiliado: "",
   fechaNacimiento: "",
   telefono: "",
   edad: "",
@@ -698,15 +700,117 @@ export default function ClinicalHistoryEditor({
         <LineInput label="Nº Matrícula" value={form.matricula} onChange={(v) => update("matricula", v)} />
       </div>
 
+      <div className="rounded border border-[#DED9CD] bg-[#FAF9F5] p-4">
+        <p className="text-sm font-semibold text-[#263F3B]">
+          Cobertura de salud
+        </p>
+
+        <div className="mt-3 flex flex-wrap gap-6">
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="tipoCobertura"
+              checked={form.tipoCobertura === "PARTICULAR"}
+              onChange={() => {
+                update("tipoCobertura", "PARTICULAR");
+                update("obraSocial", "");
+                update("numeroAfiliado", "");
+              }}
+            />
+
+            Particular
+          </label>
+
+          <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="radio"
+              name="tipoCobertura"
+              checked={form.tipoCobertura === "OBRA_SOCIAL"}
+              onChange={() =>
+                update("tipoCobertura", "OBRA_SOCIAL")
+              }
+            />
+
+            Obra social
+          </label>
+        </div>
+
+        {form.tipoCobertura === "OBRA_SOCIAL" && (
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <LineInput
+              label="Obra social"
+              value={form.obraSocial}
+              onChange={(value) =>
+                update("obraSocial", value)
+              }
+            />
+
+            <LineInput
+              label="N.º de afiliado"
+              value={form.numeroAfiliado}
+              onChange={(value) =>
+                update("numeroAfiliado", value)
+              }
+            />
+          </div>
+        )}
+      </div>
       <div className="grid gap-4 md:grid-cols-4">
-        <LineInput label="Obra social" value={form.obraSocial} onChange={(v) => update("obraSocial", v)} />
-        <LineInput label="F. Nac." value={form.fechaNacimiento} onChange={(v) => update("fechaNacimiento", v)} />
-        <LineInput label="Tel." value={form.telefono} onChange={(v) => update("telefono", v)} />
-        <LineInput label="Edad" value={form.edad} onChange={(v) => update("edad", v)} />
-        <LineInput label="Estado civil" value={form.estadoCivil} onChange={(v) => update("estadoCivil", v)} />
-        <LineInput label="Nacionalidad" value={form.nacionalidad} onChange={(v) => update("nacionalidad", v)} />
-        <LineInput label="Nº Doc." value={form.documento} onChange={(v) => update("documento", v)} />
-        <LineInput label="Cel." value={form.celular} onChange={(v) => update("celular", v)} />
+        <LineInput
+          label="F. Nac."
+          value={form.fechaNacimiento}
+          onChange={(v) =>
+            update("fechaNacimiento", v)
+          }
+        />
+
+        <LineInput
+          label="Tel."
+          value={form.telefono}
+          onChange={(v) =>
+            update("telefono", v)
+          }
+        />
+
+        <LineInput
+          label="Edad"
+          value={form.edad}
+          onChange={(v) =>
+            update("edad", v)
+          }
+        />
+
+        <LineInput
+          label="Estado civil"
+          value={form.estadoCivil}
+          onChange={(v) =>
+            update("estadoCivil", v)
+          }
+        />
+
+        <LineInput
+          label="Nacionalidad"
+          value={form.nacionalidad}
+          onChange={(v) =>
+            update("nacionalidad", v)
+          }
+        />
+
+        <LineInput
+          label="Nº Doc."
+          value={form.documento}
+          onChange={(v) =>
+            update("documento", v)
+          }
+        />
+
+        <LineInput
+          label="Cel."
+          value={form.celular}
+          onChange={(v) =>
+            update("celular", v)
+          }
+        />
       </div>
 
       <LineInput label="Domicilio" value={form.domicilio} onChange={(v) => update("domicilio", v)} />
@@ -952,7 +1056,7 @@ export default function ClinicalHistoryEditor({
       {currentPage === 2 && (
         <ClinicalHistoryAnnex
           patientName={form.consentimientoNombre}
-          affiliationNumber={form.obraSocial}
+          affiliationNumber={form.numeroAfiliado}
           folioNumber=""
         />
       )}

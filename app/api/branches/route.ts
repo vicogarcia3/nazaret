@@ -12,11 +12,47 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const data = await req.json();
+  try {
+    const data = await req.json();
 
-  const branch = await prisma.branch.create({
-    data,
-  });
+    const branch = await prisma.branch.create({
+      data: {
+        name: String(data.name || "").trim(),
+        city: String(data.city || "").trim(),
+        address: String(data.address || "").trim(),
+        phone:
+          typeof data.phone === "string" &&
+          data.phone.trim()
+            ? data.phone.trim()
+            : null,
+        mapUrl:
+          typeof data.mapUrl === "string" &&
+          data.mapUrl.trim()
+            ? data.mapUrl.trim()
+            : null,
+      },
+    });
 
-  return NextResponse.json(branch);
+    return NextResponse.json(
+      branch,
+      {
+        status: 201,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "Error creando sucursal:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "No se pudo crear la sucursal.",
+      },
+      {
+        status: 500,
+      }
+    );
+  }
 }
