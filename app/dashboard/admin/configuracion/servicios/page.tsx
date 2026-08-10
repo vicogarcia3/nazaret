@@ -29,6 +29,7 @@ type Service = {
 type Doctor = {
   id: string;
   name: string | null;
+  email: string | null;
   user: {
     name: string;
     email: string;
@@ -213,7 +214,7 @@ export default function ServiciosPage() {
 
     setDoctorForm({
       name: doctor.name || doctor.user?.name || "",
-      email: doctor.user?.email || "",
+      email: doctor.email || "",
       specialty: doctor.specialty || "",
       professionalLicense: doctor.professionalLicense || "",
       description: doctor.description || "",
@@ -911,7 +912,7 @@ async function handleContactSubmit(e: React.FormEvent) {
                   />
                 </div>
 
-                <div>
+                <div className="grid gap-6 md:grid-cols-2">
                   <div>
                     <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                       Nombre completo
@@ -928,6 +929,29 @@ async function handleContactSubmit(e: React.FormEvent) {
                       }
                       required
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+                      Email
+                    </label>
+
+                    <input
+                      type="email"
+                      className="mt-2 w-full border border-[#DED9CD] p-2 outline-none focus:border-[#263F3B]"
+                      value={doctorForm.email}
+                      onChange={(e) =>
+                        setDoctorForm({
+                          ...doctorForm,
+                          email: e.target.value,
+                        })
+                      }
+                      placeholder="especialista@email.com"
+                    />
+
+                    <p className="mt-2 text-xs leading-5 text-[#6B7774]">
+                      Este email es de uso interno y no se mostrará en el sitio público.
+                    </p>
                   </div>
                 </div>
 

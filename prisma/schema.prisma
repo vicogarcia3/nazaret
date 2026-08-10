@@ -101,27 +101,83 @@ model Branch {
 }
 
 model Doctor {
-  id                        String                    @id @default(cuid())
-  userId                    String?                   @unique
-  specialty                 String?
-  description               String?
-  photo                     String?
-  professionalLicense       String?
-  active                    Boolean                   @default(true)
-  name                      String
-  visible                   Boolean                   @default(true)
-  appointments              Appointment[]
-  budgets                   BudgetDoctor[]
-  user                      User?                     @relation(fields: [userId], references: [id])
-  branches                  DoctorBranch[]
-  schedules                 DoctorSchedule[]
-  scheduleExceptions        DoctorScheduleException[]
-  specificSchedules         DoctorSpecificSchedule[]
-  notifications             Notification[]
-  patients                  Patient[]
-  clinicalHistoryEntries    ClinicalHistoryEntry[]
-  clinicalReferralsCreated  ClinicalReferral[]        @relation("ClinicalReferralCreator")
-  clinicalReferralsReceived ClinicalReferral[]        @relation("ClinicalReferralSpecialist")
+  id                  String  @id @default(cuid())
+  userId              String? @unique
+  specialty           String?
+  description         String?
+  photo               String?
+  professionalLicense String?
+  email               String?
+  active              Boolean @default(true)
+  name                String
+  visible             Boolean @default(true)
+
+  appointments                Appointment[]
+  budgets                     BudgetDoctor[]
+  user                        User?                       @relation(fields: [userId], references: [id])
+  branches                    DoctorBranch[]
+  schedules                   DoctorSchedule[]
+  scheduleExceptions          DoctorScheduleException[]
+  specificSchedules           DoctorSpecificSchedule[]
+  notifications               Notification[]
+  patients                    Patient[]
+  clinicalHistoryEntries      ClinicalHistoryEntry[]
+  clinicalHistoryAnnexEntries ClinicalHistoryAnnexEntry[]
+  clinicalImages              ClinicalImage[]
+
+  clinicalAccess           ClinicalAccess?
+  clinicalAccessCodes      ClinicalAccessCode[]
+  clinicalExternalSessions ClinicalExternalSession[]
+}
+
+model ClinicalAccess {
+  id String @id @default(cuid())
+
+  doctorId String  @unique
+  active   Boolean @default(true)
+
+  grantedAt    DateTime  @default(now())
+  lastAccessAt DateTime?
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@index([active])
+}
+
+model ClinicalAccessCode {
+  id       String @id @default(cuid())
+  doctorId String
+
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  attempts Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@index([doctorId])
+  @@index([expiresAt])
+}
+
+model ClinicalExternalSession {
+  id       String @id @default(cuid())
+  doctorId String
+
+  tokenHash String @unique
+
+  expiresAt DateTime
+  revokedAt DateTime?
+
+  createdAt    DateTime @default(now())
+  lastAccessAt DateTime @default(now())
+
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+
+  @@index([doctorId])
+  @@index([expiresAt])
 }
 
 model DoctorBranch {
@@ -134,14 +190,19 @@ model DoctorBranch {
 }
 
 model Plan {
-  id          String    @id @default(cuid())
+  id          String @id @default(cuid())
   name        String
   description String
-  price       Decimal?  @db.Decimal(12, 2)
-  active      Boolean   @default(true)
-  visible     Boolean   @default(false)
-  discount    Decimal   @default(0) @db.Decimal(5, 2)
-  patients    Patient[]
+
+  benefits   String?
+  conditions String?
+
+  price    Decimal? @db.Decimal(12, 2)
+  discount Decimal  @default(0) @db.Decimal(5, 2)
+
+  visible Boolean @default(false)
+
+  patients Patient[]
 }
 
 model HealthInsurance {
@@ -160,30 +221,29 @@ model HealthInsurance {
 }
 
 model Patient {
-  id                String             @id @default(cuid())
-  firstName         String
-  lastName          String
-  dni               String?
-  phone             String
-  email             String?
-  birthDate         DateTime?
-  branchId          String
-  doctorId          String?
-  planId            String?
-  createdAt         DateTime           @default(now())
-  userId            String?            @unique
-  appointments      Appointment[]
-  budgets           Budget[]
-  histories         ClinicalHistory[]
-  clinicalReferrals ClinicalReferral[]
-  notifications     Notification[]
-  odontogram        Odontogram?
-  branch            Branch             @relation(fields: [branchId], references: [id])
-  doctor            Doctor?            @relation(fields: [doctorId], references: [id])
-  plan              Plan?              @relation(fields: [planId], references: [id])
-  user              User?              @relation(fields: [userId], references: [id])
-  payments          Payment[]
-  testimonial       Testimonial?
+  id            String            @id @default(cuid())
+  firstName     String
+  lastName      String
+  dni           String?
+  phone         String
+  email         String?
+  birthDate     DateTime?
+  branchId      String
+  doctorId      String?
+  planId        String?
+  createdAt     DateTime          @default(now())
+  userId        String?           @unique
+  appointments  Appointment[]
+  budgets       Budget[]
+  histories     ClinicalHistory[]
+  notifications Notification[]
+  odontogram    Odontogram?
+  branch        Branch            @relation(fields: [branchId], references: [id])
+  doctor        Doctor?           @relation(fields: [doctorId], references: [id])
+  plan          Plan?             @relation(fields: [planId], references: [id])
+  user          User?             @relation(fields: [userId], references: [id])
+  payments      Payment[]
+  testimonial   Testimonial?
 }
 
 model Appointment {
@@ -250,9 +310,10 @@ model ClinicalHistory {
   data      Json?
   updatedAt DateTime @updatedAt
 
-  patient   Patient                @relation(fields: [patientId], references: [id])
-  entries   ClinicalHistoryEntry[]
-  referrals ClinicalReferral[]
+  patient      Patient                     @relation(fields: [patientId], references: [id])
+  entries      ClinicalHistoryEntry[]
+  annexEntries ClinicalHistoryAnnexEntry[]
+  images       ClinicalImage[]
 
   @@index([patientId])
 }
@@ -261,7 +322,6 @@ model ClinicalHistoryEntry {
   id                String  @id @default(cuid())
   clinicalHistoryId String
   doctorId          String?
-  referralId        String? @unique
 
   professionalName    String
   professionalLicense String?
@@ -275,46 +335,12 @@ model ClinicalHistoryEntry {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clinicalHistory ClinicalHistory   @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
-  doctor          Doctor?           @relation(fields: [doctorId], references: [id])
-  referral        ClinicalReferral? @relation(fields: [referralId], references: [id])
+  clinicalHistory ClinicalHistory @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
+  doctor          Doctor?         @relation(fields: [doctorId], references: [id])
 
   @@index([clinicalHistoryId])
   @@index([doctorId])
   @@index([createdAt])
-}
-
-model ClinicalReferral {
-  id                String @id @default(cuid())
-  clinicalHistoryId String
-  patientId         String
-  referredById      String
-  specialistId      String
-
-  reason       String?
-  instructions String?
-  tokenHash    String                 @unique
-  status       ClinicalReferralStatus @default(PENDING)
-
-  expiresAt   DateTime
-  openedAt    DateTime?
-  completedAt DateTime?
-  revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  clinicalHistory ClinicalHistory       @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
-  patient         Patient               @relation(fields: [patientId], references: [id])
-  referredBy      Doctor                @relation("ClinicalReferralCreator", fields: [referredById], references: [id])
-  specialist      Doctor                @relation("ClinicalReferralSpecialist", fields: [specialistId], references: [id])
-  entry           ClinicalHistoryEntry?
-
-  @@index([clinicalHistoryId])
-  @@index([patientId])
-  @@index([referredById])
-  @@index([specialistId])
-  @@index([status])
-  @@index([expiresAt])
 }
 
 model SiteConfig {
@@ -479,6 +505,58 @@ model Notification {
   @@index([createdAt])
 }
 
+model ClinicalHistoryAnnexEntry {
+  id                String @id @default(cuid())
+  clinicalHistoryId String
+
+  createdByDoctorId String?
+
+  professionalName String
+
+  treatment   String
+  indications String?
+
+  debit   Decimal? @db.Decimal(12, 2)
+  credit  Decimal? @db.Decimal(12, 2)
+  balance Decimal? @db.Decimal(12, 2)
+
+  nextAppointment  DateTime?
+  patientSignature String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicalHistory ClinicalHistory @relation(fields: [clinicalHistoryId], references: [id])
+  createdByDoctor Doctor?         @relation(fields: [createdByDoctorId], references: [id])
+
+  @@index([clinicalHistoryId])
+  @@index([createdByDoctorId])
+  @@index([createdAt])
+}
+
+model ClinicalImage {
+  id                 String  @id @default(cuid())
+  clinicalHistoryId  String
+  uploadedByDoctorId String?
+
+  type        ClinicalImageType
+  title       String
+  description String?
+  imageUrl    String
+  takenAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinicalHistory  ClinicalHistory @relation(fields: [clinicalHistoryId], references: [id], onDelete: Cascade)
+  uploadedByDoctor Doctor?         @relation(fields: [uploadedByDoctorId], references: [id])
+
+  @@index([clinicalHistoryId])
+  @@index([uploadedByDoctorId])
+  @@index([type])
+  @@index([createdAt])
+}
+
 enum Role {
   ADMIN
   DOCTOR
@@ -511,10 +589,8 @@ enum NotificationActor {
   SYSTEM
 }
 
-enum ClinicalReferralStatus {
-  PENDING
-  OPENED
-  COMPLETED
-  EXPIRED
-  REVOKED
+enum ClinicalImageType {
+  RADIOGRAPH
+  PHOTO
+  OTHER
 }

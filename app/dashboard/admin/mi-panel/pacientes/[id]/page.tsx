@@ -1,8 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import DeleteClinicalHistoryButton from "@/components/DeleteClinicalHistoryButton";
-import ClinicalReferralManager from "@/components/clinical-history/ClinicalReferralManager";
-import DeleteClinicalReferralButton from "@/components/clinical-history/DeleteClinicalReferralButton";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -17,57 +15,6 @@ type Props = {
   params: Promise<{
     id: string;
   }>;
-};
-
-function getReferralStatusLabel(status: string) {
-  switch (status) {
-    case "PENDING":
-      return "Pendiente";
-    case "OPENED":
-      return "Abierta";
-    case "COMPLETED":
-      return "Completada";
-    case "EXPIRED":
-      return "Vencida";
-    case "REVOKED":
-      return "Revocada";
-    default:
-      return status;
-  }
-}
-
-type ClinicalReferralWithDoctors = {
-  id: string;
-  reason: string | null;
-  instructions: string | null;
-  status:
-    | "PENDING"
-    | "OPENED"
-    | "COMPLETED"
-    | "EXPIRED"
-    | "REVOKED";
-  expiresAt: Date;
-  createdAt: Date;
-
-  specialist: {
-    id: string;
-    name: string;
-    specialty: string | null;
-    professionalLicense: string | null;
-    user: {
-      name: string | null;
-    } | null;
-  };
-
-  referredBy: {
-    id: string;
-    name: string;
-    specialty: string | null;
-    professionalLicense: string | null;
-    user: {
-      name: string | null;
-    } | null;
-  };
 };
 
 export default async function PacienteDetallePage({ params }: Props) {
@@ -88,24 +35,6 @@ export default async function PacienteDetallePage({ params }: Props) {
         },
       },
       odontogram: true,
-
-      clinicalReferrals: {
-        include: {
-          specialist: {
-            include: {
-              user: true,
-            },
-          },
-          referredBy: {
-            include: {
-              user: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      },
     },
   });
 
@@ -113,29 +42,11 @@ export default async function PacienteDetallePage({ params }: Props) {
     notFound();
   }
 
-  const clinicalReferrals =
-    patient.clinicalReferrals as ClinicalReferralWithDoctors[];
-
   const paidPayments = patient.payments.filter(
     (payment) => payment.status === "PAID"
   );
 
   const latestHistory = patient.histories[0];
-
-  const doctors = await prisma.doctor.findMany({
-    where: {
-      active: true,
-    },
-    orderBy: {
-      name: "asc",
-    },
-    select: {
-      id: true,
-      name: true,
-      specialty: true,
-      professionalLicense: true,
-    },
-  });
 
   const nextAppointment = patient.appointments
     .filter(
@@ -145,42 +56,57 @@ export default async function PacienteDetallePage({ params }: Props) {
     )
     .sort(
       (a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
+        new Date(a.date).getTime() -
+        new Date(b.date).getTime()
     )[0];
 
   const totalPaid = paidPayments.reduce(
-    (acc, payment) => acc + Number(payment.amount),
+    (acc, payment) =>
+      acc + Number(payment.amount),
     0
   );
 
-  const totalPending = patient.budgets.reduce((acc, budget) => {
-    const budgetPaid = patient.payments
-      .filter(
-        (payment) =>
-          payment.budgetId === budget.id &&
-          payment.status === "PAID"
-      )
-      .reduce(
-        (sum, payment) => sum + Number(payment.amount),
-        0
-      );
+  const totalPending = patient.budgets.reduce(
+    (acc, budget) => {
+      const budgetPaid = patient.payments
+        .filter(
+          (payment) =>
+            payment.budgetId === budget.id &&
+            payment.status === "PAID"
+        )
+        .reduce(
+          (sum, payment) =>
+            sum + Number(payment.amount),
+          0
+        );
 
-    return (
-      acc +
-      Math.max(Number(budget.total) - budgetPaid, 0)
-    );
-  }, 0);
+      return (
+        acc +
+        Math.max(
+          Number(budget.total) - budgetPaid,
+          0
+        )
+      );
+    },
+    0
+  );
 
   const totalDelayed = 0;
 
-  const completedAppointments = patient.appointments
-    .filter((a) => a.status === "COMPLETED")
-    .sort(
-      (a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+  const completedAppointments =
+    patient.appointments
+      .filter(
+        (appointment) =>
+          appointment.status === "COMPLETED"
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.date).getTime() -
+          new Date(a.date).getTime()
+      );
 
-  const lastCompletedAppointment = completedAppointments[0];
+  const lastCompletedAppointment =
+    completedAppointments[0];
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
@@ -197,11 +123,15 @@ export default async function PacienteDetallePage({ params }: Props) {
           <div className="mt-4 flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="font-[var(--font-cormorant)] text-4xl font-medium leading-tight">
-                {patient.firstName} {patient.lastName}
+                {patient.firstName}{" "}
+                {patient.lastName}
               </h1>
 
               <p className="mt-2 text-sm text-[#6B7774]">
-                Paciente · {patient.plan ? patient.plan.name : "Sin plan"}
+                Paciente ·{" "}
+                {patient.plan
+                  ? patient.plan.name
+                  : "Sin plan"}
               </p>
             </div>
           </div>
@@ -220,15 +150,21 @@ export default async function PacienteDetallePage({ params }: Props) {
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   DNI
                 </span>
-                <span className="mt-1 block">{patient.dni}</span>
+
+                <span className="mt-1 block">
+                  {patient.dni}
+                </span>
               </p>
 
               <p>
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Email
                 </span>
+
                 <span className="mt-1 block">
-                  {patient.user?.email || patient.email || "No cargado"}
+                  {patient.user?.email ||
+                    patient.email ||
+                    "No cargado"}
                 </span>
               </p>
 
@@ -236,15 +172,21 @@ export default async function PacienteDetallePage({ params }: Props) {
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Teléfono
                 </span>
-                <span className="mt-1 block">{patient.phone}</span>
+
+                <span className="mt-1 block">
+                  {patient.phone}
+                </span>
               </p>
 
               <p>
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Plan
                 </span>
+
                 <span className="mt-1 block">
-                  {patient.plan ? patient.plan.name : "Sin plan"}
+                  {patient.plan
+                    ? patient.plan.name
+                    : "Sin plan"}
                 </span>
               </p>
 
@@ -252,8 +194,10 @@ export default async function PacienteDetallePage({ params }: Props) {
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Sucursal
                 </span>
+
                 <span className="mt-1 block">
-                  {patient.branch.name} — {patient.branch.address}
+                  {patient.branch.name} —{" "}
+                  {patient.branch.address}
                 </span>
               </p>
             </div>
@@ -272,7 +216,9 @@ export default async function PacienteDetallePage({ params }: Props) {
               </p>
 
               <p className="mt-2 text-[15px]">
-                {latestHistory ? "Completa" : "Incompleta"}
+                {latestHistory
+                  ? "Completa"
+                  : "Incompleta"}
               </p>
 
               <p className="mt-4 text-sm leading-6 text-[#6B7774]">
@@ -283,33 +229,7 @@ export default async function PacienteDetallePage({ params }: Props) {
             </div>
 
             <div className="mt-8 border-t border-[#DED9CD] pt-6">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
-                  Derivaciones
-                </p>
-
-                <Link
-                  href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/derivaciones`}
-                  className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#6F855F] transition hover:text-[#536847]"
-                >
-                  Ver historial →
-                </Link>
-              </div>
-
-              <p className="mt-3 text-sm text-[#6B7774]">
-                {clinicalReferrals.length > 0
-                  ? `${clinicalReferrals.length} derivación${
-                      clinicalReferrals.length === 1 ? "" : "es"
-                    } registrada${
-                      clinicalReferrals.length === 1 ? "" : "s"
-                    }.`
-                  : "No hay derivaciones registradas."}
-              </p>
-            </div>
-
-            <div className="mt-8 border-t border-[#DED9CD] pt-6">
               <div className="flex items-start justify-between gap-4">
-
                 <Link
                   href={`/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`}
                   className="inline-flex items-center justify-center bg-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#1D302D]"
@@ -319,23 +239,11 @@ export default async function PacienteDetallePage({ params }: Props) {
                     : "Completar historia"}
                 </Link>
 
-                <div className="flex flex-col items-end gap-3">
-
-                  {latestHistory && (
-                    <ClinicalReferralManager
-                      clinicalHistoryId={latestHistory.id}
-                      doctors={doctors}
-                    />
-                  )}
-
-                  {latestHistory && (
-                    <DeleteClinicalHistoryButton
-                      patientId={patient.id}
-                    />
-                  )}
-
-                </div>
-
+                {latestHistory && (
+                  <DeleteClinicalHistoryButton
+                    patientId={patient.id}
+                  />
+                )}
               </div>
             </div>
           </article>
@@ -354,7 +262,10 @@ export default async function PacienteDetallePage({ params }: Props) {
                 </p>
 
                 <p className="mt-2 text-[15px]">
-                  ${totalPaid.toLocaleString("es-AR")}
+                  $
+                  {totalPaid.toLocaleString(
+                    "es-AR"
+                  )}
                 </p>
               </div>
 
@@ -364,7 +275,10 @@ export default async function PacienteDetallePage({ params }: Props) {
                 </p>
 
                 <p className="mt-2 text-[15px]">
-                  ${totalPending.toLocaleString("es-AR")}
+                  $
+                  {totalPending.toLocaleString(
+                    "es-AR"
+                  )}
                 </p>
               </div>
 
@@ -374,7 +288,10 @@ export default async function PacienteDetallePage({ params }: Props) {
                 </p>
 
                 <p className="mt-2 text-[15px]">
-                  ${totalDelayed.toLocaleString("es-AR")}
+                  $
+                  {totalDelayed.toLocaleString(
+                    "es-AR"
+                  )}
                 </p>
               </div>
             </div>
@@ -397,7 +314,6 @@ export default async function PacienteDetallePage({ params }: Props) {
             </h2>
 
             <div className="mt-4 space-y-5 text-sm">
-
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Total de turnos
@@ -416,26 +332,35 @@ export default async function PacienteDetallePage({ params }: Props) {
                 {nextAppointment ? (
                   <div className="mt-2 flex items-center gap-3">
                     <span className="text-[15px]">
-                      {new Date(nextAppointment.date).toLocaleDateString("es-AR")}
+                      {new Date(
+                        nextAppointment.date
+                      ).toLocaleDateString(
+                        "es-AR"
+                      )}
                     </span>
 
                     <span
-                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em]
-                        ${
-                          nextAppointment.status === "CONFIRMED"
-                            ? "bg-green-100 text-green-700"
-                            : nextAppointment.status === "PENDING"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : nextAppointment.status === "COMPLETED"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-red-100 text-red-700"
-                        }`}
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] ${
+                        nextAppointment.status ===
+                        "CONFIRMED"
+                          ? "bg-green-100 text-green-700"
+                          : nextAppointment.status ===
+                            "PENDING"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : nextAppointment.status ===
+                            "COMPLETED"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
                     >
-                      {nextAppointment.status === "PENDING"
+                      {nextAppointment.status ===
+                      "PENDING"
                         ? "Pendiente"
-                        : nextAppointment.status === "CONFIRMED"
+                        : nextAppointment.status ===
+                          "CONFIRMED"
                         ? "Confirmado"
-                        : nextAppointment.status === "COMPLETED"
+                        : nextAppointment.status ===
+                          "COMPLETED"
                         ? "Completado"
                         : "Cancelado"}
                     </span>
@@ -454,7 +379,11 @@ export default async function PacienteDetallePage({ params }: Props) {
 
                 <p className="mt-2 text-[15px]">
                   {lastCompletedAppointment
-                    ? new Date(lastCompletedAppointment.date).toLocaleDateString("es-AR")
+                    ? new Date(
+                        lastCompletedAppointment.date
+                      ).toLocaleDateString(
+                        "es-AR"
+                      )
                     : "Sin visitas registradas"}
                 </p>
               </div>

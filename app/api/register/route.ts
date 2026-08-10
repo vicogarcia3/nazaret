@@ -7,6 +7,31 @@ import { prisma } from "@/lib/prisma";
 const EMAIL_REGEX =
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/*
+ * Normaliza números argentinos para poder compararlos.
+ *
+ * Ejemplos que terminan siendo equivalentes:
+ * 3515551234
+ * 03515551234
+ * +54 9 351 5551234
+ * 5493515551234
+ */
+function normalizePhone(value: string) {
+  let digits = value.replace(/\D/g, "");
+
+  if (digits.startsWith("549")) {
+    digits = digits.slice(3);
+  } else if (digits.startsWith("54")) {
+    digits = digits.slice(2);
+  }
+
+  if (digits.startsWith("0")) {
+    digits = digits.slice(1);
+  }
+
+  return digits;
+}
+
 export async function POST(req: Request) {
   try {
     const data = await req.json();
@@ -41,6 +66,9 @@ export async function POST(req: Request) {
       data.password || ""
     );
 
+    /*
+     * Campos obligatorios.
+     */
     if (
       !firstName ||
       !lastName ||
@@ -61,6 +89,9 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * Validar email.
+     */
     if (!EMAIL_REGEX.test(email)) {
       return NextResponse.json(
         {
@@ -73,6 +104,9 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * Validar contraseña.
+     */
     if (password.length < 8) {
       return NextResponse.json(
         {
@@ -86,8 +120,8 @@ export async function POST(req: Request) {
     }
 
     /*
-     * Primero verificamos que no exista
-     * una cuenta de usuario con ese email.
+     * Verificar que no exista ya una cuenta User
+     * con ese correo.
      */
     const existingUser =
       await prisma.user.findUnique({
@@ -112,13 +146,13 @@ export async function POST(req: Request) {
     }
 
     /*
-     * Buscamos si la administradora ya creó
-     * manualmente un paciente con ese email.
+     * ------------------------------------------------
+     * 1. BUSCAR FICHA DE PACIENTE POR EMAIL
+     * ------------------------------------------------
      *
-     * Usamos búsqueda case-insensitive para
-     * que MAYUSCULAS/minúsculas no afecten.
+     * La prioridad siempre es EMAIL.
      */
-    const matchingPatients =
+    const patientsByEmail =
       await prisma.patient.findMany({
         where: {
           email: {
@@ -132,17 +166,17 @@ export async function POST(req: Request) {
           firstName: true,
           lastName: true,
           email: true,
+          phone: true,
           branchId: true,
         },
         take: 2,
       });
 
     /*
-     * Si hubiera dos pacientes manuales con
-     * el mismo email, no vinculamos automáticamente.
-     * La administradora deberá corregir el duplicado.
+     * Si existen varias fichas con el mismo email,
+     * no podemos decidir automáticamente cuál vincular.
      */
-    if (matchingPatients.length > 1) {
+    if (patientsByEmail.length > 1) {
       return NextResponse.json(
         {
           error:
@@ -154,12 +188,85 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingPatient =
-      matchingPatients[0] ?? null;
+    let existingPatient =
+      patientsByEmail[0] ?? null;
+
+    let matchedBy:
+      | "EMAIL"
+      | "PHONE"
+      | null = existingPatient
+      ? "EMAIL"
+      : null;
 
     /*
-     * Si ese paciente ya está vinculado a
-     * otro User, no permitimos crear otra cuenta.
+     * ------------------------------------------------
+     * 2. SI NO COINCIDE EMAIL, BUSCAR POR CELULAR
+     * ------------------------------------------------
+     */
+    if (!existingPatient) {
+      const normalizedRegistrationPhone =
+        normalizePhone(phone);
+
+      /*
+       * Traemos pacientes con teléfono cargado
+       * y hacemos la comparación normalizada.
+       *
+       * No filtramos por userId acá porque,
+       * si encontramos una ficha que ya tiene cuenta,
+       * queremos detectarla y evitar crear un duplicado.
+       */
+      const patients =
+        await prisma.patient.findMany({
+          where: {
+            phone: {
+              not: "",
+            },
+          },
+          select: {
+            id: true,
+            userId: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phone: true,
+            branchId: true,
+          },
+        });
+
+      const patientsByPhone =
+        patients.filter(
+          (patient) =>
+            normalizePhone(patient.phone) ===
+            normalizedRegistrationPhone
+        );
+
+      /*
+       * Si varias fichas comparten teléfono,
+       * no vincular automáticamente.
+       */
+      if (patientsByPhone.length > 1) {
+        return NextResponse.json(
+          {
+            error:
+              "Encontramos más de una ficha de paciente con este número de celular. Contactá al consultorio para vincular tu cuenta.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
+      if (patientsByPhone.length === 1) {
+        existingPatient =
+          patientsByPhone[0];
+
+        matchedBy = "PHONE";
+      }
+    }
+
+    /*
+     * Si encontramos una ficha que ya tiene
+     * un User asociado, no crear otra cuenta.
      */
     if (existingPatient?.userId) {
       return NextResponse.json(
@@ -174,12 +281,9 @@ export async function POST(req: Request) {
     }
 
     /*
-     * Validamos la sucursal elegida.
-     *
-     * Para un paciente preexistente vamos a
-     * conservar la sucursal cargada por la admin,
-     * pero igualmente mantenemos esta validación
-     * para los pacientes nuevos.
+     * ------------------------------------------------
+     * 3. VALIDAR SUCURSAL
+     * ------------------------------------------------
      */
     const branch =
       await prisma.branch.findFirst({
@@ -204,49 +308,82 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * ------------------------------------------------
+     * 4. HASHEAR CONTRASEÑA
+     * ------------------------------------------------
+     */
     const hashedPassword =
-      await bcrypt.hash(password, 10);
+      await bcrypt.hash(
+        password,
+        10
+      );
 
+    /*
+     * ------------------------------------------------
+     * 5. CREAR CUENTA Y VINCULAR/CREAR PATIENT
+     * ------------------------------------------------
+     */
     const result =
       await prisma.$transaction(
         async (tx) => {
           /*
-           * Si la admin ya creó el paciente,
-           * usamos los datos que ya existen
-           * para el nombre del User.
+           * Si ya existe una ficha manual,
+           * respetamos el nombre almacenado allí.
            */
-          const userName = existingPatient
-            ? `${existingPatient.firstName} ${existingPatient.lastName}`
-            : `${firstName} ${lastName}`;
+          const userName =
+            existingPatient
+              ? `${existingPatient.firstName} ${existingPatient.lastName}`
+              : `${firstName} ${lastName}`;
 
           const createdUser =
             await tx.user.create({
               data: {
                 name: userName,
                 email,
-                password: hashedPassword,
+                password:
+                  hashedPassword,
                 role: "PATIENT",
                 emailVerified: null,
               },
             });
 
-          if (existingPatient) {
-            /*
-             * PACIENTE YA EXISTENTE:
-             * solamente vinculamos la cuenta.
-             *
-             * No creamos un segundo Patient.
-             */
+          /*
+           * ------------------------------------------------
+           * PACIENTE EXISTENTE
+           * ------------------------------------------------
+           *
+           * Puede haber sido encontrado por:
+           *
+           * 1. EMAIL
+           * 2. TELÉFONO
+           *
+           * En ambos casos vinculamos el User
+           * a la ficha existente.
+           *
+           * NO se crea un segundo Patient.
+           */
+          if (
+            existingPatient &&
+            (
+              matchedBy === "EMAIL" ||
+              matchedBy === "PHONE"
+            )
+          ) {
             await tx.patient.update({
               where: {
-                id: existingPatient.id,
+                id:
+                  existingPatient.id,
               },
               data: {
-                userId: createdUser.id,
+                userId:
+                  createdUser.id,
 
                 /*
-                 * Aprovechamos para normalizar
-                 * el email almacenado.
+                 * Si la ficha fue creada manualmente
+                 * sin email, o tenía otro formato,
+                 * dejamos guardado el email utilizado
+                 * para crear la cuenta.
                  */
                 email,
               },
@@ -256,19 +393,25 @@ export async function POST(req: Request) {
               user: createdUser,
               patientId:
                 existingPatient.id,
-              linkedExistingPatient: true,
+              linkedExistingPatient:
+                true,
+              matchedBy,
             };
           }
 
           /*
-           * PACIENTE NUEVO:
-           * si no existía uno con ese email,
-           * se crea normalmente.
+           * ------------------------------------------------
+           * PACIENTE NUEVO
+           * ------------------------------------------------
+           *
+           * No encontramos coincidencia ni por email
+           * ni por celular.
            */
           const createdPatient =
             await tx.patient.create({
               data: {
-                userId: createdUser.id,
+                userId:
+                  createdUser.id,
                 firstName,
                 lastName,
                 phone,
@@ -282,16 +425,26 @@ export async function POST(req: Request) {
             user: createdUser,
             patientId:
               createdPatient.id,
-            linkedExistingPatient: false,
+            linkedExistingPatient:
+              false,
+            matchedBy: null,
           };
         }
       );
 
+    /*
+     * ------------------------------------------------
+     * 6. ENVIAR VERIFICACIÓN DE EMAIL
+     * ------------------------------------------------
+     */
     try {
       await sendVerificationEmail({
-        userId: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
+        userId:
+          result.user.id,
+        email:
+          result.user.email,
+        name:
+          result.user.name,
       });
     } catch (emailError) {
       console.error(
@@ -306,7 +459,8 @@ export async function POST(req: Request) {
           email,
           linkedExistingPatient:
             result.linkedExistingPatient,
-
+          matchedBy:
+            result.matchedBy,
           message:
             "La cuenta fue creada, pero no pudimos enviar el correo. Solicitá uno nuevo desde el inicio de sesión.",
         },
@@ -316,6 +470,11 @@ export async function POST(req: Request) {
       );
     }
 
+    /*
+     * ------------------------------------------------
+     * 7. RESPUESTA FINAL
+     * ------------------------------------------------
+     */
     return NextResponse.json(
       {
         success: true,
@@ -323,7 +482,8 @@ export async function POST(req: Request) {
         email,
         linkedExistingPatient:
           result.linkedExistingPatient,
-
+        matchedBy:
+          result.matchedBy,
         message:
           result.linkedExistingPatient
             ? "Cuenta creada y vinculada con tu ficha de paciente. Revisá tu correo para verificarla antes de iniciar sesión."

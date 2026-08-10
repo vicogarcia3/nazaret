@@ -114,6 +114,9 @@ export async function POST(request: Request) {
         ? body.name.trim()
         : "";
 
+    const email = 
+      normalizeOptionalText(body.email)?.toLowerCase() ?? null;
+
     const specialty =
       typeof body.specialty === "string" && body.specialty.trim()
         ? body.specialty.trim()
@@ -189,9 +192,37 @@ export async function POST(request: Request) {
       );
     }
 
+    if (email) {
+      const existingDoctorWithEmail =
+        await prisma.doctor.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: "insensitive",
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+      if (existingDoctorWithEmail) {
+        return NextResponse.json(
+          {
+            error:
+              "Ya existe un especialista registrado con ese email.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+    }
+
     const doctor = await prisma.doctor.create({
       data: {
         name,
+        email,
         userId: null,
         specialty,
         professionalLicense,

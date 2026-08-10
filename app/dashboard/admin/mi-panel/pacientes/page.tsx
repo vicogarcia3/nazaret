@@ -4,7 +4,7 @@ import PacientesClient from "./PacientesClient";
 export const dynamic = "force-dynamic";
 
 export default async function PacientesPage() {
-  const patients = await prisma.patient.findMany({
+  const patientsRaw = await prisma.patient.findMany({
     include: {
       user: true,
       branch: true,
@@ -21,14 +21,37 @@ export default async function PacientesPage() {
     },
   });
 
-  const plans = await prisma.plan.findMany({
+  const plansRaw = await prisma.plan.findMany({
     where: {
-      active: true,
+      visible: true,
     },
     orderBy: {
       name: "asc",
     },
   });
+
+  const patients = patientsRaw.map((patient) => ({
+    ...patient,
+    plan: patient.plan
+      ? {
+          ...patient.plan,
+          price:
+            patient.plan.price !== null
+              ? Number(patient.plan.price)
+              : null,
+          discount: Number(patient.plan.discount),
+        }
+      : null,
+  }));
+
+  const plans = plansRaw.map((plan) => ({
+    ...plan,
+    price:
+      plan.price !== null
+        ? Number(plan.price)
+        : null,
+    discount: Number(plan.discount),
+  }));
 
   return (
     <PacientesClient

@@ -87,7 +87,6 @@ export default async function HomePage() {
 
   const plans = await prisma.plan.findMany({
     where: {
-      active: true,
       visible: true,
     },
     orderBy: {
@@ -277,6 +276,130 @@ export default async function HomePage() {
         </section>
       )}
 
+      {plans.length > 0 && (
+        <section
+          id="planes"
+          className="scroll-mt-8 px-8 py-16 md:px-16 lg:px-24"
+        >
+          <div className="mx-auto max-w-7xl">
+            <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
+              Afiliación
+            </p>
+
+            <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
+              Nuestros planes
+            </h2>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-[#6B7774]">
+              Elegí el plan que mejor se adapte a vos y accedé a sus beneficios.
+            </p>
+
+            <div className="mt-10 grid items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">
+              {plans.map((plan) => {
+                const benefits = plan.benefits
+                  ? plan.benefits
+                      .split("\n")
+                      .map((benefit) => benefit.trim())
+                      .filter(Boolean)
+                  : [];
+
+                return (
+                  <article
+                    key={plan.id}
+                    className="flex h-full flex-col rounded-3xl border border-[#DED9CD] bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    {/* TÍTULO */}
+
+                    <h3 className="font-serif text-3xl font-semibold text-[#263F3B]">
+                      {plan.name}
+                    </h3>
+
+                    {/* DESCRIPCIÓN */}
+
+                    <p className="mt-3 text-sm leading-6 text-[#6B7774]">
+                      {plan.description}
+                    </p>
+
+                    {/* BENEFICIOS */}
+
+                    {benefits.length > 0 && (
+                      <div className="mt-7">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                          Beneficios
+                        </p>
+
+                        <ul className="mt-4 space-y-3">
+                          {benefits.map((benefit, index) => (
+                            <li
+                              key={index}
+                              className="flex items-start gap-3 text-sm leading-5 text-[#263F3B]"
+                            >
+                              <span className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#E8EEE2] text-[11px] font-bold text-[#6F855F]">
+                                ✓
+                              </span>
+
+                              <span>{benefit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* CONDICIONES */}
+
+                    {plan.conditions && (
+                      <div className="mt-7 border-t border-[#E7E2D8] pt-5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                          Condiciones
+                        </p>
+
+                        <p className="mt-3 whitespace-pre-line text-xs leading-5 text-[#6B7774]">
+                          {plan.conditions}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* PRECIO Y DESCUENTO */}
+
+                    <div className="mt-auto pt-8">
+                      {Number(plan.discount) > 0 && (
+                        <div className="mb-3 inline-flex rounded-full bg-[#E8EEE2] px-3 py-1.5 text-xs font-semibold text-[#6F855F]">
+                          {Number(plan.discount)}% de descuento
+                        </div>
+                      )}
+
+                      {plan.price !== null && (
+                        <div>
+                          <span className="font-serif text-3xl font-semibold text-[#263F3B]">
+                            $
+                            {Number(plan.price).toLocaleString(
+                              "es-AR"
+                            )}
+                          </span>
+
+                          <span className="ml-2 text-xs text-[#6B7774]">
+                            / mes
+                          </span>
+                        </div>
+                      )}
+
+                      {/* AFILIARME */}
+
+                      <Link
+                        href={`/registro?plan=${plan.id}`}
+                        className="mt-6 flex w-full items-center justify-center rounded-full bg-[#263F3B] px-6 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#6F855F]"
+                      >
+                        Afiliarme
+                      </Link>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+      )}
+
       <section
         id="testimonios"
         className="scroll-mt-8 bg-white px-8 py-16 md:px-16 lg:px-24"
@@ -298,55 +421,6 @@ export default async function HomePage() {
           />
         </div>
       </section>
-
-      {plans.length > 0 && (
-        <section className="scroll-mt-8 px-8 py-16 md:px-16 lg:px-24">
-          <div className="mx-auto max-w-7xl">
-            <p className="text-xs font-medium uppercase tracking-[0.25em] text-[#A2B38B]">
-              Beneficios Nazaret
-            </p>
-
-            <h2 className="mt-3 font-serif text-3xl font-semibold md:text-4xl">
-              Planes del consultorio
-            </h2>
-
-            <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {plans.map((plan) => (
-                <article
-                  key={plan.id}
-                  className="border border-[#DED9CD] bg-white p-7 shadow-sm transition duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg"
-                >
-                  <h3 className="font-serif text-2xl font-semibold text-[#263F3B]">
-                    {plan.name}
-                  </h3>
-
-                  <p className="mt-3 text-sm leading-6 text-[#6B7774]">
-                    {plan.description}
-                  </p>
-
-                  {Number(plan.discount) > 0 && (
-                    <div className="mt-6 border-t border-[#E7E2D8] pt-5">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
-                        Beneficio
-                      </p>
-
-                      <p className="mt-2 text-3xl font-semibold text-[#6F855F]">
-                        {Number(plan.discount)}% de descuento
-                      </p>
-                    </div>
-                  )}
-
-                  {plan.price !== null && (
-                    <p className="mt-5 text-sm font-semibold text-[#263F3B]">
-                      ${Number(plan.price).toLocaleString("es-AR")}
-                    </p>
-                  )}
-                </article>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
 
       <section
         id="contacto"

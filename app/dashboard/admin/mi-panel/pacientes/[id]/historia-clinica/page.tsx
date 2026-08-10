@@ -1,7 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import {
+  ArrowLeft,
+  FileText,
+  ClipboardList,
+  Images,
+} from "lucide-react";
 
 import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 
@@ -24,19 +29,11 @@ export default async function HistoriaClinicaPage({
       user: true,
       branch: true,
       plan: true,
-
       histories: {
         orderBy: {
           createdAt: "desc",
         },
         take: 1,
-        include: {
-          entries: {
-            orderBy: {
-              createdAt: "desc",
-            },
-          },
-        },
       },
     },
   });
@@ -45,21 +42,8 @@ export default async function HistoriaClinicaPage({
     notFound();
   }
 
-  const history = patient.histories[0] ?? null;
-
-  const serializedEntries =
-    history?.entries.map((entry) => ({
-      id: entry.id,
-      professionalName: entry.professionalName,
-      professionalLicense: entry.professionalLicense,
-      diagnosis: entry.diagnosis,
-      treatment: entry.treatment,
-      evolution: entry.evolution,
-      indications: entry.indications,
-      notes: entry.notes,
-      createdAt: entry.createdAt.toISOString(),
-      updatedAt: entry.updatedAt.toISOString(),
-    })) ?? [];
+  const basePath =
+    `/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`;
 
   return (
     <div className="space-y-8">
@@ -71,9 +55,36 @@ export default async function HistoriaClinicaPage({
         Volver al paciente
       </Link>
 
+      <div className="border-b border-[#DED9CD]">
+        <nav className="flex flex-wrap gap-2">
+          <Link
+            href={basePath}
+            className="inline-flex items-center gap-2 border-b-2 border-[#263F3B] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#263F3B]"
+          >
+            <FileText className="h-4 w-4" />
+            Historia general
+          </Link>
+
+          <Link
+            href={`${basePath}/anexo`}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#6B7774] transition hover:border-[#A2B38B] hover:text-[#263F3B]"
+          >
+            <ClipboardList className="h-4 w-4" />
+            Anexo
+          </Link>
+
+          <Link
+            href={`${basePath}/imagenes`}
+            className="inline-flex items-center gap-2 border-b-2 border-transparent px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#6B7774] transition hover:border-[#A2B38B] hover:text-[#263F3B]"
+          >
+            <Images className="h-4 w-4" />
+            Imágenes / Radiografías
+          </Link>
+        </nav>
+      </div>
+
       <ClinicalHistoryEditor
         patientId={patient.id}
-        entries={serializedEntries}
       />
     </div>
   );

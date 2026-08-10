@@ -73,7 +73,6 @@ export async function PUT(
       !lastName ||
       !dni ||
       !phone ||
-      !email ||
       !branchId
     ) {
       return NextResponse.json(
@@ -87,7 +86,10 @@ export async function PUT(
       );
     }
 
-    if (!EMAIL_REGEX.test(email)) {
+    if (
+      email &&
+      !EMAIL_REGEX.test(email)
+    ) {
       return NextResponse.json(
         {
           error:
@@ -130,32 +132,34 @@ export async function PUT(
      * No permitimos que otro paciente
      * tenga el mismo email.
      */
-    const patientWithSameEmail =
-      await prisma.patient.findFirst({
-        where: {
-          id: {
-            not: id,
+    if (email) {
+      const patientWithSameEmail =
+        await prisma.patient.findFirst({
+          where: {
+            id: {
+              not: id,
+            },
+            email: {
+              equals: email,
+              mode: "insensitive",
+            },
           },
-          email: {
-            equals: email,
-            mode: "insensitive",
+          select: {
+            id: true,
           },
-        },
-        select: {
-          id: true,
-        },
-      });
+        });
 
-    if (patientWithSameEmail) {
-      return NextResponse.json(
-        {
-          error:
-            "Ya existe otro paciente registrado con ese email.",
-        },
-        {
-          status: 409,
-        }
-      );
+      if (patientWithSameEmail) {
+        return NextResponse.json(
+          {
+            error:
+              "Ya existe otro paciente registrado con ese email.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
     }
 
     /*
@@ -473,48 +477,10 @@ export async function DELETE(
         });
 
         /*
-         * Derivaciones clínicas.
-         *
-         * Primero eliminamos las entradas
-         * generadas por derivaciones.
-         */
-        const referrals =
-          await tx.clinicalReferral.findMany({
-            where: {
-              patientId: id,
-            },
-            select: {
-              id: true,
-            },
-          });
-
-        const referralIds =
-          referrals.map(
-            (referral) => referral.id
-          );
-
-        if (referralIds.length > 0) {
-          await tx.clinicalHistoryEntry.deleteMany({
-            where: {
-              referralId: {
-                in: referralIds,
-              },
-            },
-          });
-
-          await tx.clinicalReferral.deleteMany({
-            where: {
-              patientId: id,
-            },
-          });
-        }
-
-        /*
-         * Historia clínica.
-         *
-         * Las entradas no vinculadas a derivaciones
-         * se eliminan antes de la HC principal.
-         */
+        * Historia clínica.
+        * Eliminamos primero sus entradas
+        * y luego la historia clínica principal.
+        */
         const histories =
           await tx.clinicalHistory.findMany({
             where: {

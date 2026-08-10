@@ -167,7 +167,7 @@ export default async function PresupuestosPacientePage({
           patientId={patient.id}
           doctors={doctors}
           discountPercent={
-            patient.plan?.active
+            patient.plan?.visible
               ? Number(patient.plan.discount)
               : 0
           }

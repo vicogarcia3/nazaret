@@ -5,25 +5,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Save } from "lucide-react";
 import SignaturePad from "@/app/components/clinical-history/SignaturePad";
-import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
-import PageNavigation from "./PageNavigation";
-
-type ClinicalEntry = {
-  id: string;
-  professionalName: string;
-  professionalLicense: string | null;
-  diagnosis: string | null;
-  treatment: string | null;
-  evolution: string | null;
-  indications: string | null;
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
 
 type Props = {
   patientId: string;
-  entries?: ClinicalEntry[];
+  readOnly?: boolean;
 };
 
 type FormState = Record<string, string>;
@@ -218,10 +203,12 @@ function LineInput({
   label,
   value,
   onChange,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block">
@@ -229,7 +216,12 @@ function LineInput({
       <input
         className="mt-1 w-full border-b border-dotted border-gray-500 bg-transparent p-1 outline-none"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        readOnly={readOnly}
+        onChange={(e) => {
+          if (!readOnly) {
+            onChange(e.target.value);
+          }
+        }}
       />
     </label>
   );
@@ -579,12 +571,11 @@ function PrintableOdontogram({
 
 export default function ClinicalHistoryEditor({
   patientId,
-  entries = [],
+  readOnly = false,
 }: Props) {
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [odontogramData, setOdontogramData] = useState<Record<string, ToothMark>>({});
-  const [currentPage, setCurrentPage] = useState<1 | 2>(1);
 
   useEffect(() => {
     fetch(`/api/clinical-history?patientId=${patientId}`)
@@ -618,6 +609,10 @@ export default function ClinicalHistoryEditor({
   }, [patientId]);
 
   function update(field: string, value: string) {
+    if (readOnly) {
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       [field]: value,
@@ -625,6 +620,10 @@ export default function ClinicalHistoryEditor({
   }
 
   async function saveHistory() {
+    if (readOnly) {
+      return;
+    }
+
     console.log("ODONTOGRAMA A GUARDAR", odontogramData);
     const res = await fetch("/api/clinical-history", {
       method: "POST",
@@ -655,38 +654,32 @@ export default function ClinicalHistoryEditor({
 
   return (
     <>
-      <div className="mb-6 flex items-center justify-between gap-4 print:hidden">
-        <div className="flex gap-3">
-          <Link
-            href={`/print/historia-clinica/${patientId}`}
-            target="_blank"
-            className="bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
-          >
-            Ver PDF
-          </Link>
+      <div className="mb-6 flex justify-end gap-3 print:hidden">
+        <Link
+          href={`/print/historia-clinica/${patientId}`}
+          target="_blank"
+          className="inline-flex items-center justify-center bg-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
+        >
+          Ver PDF
+        </Link>
 
+        {!readOnly && (
           <button
             type="button"
             onClick={saveHistory}
-            className="inline-flex items-center gap-2 bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
+            className="inline-flex items-center justify-center gap-2 bg-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1d302d]"
           >
             <Save className="h-4 w-4" />
             Guardar
           </button>
-        </div>
+        )}
       </div>
 
-      <div className="mb-6 print:hidden">
-        <PageNavigation
-          page={currentPage}
-          totalPages={2}
-          onPrevious={() => setCurrentPage(1)}
-          onNext={() => setCurrentPage(2)}
-        />
-      </div>
-
-      {currentPage === 1 && (
-        <section className="space-y-8 rounded-xl border bg-white p-8 shadow-sm print:shadow-none">
+        <fieldset
+          disabled={readOnly}
+          className="m-0 min-w-0 border-0 p-0"
+        >
+          <section className="mx-auto w-full max-w-[1180px] space-y-8 rounded-xl border bg-white p-8 shadow-sm print:shadow-none">
           <div className="my-8 text-center print:block">
         <h1 className="text-2xl font-bold uppercase">
           Historia clínica general
@@ -1032,114 +1025,68 @@ export default function ClinicalHistoryEditor({
         <LineInput label="Tratamiento propuesto por Dr/a MP" value={form.doctorMp} onChange={(v) => update("doctorMp", v)} />
 
         <div className="mt-8 grid gap-8 md:grid-cols-2">
-          <SignaturePad
-            title="Firma del paciente o tutor"
-            value={form.patientSignature}
-            onChange={(value) =>
-              update("patientSignature", value)
-            }
-          />
+          {readOnly ? (
+            <>
+              <div className="rounded border border-gray-300 p-4">
+                <p className="mb-3 text-sm font-medium">
+                  Firma del paciente o tutor
+                </p>
 
-          <SignaturePad
-            title="Firma del profesional"
-            value={form.doctorSignature}
-            onChange={(value) =>
-              update("doctorSignature", value)
-            }
-          />
+                {form.patientSignature ? (
+                  <img
+                    src={form.patientSignature}
+                    alt="Firma del paciente o tutor"
+                    className="mx-auto max-h-28 max-w-full object-contain"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    Sin firma registrada
+                  </p>
+                )}
+              </div>
+
+              <div className="rounded border border-gray-300 p-4">
+                <p className="mb-3 text-sm font-medium">
+                  Firma del profesional
+                </p>
+
+                {form.doctorSignature ? (
+                  <img
+                    src={form.doctorSignature}
+                    alt="Firma del profesional"
+                    className="mx-auto max-h-28 max-w-full object-contain"
+                  />
+                ) : (
+                  <p className="text-sm text-gray-400">
+                    Sin firma registrada
+                  </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <SignaturePad
+                title="Firma del paciente o tutor"
+                value={form.patientSignature}
+                onChange={(value) =>
+                  update("patientSignature", value)
+                }
+              />
+
+              <SignaturePad
+                title="Firma del profesional"
+                value={form.doctorSignature}
+                onChange={(value) =>
+                  update("doctorSignature", value)
+                }
+              />
+            </>
+          )}
         </div>
       </div>
 
-        </section>
-      )}
-
-      {currentPage === 2 && (
-        <ClinicalHistoryAnnex
-          patientName={form.consentimientoNombre}
-          affiliationNumber={form.numeroAfiliado}
-          folioNumber=""
-        />
-      )}
-
-      {entries.length > 0 && (
-        <section className="mt-10 rounded-xl border border-[#DED9CD] bg-white p-8">
-          <h2 className="mb-6 text-xl font-semibold text-[#263F3B]">
-            Interconsultas / Derivaciones
-          </h2>
-
-          <div className="space-y-6">
-            {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className="rounded-lg border border-[#DED9CD] p-5"
-              >
-                <div className="mb-4 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold">
-                      {entry.professionalName}
-                    </h3>
-
-                    {entry.professionalLicense && (
-                      <p className="text-sm text-gray-500">
-                        MP {entry.professionalLicense}
-                      </p>
-                    )}
-                  </div>
-
-                  <span className="text-xs text-gray-500">
-                    {new Date(entry.createdAt).toLocaleDateString("es-AR")}
-                  </span>
-                </div>
-
-                {entry.diagnosis && (
-                  <div className="mb-4">
-                    <p className="mb-1 font-semibold">
-                      Diagnóstico
-                    </p>
-                    <p>{entry.diagnosis}</p>
-                  </div>
-                )}
-
-                {entry.treatment && (
-                  <div className="mb-4">
-                    <p className="mb-1 font-semibold">
-                      Tratamiento
-                    </p>
-                    <p>{entry.treatment}</p>
-                  </div>
-                )}
-
-                {entry.evolution && (
-                  <div className="mb-4">
-                    <p className="mb-1 font-semibold">
-                      Evolución
-                    </p>
-                    <p>{entry.evolution}</p>
-                  </div>
-                )}
-
-                {entry.indications && (
-                  <div className="mb-4">
-                    <p className="mb-1 font-semibold">
-                      Indicaciones
-                    </p>
-                    <p>{entry.indications}</p>
-                  </div>
-                )}
-
-                {entry.notes && (
-                  <div>
-                    <p className="mb-1 font-semibold">
-                      Observaciones
-                    </p>
-                    <p>{entry.notes}</p>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+          </section>
+        </fieldset>
     </>
   );
 }

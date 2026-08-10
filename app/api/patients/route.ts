@@ -95,7 +95,6 @@ export async function POST(req: Request) {
       !lastName ||
       !dni ||
       !phone ||
-      !email ||
       !branchId
     ) {
       return NextResponse.json(
@@ -109,7 +108,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!EMAIL_REGEX.test(email)) {
+    if (
+      email &&
+      !EMAIL_REGEX.test(email)
+    ) {
       return NextResponse.json(
         {
           error:
@@ -121,29 +123,31 @@ export async function POST(req: Request) {
       );
     }
 
-    const existingPatient =
-      await prisma.patient.findFirst({
-        where: {
-          email: {
-            equals: email,
-            mode: "insensitive",
+    if (email) {
+      const existingPatient =
+        await prisma.patient.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: "insensitive",
+            },
           },
-        },
-        select: {
-          id: true,
-        },
-      });
+          select: {
+            id: true,
+          },
+        });
 
-    if (existingPatient) {
-      return NextResponse.json(
-        {
-          error:
-            "Ya existe un paciente registrado con ese email.",
-        },
-        {
-          status: 409,
-        }
-      );
+      if (existingPatient) {
+        return NextResponse.json(
+          {
+            error:
+              "Ya existe un paciente registrado con ese email.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
     }
 
     const existingDni =
@@ -222,7 +226,7 @@ export async function POST(req: Request) {
           lastName,
           dni,
           phone,
-          email,
+          email: email || null,
           branchId,
           planId,
         },

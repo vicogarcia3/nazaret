@@ -468,7 +468,7 @@ export async function POST(request: Request) {
     );
 
     const discount =
-      patient.plan?.active === true
+      patient.plan?.visible === true
         ? Number(patient.plan.discount || 0)
         : 0;
 

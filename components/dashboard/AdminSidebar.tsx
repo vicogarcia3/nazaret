@@ -12,6 +12,7 @@ import {
   Calendar,
   BarChart3,
   BadgePlus,
+  ClipboardList,
 } from "lucide-react";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
@@ -91,6 +92,16 @@ export default function AdminSidebar({ open, setOpen }: Props) {
           >
             <Users className="h-4 w-4" />
             Pacientes
+          </Link>
+
+          <Link
+            href="/dashboard/admin/mi-panel/historias-clinicas"
+            className={menuClass(
+              "/dashboard/admin/mi-panel/historias-clinicas"
+            )}
+          >
+            <ClipboardList className="h-4 w-4" />
+            Historias Clínicas
           </Link>
 
           <Link
