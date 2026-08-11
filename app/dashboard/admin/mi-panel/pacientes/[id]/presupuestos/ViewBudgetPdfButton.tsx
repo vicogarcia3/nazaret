@@ -6,11 +6,14 @@ type Props = {
   budgetId: string;
 };
 
-export default function ViewBudgetPdfButton({ budgetId }: Props) {
+export default function ViewBudgetPdfButton({
+  budgetId,
+}: Props) {
   return (
     <a
       href={`/api/budgets/${budgetId}/pdf`}
       target="_blank"
+      rel="noopener noreferrer"
       title="Ver PDF"
       className="text-[#263F3B] transition hover:text-black"
     >

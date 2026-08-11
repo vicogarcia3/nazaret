@@ -1,27 +1,52 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { jsPDF } from "jspdf";
 import { readFile } from "fs/promises";
 import path from "path";
+
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
-type ImageFormat = "PNG" | "JPEG" | "WEBP";
+type RouteContext = {
+  params: Promise<{
+    id: string;
+  }>;
+};
 
-function getImageFormat(source: string): ImageFormat {
-  const normalizedSource = source.toLowerCase();
+type ImageFormat =
+  | "PNG"
+  | "JPEG"
+  | "WEBP";
+
+function getImageFormat(
+  source: string
+): ImageFormat {
+  const normalized =
+    source.toLowerCase();
 
   if (
-    normalizedSource.includes("image/jpeg") ||
-    normalizedSource.includes("image/jpg") ||
-    normalizedSource.endsWith(".jpg") ||
-    normalizedSource.endsWith(".jpeg")
+    normalized.includes(
+      "image/jpeg"
+    ) ||
+    normalized.includes(
+      "image/jpg"
+    ) ||
+    normalized.endsWith(
+      ".jpg"
+    ) ||
+    normalized.endsWith(
+      ".jpeg"
+    )
   ) {
     return "JPEG";
   }
 
   if (
-    normalizedSource.includes("image/webp") ||
-    normalizedSource.endsWith(".webp")
+    normalized.includes(
+      "image/webp"
+    ) ||
+    normalized.endsWith(
+      ".webp"
+    )
   ) {
     return "WEBP";
   }
@@ -29,19 +54,27 @@ function getImageFormat(source: string): ImageFormat {
   return "PNG";
 }
 
-async function remoteImageToDataUrl(url: string): Promise<string> {
-  const response = await fetch(url);
+async function remoteImageToDataUrl(
+  url: string
+): Promise<string> {
+  const response =
+    await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`No se pudo cargar la imagen: ${url}`);
+    throw new Error(
+      `No se pudo cargar la imagen: ${url}`
+    );
   }
 
   const contentType =
-    response.headers.get("content-type") || "image/png";
+    response.headers.get(
+      "content-type"
+    ) || "image/png";
 
-  const imageBuffer = Buffer.from(
-    await response.arrayBuffer()
-  );
+  const imageBuffer =
+    Buffer.from(
+      await response.arrayBuffer()
+    );
 
   return `data:${contentType};base64,${imageBuffer.toString(
     "base64"
@@ -51,24 +84,36 @@ async function remoteImageToDataUrl(url: string): Promise<string> {
 async function localPublicImageToDataUrl(
   source: string
 ): Promise<string> {
-  const cleanPath = source.replace(/^\/+/, "");
+  const cleanPath =
+    source.replace(
+      /^\/+/,
+      ""
+    );
 
-  const absolutePath = path.join(
-    process.cwd(),
-    "public",
-    cleanPath
-  );
+  const absolutePath =
+    path.join(
+      process.cwd(),
+      "public",
+      cleanPath
+    );
 
-  const imageBuffer = await readFile(absolutePath);
+  const imageBuffer =
+    await readFile(
+      absolutePath
+    );
 
-  const extension = path.extname(cleanPath).toLowerCase();
+  const extension =
+    path
+      .extname(cleanPath)
+      .toLowerCase();
 
   const contentType =
-    extension === ".jpg" || extension === ".jpeg"
+    extension === ".jpg" ||
+    extension === ".jpeg"
       ? "image/jpeg"
       : extension === ".webp"
-        ? "image/webp"
-        : "image/png";
+      ? "image/webp"
+      : "image/png";
 
   return `data:${contentType};base64,${imageBuffer.toString(
     "base64"
@@ -82,48 +127,105 @@ async function normalizeImageSource(
     return null;
   }
 
-  const normalizedSource = source.trim();
+  const normalized =
+    source.trim();
 
-  if (normalizedSource.startsWith("data:image/")) {
-    return normalizedSource;
+  if (
+    normalized.startsWith(
+      "data:image/"
+    )
+  ) {
+    return normalized;
   }
 
   if (
-    normalizedSource.startsWith("https://") ||
-    normalizedSource.startsWith("http://")
+    normalized.startsWith(
+      "https://"
+    ) ||
+    normalized.startsWith(
+      "http://"
+    )
   ) {
-    return remoteImageToDataUrl(normalizedSource);
+    return remoteImageToDataUrl(
+      normalized
+    );
   }
 
-  if (normalizedSource.startsWith("/")) {
-    return localPublicImageToDataUrl(normalizedSource);
+  if (
+    normalized.startsWith(
+      "/"
+    )
+  ) {
+    return localPublicImageToDataUrl(
+      normalized
+    );
   }
 
   return null;
 }
 
-function formatMoney(value: unknown): string {
-  return `$${Number(value).toLocaleString("es-AR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
+function formatMoney(
+  value: unknown
+) {
+  return `$ ${Number(
+    value
+  ).toLocaleString(
+    "es-AR",
+    {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }
+  )}`;
+}
+
+function formatDate(
+  value: Date
+) {
+  return new Intl.DateTimeFormat(
+    "es-AR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  ).format(value);
+}
+
+function getStatusLabel(
+  status: string
+) {
+  if (
+    status ===
+    "COMPLETED"
+  ) {
+    return "COMPLETADO";
+  }
+
+  if (
+    status ===
+    "IN_PROGRESS"
+  ) {
+    return "EN CURSO";
+  }
+
+  return "PENDIENTE";
 }
 
 export async function GET(
-  _req: Request,
-  context: {
-    params: Promise<{
-      id: string;
-    }>;
-  }
+  _request: Request,
+  context: RouteContext
 ) {
   try {
-    const session = await auth();
+    const session =
+      await auth();
 
-    if (!session?.user?.id) {
+    if (
+      !session?.user?.id
+    ) {
       return NextResponse.json(
         {
-          error: "No autorizado.",
+          error:
+            "No autorizado.",
         },
         {
           status: 401,
@@ -131,36 +233,48 @@ export async function GET(
       );
     }
 
-    const { id } = await context.params;
+    const { id } =
+      await context.params;
 
-    const budget = await prisma.budget.findUnique({
-      where: {
-        id,
-      },
-      include: {
-        patient: {
-          include: {
-            branch: true,
-            plan: true,
+    const budget =
+      await prisma.budget.findUnique(
+        {
+          where: {
+            id,
           },
-        },
-        doctors: {
+
           include: {
-            doctor: {
+            patient: {
               include: {
-                user: true,
+                branch: true,
+                plan: true,
+              },
+            },
+
+            doctors: {
+              include: {
+                doctor: {
+                  include: {
+                    user: true,
+                  },
+                },
+              },
+            },
+
+            items: {
+              orderBy: {
+                id: "asc",
               },
             },
           },
-        },
-        items: true,
-      },
-    });
+        }
+      );
 
     if (!budget) {
       return NextResponse.json(
         {
-          error: "Presupuesto no encontrado.",
+          error:
+            "Presupuesto no encontrado.",
         },
         {
           status: 404,
@@ -168,23 +282,38 @@ export async function GET(
       );
     }
 
-    const isAdmin = session.user.role === "ADMIN";
+    /* =========================================
+       PERMISOS
+    ========================================= */
+
+    const isAdmin =
+      session.user.role ===
+      "ADMIN";
 
     const isAssignedDoctor =
-      session.user.role === "DOCTOR" &&
+      session.user.role ===
+        "DOCTOR" &&
       budget.doctors.some(
         ({ doctor }) =>
-          doctor.userId === session.user.id
+          doctor.userId ===
+          session.user.id
       );
 
-    const isBudgetPatient =
-      session.user.role === "PATIENT" &&
-      budget.patient.userId === session.user.id;
+    const isPatient =
+      session.user.role ===
+        "PATIENT" &&
+      budget.patient.userId ===
+        session.user.id;
 
-    if (!isAdmin && !isAssignedDoctor && !isBudgetPatient) {
+    if (
+      !isAdmin &&
+      !isAssignedDoctor &&
+      !isPatient
+    ) {
       return NextResponse.json(
         {
-          error: "No tenés permiso para ver este presupuesto.",
+          error:
+            "No tenés permiso para ver este presupuesto.",
         },
         {
           status: 403,
@@ -192,326 +321,872 @@ export async function GET(
       );
     }
 
-    const doctorNames = budget.doctors
-      .map(
-        ({ doctor }) =>
-          doctor.name ||
-          doctor.user?.name ||
-          "Especialista"
-      )
-      .join(", ");
+    /* =========================================
+       DATOS
+    ========================================= */
 
-    const doc = new jsPDF({
-      orientation: "portrait",
-      unit: "mm",
-      format: "a4",
-    });
+    const patientName =
+      `${budget.patient.lastName}, ${budget.patient.firstName}`;
 
-    const clinicName = "Consultorios Nazaret";
+    const subtotal =
+      Number(
+        budget.subtotal
+      );
 
-    const margin = 22;
+    const discount =
+      Number(
+        budget.discount
+      );
+
+    const total =
+      Number(
+        budget.total
+      );
+
+    const statusLabel =
+      getStatusLabel(
+        budget.status
+      );
+
+    /* =========================================
+       DOCUMENTO
+    ========================================= */
+
+    const doc =
+      new jsPDF({
+        orientation:
+          "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
     const pageWidth = 210;
-    const rightMargin = pageWidth - margin;
+    const pageHeight = 297;
 
-    let y = 24;
+    const marginX = 16;
+    const contentWidth =
+      pageWidth -
+      marginX * 2;
 
-    /*
-     * LOGO
-     * Se toma directamente desde:
-     * public/icon.png
-     */
-    try {
-      const logoBuffer = await readFile(
-        path.join(process.cwd(), "app", "icon.png")
-      );
+    const dark = {
+      r: 38,
+      g: 63,
+      b: 59,
+    };
 
-      const logoDataUrl = `data:image/png;base64,${logoBuffer.toString(
-        "base64"
-      )}`;
+    const green = {
+      r: 130,
+      g: 149,
+      b: 111,
+    };
 
-      doc.addImage(
-        logoDataUrl,
-        "PNG",
-        158,
-        12,
-        28,
-        28,
-        undefined,
-        "FAST"
-      );
-    } catch (logoError) {
-      console.error(
-        "No se pudo agregar public/icon.png al presupuesto:",
-        logoError
-      );
-    }
+    const muted = {
+      r: 95,
+      g: 111,
+      b: 107,
+    };
 
-    /*
-     * ENCABEZADO
-     */
-    doc.setTextColor(38, 63, 59);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(18);
+    const border = {
+      r: 222,
+      g: 217,
+      b: 205,
+    };
 
-    doc.text(clinicName.toUpperCase(), margin, y);
+    const background = {
+      r: 250,
+      g: 249,
+      b: 245,
+    };
 
-    y += 7;
+    let y = 17;
 
-    doc.setFont("helvetica", "normal");
+    /* =========================================
+       ENCABEZADO
+    ========================================= */
+
+    doc.setTextColor(
+      green.r,
+      green.g,
+      green.b
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
     doc.setFontSize(9);
-    doc.setTextColor(95, 111, 107);
-
-    const branchAddress = [
-      budget.patient.branch?.address,
-      budget.patient.branch?.city,
-    ]
-      .filter(Boolean)
-      .join(" - ");
 
     doc.text(
-      branchAddress || "Dirección no informada",
-      margin,
+      "C O N S U L T O R I O S   N A Z A R E T",
+      marginX,
       y
     );
 
-    y += 6;
+    /* FECHA */
 
-    doc.setFontSize(11);
-    doc.text("Presupuesto odontológico", margin, y);
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
 
-    y += 12;
-
-    doc.setDrawColor(222, 217, 205);
-    doc.setLineWidth(0.35);
-    doc.line(margin, y, rightMargin, y);
-
-    y += 14;
-
-    /*
-     * DATOS GENERALES
-     */
-    const leftX = margin;
-    const rightX = 112;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(162, 179, 139);
-
-    doc.text("PACIENTE", leftX, y);
-    doc.text("FECHA", rightX, y);
-
-    y += 6;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(38, 63, 59);
+    doc.setFontSize(9);
 
     doc.text(
-      `${budget.patient.firstName} ${budget.patient.lastName}`,
-      leftX,
-      y
+      "Fecha",
+      pageWidth - marginX,
+      y,
+      {
+        align: "right",
+      }
+    );
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
     );
 
     doc.text(
-      new Date(budget.createdAt).toLocaleDateString("es-AR"),
-      rightX,
-      y
+      formatDate(
+        budget.createdAt
+      ),
+      pageWidth -
+        marginX,
+      y + 6,
+      {
+        align: "right",
+      }
     );
 
-    y += 12;
+    /* ESTADO */
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(162, 179, 139);
+    const statusWidth = 27;
 
-    doc.text("DNI", leftX, y);
-    doc.text("ESPECIALISTA", rightX, y);
-
-    y += 6;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(38, 63, 59);
-
-    doc.text(budget.patient.dni || "-", leftX, y);
-
-    const doctorLines = doc.splitTextToSize(
-      doctorNames || "No asignado",
-      75
+    doc.setFillColor(
+      238,
+      242,
+      233
     );
+
+    doc.rect(
+      pageWidth -
+        marginX -
+        statusWidth,
+      y + 9,
+      statusWidth,
+      7,
+      "F"
+    );
+
+    doc.setTextColor(
+      95,
+      118,
+      83
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(7);
 
     doc.text(
-      doctorLines,
-      rightX,
-      y
+      statusLabel,
+      pageWidth -
+        marginX -
+        statusWidth / 2,
+      y + 13.6,
+      {
+        align: "center",
+      }
     );
 
-    y += 12;
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(162, 179, 139);
-
-    doc.text("SUCURSAL", leftX, y);
-
-    y += 6;
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(38, 63, 59);
-
-    doc.text(
-      budget.patient.branch?.name || "-",
-      leftX,
-      y
-    );
-
-    y += 18;
-
-    /*
-     * TABLA DE TRATAMIENTOS
-     */
-    doc.setFillColor(247, 245, 239);
-    doc.rect(margin, y, 168, 11, "F");
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.setTextColor(38, 63, 59);
-
-    doc.text("TRATAMIENTO", margin + 4, y + 7);
-
-    doc.text("PRECIO", 176, y + 7, {
-      align: "right",
-    });
+    /* TÍTULO */
 
     y += 16;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
+    doc.setFont(
+      "times",
+      "bold"
+    );
 
-    budget.items.forEach((item) => {
-      const serviceName =
-        item.serviceName || "Sin descripción";
+    doc.setFontSize(27);
 
-      const descriptionLines = doc.splitTextToSize(
-        serviceName,
-        125
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
+
+    doc.text(
+      "Presupuesto",
+      marginX,
+      y
+    );
+
+    y += 7;
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setFontSize(8);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
+
+    doc.text(
+      `Presupuesto #${budget.id}`,
+      marginX,
+      y
+    );
+
+    y += 8;
+
+    doc.setDrawColor(
+      border.r,
+      border.g,
+      border.b
+    );
+
+    doc.setLineWidth(
+      0.3
+    );
+
+    doc.line(
+      marginX,
+      y,
+      pageWidth -
+        marginX,
+      y
+    );
+
+    /* =========================================
+       PACIENTE + PROFESIONALES
+    ========================================= */
+
+    y += 12;
+
+    const leftX =
+      marginX;
+
+    const rightX =
+      112;
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(7);
+
+    doc.setTextColor(
+      green.r,
+      green.g,
+      green.b
+    );
+
+    doc.text(
+      "P A C I E N T E",
+      leftX,
+      y
+    );
+
+    doc.text(
+      "E S P E C I A L I S T A / S",
+      rightX,
+      y
+    );
+
+    y += 7;
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(12);
+
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
+
+    doc.text(
+      patientName,
+      leftX,
+      y
+    );
+
+    let patientY =
+      y + 7;
+
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setFontSize(8);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
+
+    if (
+      budget.patient.dni
+    ) {
+      doc.text(
+        `DNI: ${budget.patient.dni}`,
+        leftX,
+        patientY
       );
 
-      doc.setTextColor(38, 63, 59);
+      patientY += 5;
+    }
+
+    if (
+      budget.patient.phone
+    ) {
+      doc.text(
+        `Teléfono: ${budget.patient.phone}`,
+        leftX,
+        patientY
+      );
+
+      patientY += 5;
+    }
+
+    if (
+      budget.patient.branch
+    ) {
+      const branchText = [
+        budget.patient.branch
+          .name,
+        budget.patient.branch
+          .city,
+      ]
+        .filter(Boolean)
+        .join(" — ");
 
       doc.text(
-        descriptionLines,
-        margin + 3,
-        y
+        `Sucursal: ${branchText}`,
+        leftX,
+        patientY
+      );
+
+      patientY += 5;
+    }
+
+    doc.text(
+      `Plan: ${
+        budget.patient.plan
+          ?.name ||
+        "Sin plan"
+      }`,
+      leftX,
+      patientY
+    );
+
+    /* PROFESIONALES */
+
+    let doctorY = y;
+
+    if (
+      budget.doctors.length >
+      0
+    ) {
+      for (const {
+        doctor,
+      } of budget.doctors) {
+        const doctorName =
+          doctor.name ||
+          doctor.user?.name ||
+          "Especialista";
+
+        doc.setFont(
+          "helvetica",
+          "bold"
+        );
+
+        doc.setFontSize(9);
+
+        doc.setTextColor(
+          dark.r,
+          dark.g,
+          dark.b
+        );
+
+        doc.text(
+          doctorName,
+          rightX,
+          doctorY
+        );
+
+        doctorY += 4.5;
+
+        doc.setFont(
+          "helvetica",
+          "normal"
+        );
+
+        doc.setFontSize(7);
+
+        doc.setTextColor(
+          muted.r,
+          muted.g,
+          muted.b
+        );
+
+        if (
+          doctor.specialty
+        ) {
+          doc.text(
+            doctor.specialty,
+            rightX,
+            doctorY
+          );
+
+          doctorY += 4;
+        }
+
+        if (
+          doctor.professionalLicense
+        ) {
+          doc.text(
+            `MP ${doctor.professionalLicense}`,
+            rightX,
+            doctorY
+          );
+
+          doctorY += 6;
+        }
+      }
+    } else {
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      doc.setFontSize(8);
+
+      doc.setTextColor(
+        dark.r,
+        dark.g,
+        dark.b
       );
 
       doc.text(
-        formatMoney(item.total),
-        176,
+        "Sin especialista asignado",
+        rightX,
+        doctorY
+      );
+    }
+
+    y = Math.max(
+      patientY,
+      doctorY
+    );
+
+    /* =========================================
+       DETALLE
+    ========================================= */
+
+    y += 12;
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(7);
+
+    doc.setTextColor(
+      green.r,
+      green.g,
+      green.b
+    );
+
+    doc.text(
+      "D E T A L L E   D E L   P R E S U P U E S T O",
+      marginX,
+      y
+    );
+
+    y += 6;
+
+    const colTreatment =
+      marginX + 4;
+
+    const colQuantity =
+      111;
+
+    const colUnitPrice =
+      157;
+
+    const colTotal =
+      pageWidth -
+      marginX -
+      4;
+
+    /* CABECERA TABLA */
+
+    doc.setFillColor(
+      background.r,
+      background.g,
+      background.b
+    );
+
+    doc.setDrawColor(
+      border.r,
+      border.g,
+      border.b
+    );
+
+    doc.rect(
+      marginX,
+      y,
+      contentWidth,
+      10,
+      "FD"
+    );
+
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(7);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
+
+    doc.text(
+      "TRATAMIENTO",
+      colTreatment,
+      y + 6
+    );
+
+    doc.text(
+      "CANTIDAD",
+      colQuantity,
+      y + 6,
+      {
+        align: "center",
+      }
+    );
+
+    doc.text(
+      "PRECIO UNITARIO",
+      colUnitPrice,
+      y + 6,
+      {
+        align: "right",
+      }
+    );
+
+    doc.text(
+      "TOTAL",
+      colTotal,
+      y + 6,
+      {
+        align: "right",
+      }
+    );
+
+    y += 10;
+
+    /* FILAS */
+
+    for (const item of budget.items) {
+      const serviceLines =
+        doc.splitTextToSize(
+          item.serviceName ||
+            "Sin descripción",
+          75
+        );
+
+      const lineCount =
+        Math.max(
+          1,
+          serviceLines.length
+        );
+
+      const rowHeight =
+        Math.max(
+          11,
+          lineCount * 4.2 +
+            5
+        );
+
+      doc.setDrawColor(
+        border.r,
+        border.g,
+        border.b
+      );
+
+      doc.rect(
+        marginX,
         y,
+        contentWidth,
+        rowHeight
+      );
+
+      doc.setFont(
+        "helvetica",
+        "normal"
+      );
+
+      doc.setFontSize(8);
+
+      doc.setTextColor(
+        dark.r,
+        dark.g,
+        dark.b
+      );
+
+      doc.text(
+        serviceLines,
+        colTreatment,
+        y + 6
+      );
+
+      doc.text(
+        String(
+          item.quantity
+        ),
+        colQuantity,
+        y + 6,
+        {
+          align: "center",
+        }
+      );
+
+      doc.text(
+        formatMoney(
+          item.unitPrice
+        ),
+        colUnitPrice,
+        y + 6,
         {
           align: "right",
         }
       );
 
-      const lineCount = Math.max(
-        1,
-        descriptionLines.length
+      doc.setFont(
+        "helvetica",
+        "bold"
       );
 
-      y += Math.max(9, lineCount * 5);
-    });
+      doc.text(
+        formatMoney(
+          item.total
+        ),
+        colTotal,
+        y + 6,
+        {
+          align: "right",
+        }
+      );
 
-    y += 6;
+      y += rowHeight;
+    }
 
-    doc.setDrawColor(222, 217, 205);
-    doc.line(margin, y, rightMargin, y);
+    /* =========================================
+       TOTALES
+    ========================================= */
 
-    y += 14;
+    y += 8;
 
-    /*
-     * TOTALES
-     */
-    const labelX = 125;
-    const valueX = 175;
+    const totalLabelX =
+      119;
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(95, 111, 107);
+    const totalValueX =
+      pageWidth -
+      marginX;
 
-    doc.text("Subtotal", labelX, y);
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setFontSize(8);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
 
     doc.text(
-      formatMoney(budget.subtotal),
-      valueX,
+      "Subtotal",
+      totalLabelX,
+      y
+    );
+
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
+
+    doc.text(
+      formatMoney(
+        subtotal
+      ),
+      totalValueX,
       y,
       {
         align: "right",
       }
+    );
+
+    y += 7;
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
+
+    doc.text(
+      "Descuento",
+      totalLabelX,
+      y
+    );
+
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
+
+    doc.text(
+      `${discount}%`,
+      totalValueX,
+      y,
+      {
+        align: "right",
+      }
+    );
+
+    y += 5;
+
+    doc.setDrawColor(
+      border.r,
+      border.g,
+      border.b
+    );
+
+    doc.line(
+      totalLabelX,
+      y,
+      totalValueX,
+      y
     );
 
     y += 8;
 
+    doc.setFont(
+      "helvetica",
+      "bold"
+    );
+
+    doc.setFontSize(12);
+
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
+
     doc.text(
-      `Descuento (${Number(budget.discount)}%)`,
-      labelX,
+      "Total",
+      totalLabelX,
       y
     );
 
-    const discountAmount =
-      Number(budget.subtotal) *
-      (Number(budget.discount) / 100);
+    doc.setTextColor(
+      82,
+      105,
+      67
+    );
 
     doc.text(
-      `-${formatMoney(discountAmount)}`,
-      valueX,
+      formatMoney(total),
+      totalValueX,
       y,
       {
         align: "right",
       }
     );
 
-    y += 10;
+    /* =========================================
+       VALIDEZ
+    ========================================= */
 
-    doc.setDrawColor(222, 217, 205);
-    doc.line(labelX, y, valueX, y);
+    y += 13;
 
-    y += 10;
+    doc.setFillColor(
+      251,
+      250,
+      246
+    );
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
-    doc.setTextColor(38, 63, 59);
+    doc.setDrawColor(
+      border.r,
+      border.g,
+      border.b
+    );
 
-    doc.text("TOTAL", labelX, y);
-
-    doc.text(
-      formatMoney(budget.total),
-      valueX,
+    doc.rect(
+      marginX,
       y,
-      {
-        align: "right",
-      }
+      contentWidth,
+      12,
+      "FD"
     );
 
-    /*
-     * VALIDEZ
-     */
-    y += 28;
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(95, 111, 107);
+    doc.setFontSize(7.5);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
 
     doc.text(
-      "Validez del presupuesto: 30 días.",
-      margin,
-      y
+      "Este presupuesto tiene una validez de 30 días a partir de la fecha de emisión.",
+      marginX + 5,
+      y + 7
     );
 
-    /*
-     * FIRMAS
-     */
+    /* =========================================
+       FIRMAS ABAJO DE TODO
+    ========================================= */
+
     const patientSignature =
       await normalizeImageSource(
         budget.patientSignature
@@ -522,112 +1197,217 @@ export async function GET(
         budget.doctorSignature
       );
 
-    const signatureY = Math.max(y + 12, 220);
+    const signatureImageY =
+      242;
 
-    const patientSignatureX = margin;
-    const doctorSignatureX = 112;
+    const signatureLineY =
+      266;
 
-    const signatureWidth = 65;
-    const signatureImageHeight = 24;
+    const signatureWidth =
+      68;
 
-    if (patientSignature) {
+    const patientX =
+      marginX + 3;
+
+    const doctorX =
+      pageWidth -
+      marginX -
+      signatureWidth -
+      3;
+
+    if (
+      patientSignature
+    ) {
       try {
         doc.addImage(
           patientSignature,
-          getImageFormat(patientSignature),
-          patientSignatureX,
-          signatureY,
+          getImageFormat(
+            patientSignature
+          ),
+          patientX,
+          signatureImageY,
           signatureWidth,
-          signatureImageHeight,
+          20,
           undefined,
           "FAST"
         );
-      } catch (signatureError) {
+      } catch (error) {
         console.error(
           "No se pudo agregar la firma del paciente:",
-          signatureError
+          error
         );
       }
     }
 
-    if (doctorSignature) {
+    if (
+      doctorSignature
+    ) {
       try {
         doc.addImage(
           doctorSignature,
-          getImageFormat(doctorSignature),
-          doctorSignatureX,
-          signatureY,
+          getImageFormat(
+            doctorSignature
+          ),
+          doctorX,
+          signatureImageY,
           signatureWidth,
-          signatureImageHeight,
+          20,
           undefined,
           "FAST"
         );
-      } catch (signatureError) {
+      } catch (error) {
         console.error(
           "No se pudo agregar la firma del profesional:",
-          signatureError
+          error
         );
       }
     }
 
-    const signatureLineY =
-      signatureY + signatureImageHeight + 2;
+    /* LÍNEAS DE FIRMA */
 
-    doc.setDrawColor(38, 63, 59);
-    doc.setLineWidth(0.35);
+    doc.setDrawColor(
+      126,
+      136,
+      133
+    );
+
+    doc.setLineWidth(
+      0.3
+    );
 
     doc.line(
-      patientSignatureX,
+      patientX,
       signatureLineY,
-      patientSignatureX + signatureWidth,
+      patientX +
+        signatureWidth,
       signatureLineY
     );
 
     doc.line(
-      doctorSignatureX,
+      doctorX,
       signatureLineY,
-      doctorSignatureX + signatureWidth,
+      doctorX +
+        signatureWidth,
       signatureLineY
     );
 
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(95, 111, 107);
+    doc.setFont(
+      "helvetica",
+      "normal"
+    );
+
+    doc.setFontSize(8);
+
+    doc.setTextColor(
+      dark.r,
+      dark.g,
+      dark.b
+    );
 
     doc.text(
       "Firma del paciente",
-      patientSignatureX,
-      signatureLineY + 7
+      patientX +
+        signatureWidth / 2,
+      signatureLineY + 5,
+      {
+        align: "center",
+      }
     );
 
     doc.text(
       "Firma y sello del profesional",
-      doctorSignatureX,
-      signatureLineY + 7
+      doctorX +
+        signatureWidth / 2,
+      signatureLineY + 5,
+      {
+        align: "center",
+      }
     );
 
-    /*
-     * PIE DE PÁGINA
-     */
-    doc.setFontSize(8);
-    doc.setTextColor(120, 120, 120);
+    /* ACLARACIÓN PACIENTE */
+
+    doc.setFontSize(7);
+
+    doc.setTextColor(
+      muted.r,
+      muted.g,
+      muted.b
+    );
 
     doc.text(
-      "Este presupuesto está sujeto a evaluación profesional y disponibilidad de turnos.",
-      margin,
-      282
+      "Aclaración:",
+      patientX,
+      signatureLineY + 13
     );
 
-    const pdfBuffer = Buffer.from(
-      doc.output("arraybuffer")
+    doc.line(
+      patientX + 17,
+      signatureLineY + 13,
+      patientX +
+        signatureWidth,
+      signatureLineY + 13
     );
 
-    return new NextResponse(pdfBuffer, {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `inline; filename="presupuesto-${budget.id}.pdf"`,
-      },
-    });
+    /* ACLARACIÓN PROFESIONAL */
+
+    doc.text(
+      "Aclaración:",
+      doctorX,
+      signatureLineY + 13
+    );
+
+    doc.line(
+      doctorX + 17,
+      signatureLineY + 13,
+      doctorX +
+        signatureWidth,
+      signatureLineY + 13
+    );
+
+    doc.text(
+      "Matrícula:",
+      doctorX,
+      signatureLineY + 20
+    );
+
+    doc.line(
+      doctorX + 16,
+      signatureLineY + 20,
+      doctorX +
+        signatureWidth,
+      signatureLineY + 20
+    );
+
+    /* =========================================
+       DEVOLVER PDF
+    ========================================= */
+
+    const pdfBuffer =
+      Buffer.from(
+        doc.output(
+          "arraybuffer"
+        )
+      );
+
+    return new NextResponse(
+      pdfBuffer,
+      {
+        headers: {
+          "Content-Type":
+            "application/pdf",
+
+          /*
+           * inline hace que el navegador
+           * abra directamente el PDF.
+           */
+          "Content-Disposition":
+            `inline; filename="presupuesto-${budget.id}.pdf"`,
+
+          "Cache-Control":
+            "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error(
       "ERROR GENERANDO PDF DEL PRESUPUESTO:",
@@ -636,7 +1416,8 @@ export async function GET(
 
     return NextResponse.json(
       {
-        error: "No se pudo generar el presupuesto.",
+        error:
+          "No se pudo generar el presupuesto.",
       },
       {
         status: 500,
