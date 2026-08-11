@@ -623,11 +623,6 @@ export default function UsersClient({
             </div>
 
             <div className="space-y-6 p-7">
-              {newAccountError && (
-                <div className="border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {newAccountError}
-                </div>
-              )}
 
               <div>
                 <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
@@ -756,32 +751,40 @@ export default function UsersClient({
               </button>
             </div>
 
-            <div className="flex flex-col-reverse gap-3 border-t border-[#DED9CD] bg-white p-6 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={closeNewAccountModal}
-                disabled={creatingAccount}
-                className="border border-[#DED9CD] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] transition hover:bg-[#F7F5EF] disabled:opacity-50"
-              >
-                Cancelar
-              </button>
+            <div className="border-t border-[#DED9CD] bg-white p-6">
+              {newAccountError && (
+                <div className="mb-4 border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {newAccountError}
+                </div>
+              )}
 
-              <button
-                type="button"
-                onClick={handleCreateAccount}
-                disabled={
-                  creatingAccount ||
-                  (newAccountForm.role === "DOCTOR" &&
-                    availableDoctors.length === 0)
-                }
-                className="flex items-center justify-center gap-2 bg-[#263F3B] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D] disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {creatingAccount && (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                )}
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={closeNewAccountModal}
+                  disabled={creatingAccount}
+                  className="border border-[#DED9CD] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#263F3B] transition hover:bg-[#F7F5EF] disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
 
-                Crear cuenta
-              </button>
+                <button
+                  type="button"
+                  onClick={handleCreateAccount}
+                  disabled={
+                    creatingAccount ||
+                    (newAccountForm.role === "DOCTOR" &&
+                      availableDoctors.length === 0)
+                  }
+                  className="flex items-center justify-center gap-2 bg-[#263F3B] px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white transition hover:bg-[#1D302D] disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {creatingAccount && (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  )}
+
+                  Crear cuenta
+                </button>
+              </div>
             </div>
           </div>
         </div>

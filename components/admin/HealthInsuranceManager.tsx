@@ -247,15 +247,11 @@ export default function HealthInsuranceManager() {
   }
 
   return (
-    <main className="min-h-screen bg-[#F7F5EF] px-4 py-6 text-[#263F3B] sm:px-6 md:px-10 md:py-8">
+    <main className="bg-[#F7F5EF] px-4 pt-0 pb-6 text-[#263F3B] sm:px-6 md:px-10 md:pt-0 md:pb-8">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8FA07F]">
-              Configuración
-            </p>
-
-            <h1 className="mt-2 font-serif text-4xl font-medium md:text-5xl">
+            <h1 className="font-serif text-4xl font-medium">
               Obras Sociales
             </h1>
 

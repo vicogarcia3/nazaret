@@ -159,6 +159,10 @@ export async function PATCH(
 /**
  * Edita la ficha pública del especialista
  * en la sección Equipo.
+ *
+ * Si el especialista tiene una cuenta de usuario
+ * asociada, también sincroniza el email utilizado
+ * para iniciar sesión.
  */
 export async function PUT(
   request: Request,
@@ -191,6 +195,7 @@ export async function PUT(
         },
         select: {
           id: true,
+          userId: true,
         },
       });
 
@@ -228,6 +233,10 @@ export async function PUT(
       );
     }
 
+    /*
+     * Validamos que otro Doctor
+     * no tenga ya ese email.
+     */
     if (email) {
       const doctorWithSameEmail =
         await prisma.doctor.findFirst({
@@ -252,6 +261,45 @@ export async function PUT(
           {
             error:
               "Ya existe otro especialista registrado con ese email.",
+          },
+          {
+            status: 409,
+          }
+        );
+      }
+
+      /*
+       * También validamos User.email,
+       * porque es el correo utilizado
+       * para iniciar sesión.
+       */
+      const userWithSameEmail =
+        await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: "insensitive",
+            },
+
+            ...(existingDoctor.userId
+              ? {
+                  id: {
+                    not: existingDoctor.userId,
+                  },
+                }
+              : {}),
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+      if (userWithSameEmail) {
+        return NextResponse.json(
+          {
+            error:
+              "Ya existe una cuenta registrada con ese email.",
           },
           {
             status: 409,
@@ -310,6 +358,11 @@ export async function PUT(
     const updatedDoctor =
       await prisma.$transaction(
         async (transaction) => {
+          /*
+           * Si se modifican sucursales,
+           * eliminamos primero las relaciones
+           * existentes.
+           */
           if (
             branchIds !== undefined
           ) {
@@ -322,83 +375,113 @@ export async function PUT(
             );
           }
 
-          return transaction.doctor.update(
-            {
+          /*
+           * Si el especialista tiene una cuenta
+           * asociada y hay email, sincronizamos
+           * también el email de User.
+           */
+          if (
+            existingDoctor.userId &&
+            email
+          ) {
+            await transaction.user.update({
               where: {
-                id,
+                id: existingDoctor.userId,
               },
-
               data: {
-                name,
                 email,
-
-                specialty:
-                  normalizeNullableText(
-                    body.specialty
-                  ),
-
-                professionalLicense:
-                  normalizeNullableText(
-                    body.professionalLicense
-                  ),
-
-                description:
-                  normalizeNullableText(
-                    body.description
-                  ),
-
-                photo:
-                  normalizeNullableText(
-                    body.photo
-                  ),
-
-                ...(typeof body.active ===
-                  "boolean" && {
-                  active: body.active,
-                }),
-
-                ...(typeof body.visible ===
-                  "boolean" && {
-                  visible: body.visible,
-                }),
-
-                ...(branchIds !==
-                  undefined && {
-                  branches: {
-                    create:
-                      branchIds.map(
-                        (branchId) => ({
-                          branch: {
-                            connect: {
-                              id: branchId,
-                            },
-                          },
-                        })
-                      ),
-                  },
-                }),
               },
+            });
+          }
 
-              include: {
-                user: true,
+          /*
+           * Actualizamos la ficha Doctor.
+           */
+          return transaction.doctor.update({
+            where: {
+              id,
+            },
 
+            data: {
+              name,
+              email,
+
+              specialty:
+                normalizeNullableText(
+                  body.specialty
+                ),
+
+              professionalLicense:
+                normalizeNullableText(
+                  body.professionalLicense
+                ),
+
+              description:
+                normalizeNullableText(
+                  body.description
+                ),
+
+              photo:
+                normalizeNullableText(
+                  body.photo
+                ),
+
+              ...(typeof body.active ===
+                "boolean" && {
+                active: body.active,
+              }),
+
+              ...(typeof body.visible ===
+                "boolean" && {
+                visible: body.visible,
+              }),
+
+              ...(branchIds !==
+                undefined && {
                 branches: {
-                  include: {
-                    branch: true,
-                  },
+                  create:
+                    branchIds.map(
+                      (branchId) => ({
+                        branch: {
+                          connect: {
+                            id: branchId,
+                          },
+                        },
+                      })
+                    ),
+                },
+              }),
+            },
+
+            include: {
+              user: true,
+
+              branches: {
+                include: {
+                  branch: true,
                 },
               },
-            }
-          );
+            },
+          });
         }
       );
 
     revalidatePath("/");
+
     revalidatePath(
       "/dashboard/admin/configuracion/servicios"
     );
+
     revalidatePath(
       "/dashboard/admin/configuracion/odontologos"
+    );
+
+    revalidatePath(
+      "/dashboard/admin/usuarios"
+    );
+
+    revalidatePath(
+      "/dashboard/doctor/perfil"
     );
 
     return NextResponse.json({
@@ -665,6 +748,10 @@ export async function DELETE(
 
     revalidatePath(
       "/dashboard/admin/configuracion/odontologos"
+    );
+
+    revalidatePath(
+      "/dashboard/admin/usuarios"
     );
 
     return NextResponse.json({

@@ -49,7 +49,7 @@ export default function DoctorDashboardShell({
   const router = useRouter();
 
   const [sidebarOpen, setSidebarOpen] =
-    useState(false);
+    useState(true);
 
   const [
     notificationsOpen,

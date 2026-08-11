@@ -8,35 +8,43 @@ import {
   Palette,
   FileText,
   Users,
-  ListChecks,
   Calendar,
   BarChart3,
-  BadgePlus,
   ClipboardList,
+  LogOut,
+  ReceiptText,
 } from "lucide-react";
-import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 type Props = {
   open: boolean;
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  setOpen: React.Dispatch<
+    React.SetStateAction<boolean>
+  >;
 };
 
-export default function AdminSidebar({ open, setOpen }: Props) {
+export default function AdminSidebar({
+  open,
+  setOpen,
+}: Props) {
   const pathname = usePathname();
 
   const menuClass = (href: string) => {
     let active = false;
 
-    if (href === "/dashboard/admin/mi-panel") {
+    if (
+      href === "/dashboard/admin/mi-panel"
+    ) {
       active = pathname === href;
-    } else if (href === "/dashboard/admin/configuracion") {
+    } else if (
+      href === "/dashboard/admin/configuracion"
+    ) {
       active = pathname === href;
     } else {
       active = pathname.startsWith(href);
     }
 
-    return `flex items-center gap-3 px-4 py-3 transition ${
+    return `flex items-center gap-3 px-4 py-2.5 transition ${
       active
         ? "bg-[#263F3B] text-white"
         : "text-[#5F6F6B] hover:bg-[#F0EDE6]"
@@ -54,43 +62,56 @@ export default function AdminSidebar({ open, setOpen }: Props) {
       </button>
 
       <aside
-        className={`fixed left-0 top-0 z-40 flex h-screen w-64 flex-col border-r border-[#DED9CD] bg-[#FFFCF7] px-6 py-5 shadow-sm transition-transform duration-300 ${          open ? "translate-x-0" : "-translate-x-full"
+        className={`fixed left-0 top-0 z-40 flex h-dvh w-64 flex-col border-r border-[#DED9CD] bg-[#FFFCF7] px-6 py-5 shadow-sm transition-transform duration-300 ${
+          open
+            ? "translate-x-0"
+            : "-translate-x-full"
         }`}
       >
-        <h1 className="mb-10 pl-10 font-serif text-2xl font-medium text-[#263F3B]">
+        {/* TÍTULO */}
+        <h1 className="mb-6 shrink-0 pl-10 font-serif text-2xl font-medium text-[#263F3B]">
           Panel
         </h1>
 
-        <nav className="flex-1 space-y-2 text-sm">
+        {/* MENÚ PRINCIPAL */}
+        <nav className="space-y-1.5 text-sm">
           <Link
             href="/dashboard/admin/mi-panel"
-            className={menuClass("/dashboard/admin/mi-panel")}
+            className={menuClass(
+              "/dashboard/admin/mi-panel"
+            )}
           >
-            <LayoutDashboard className="h-4 w-4" />
+            <LayoutDashboard className="h-4 w-4 shrink-0" />
             Inicio
           </Link>
 
           <Link
             href="/dashboard/admin/configuracion"
-            className={menuClass("/dashboard/admin/configuracion")}
+            className={menuClass(
+              "/dashboard/admin/configuracion"
+            )}
           >
-            <Palette className="h-4 w-4" />
+            <Palette className="h-4 w-4 shrink-0" />
             Identidad
           </Link>
 
           <Link
             href="/dashboard/admin/configuracion/servicios"
-            className={menuClass("/dashboard/admin/configuracion/servicios")}
+            className={menuClass(
+              "/dashboard/admin/configuracion/servicios"
+            )}
           >
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4 shrink-0" />
             Contenido
           </Link>
 
           <Link
             href="/dashboard/admin/mi-panel/pacientes"
-            className={menuClass("/dashboard/admin/mi-panel/pacientes")}
+            className={menuClass(
+              "/dashboard/admin/mi-panel/pacientes"
+            )}
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-4 w-4 shrink-0" />
             Pacientes
           </Link>
 
@@ -100,63 +121,64 @@ export default function AdminSidebar({ open, setOpen }: Props) {
               "/dashboard/admin/mi-panel/historias-clinicas"
             )}
           >
-            <ClipboardList className="h-4 w-4" />
+            <ClipboardList className="h-4 w-4 shrink-0" />
             Historias Clínicas
           </Link>
 
           <Link
-            href="/dashboard/admin/configuracion/planes"
-            className={menuClass("/dashboard/admin/configuracion/planes")}
-          >
-            <ListChecks className="h-4 w-4" />
-            Planes
-          </Link>
-
-          <Link
-            href="/dashboard/admin/configuracion/obras-sociales"
+            href="/dashboard/admin/mi-panel/presupuestos"
             className={menuClass(
-              "/dashboard/admin/configuracion/obras-sociales"
+              "/dashboard/admin/mi-panel/presupuestos"
             )}
           >
-            <BadgePlus className="h-4 w-4" />
-            Obras Sociales
+            <ReceiptText className="h-4 w-4 shrink-0" />
+            Presupuestos
           </Link>
 
           <Link
             href="/dashboard/admin/mi-panel/turnos"
-            className={menuClass("/dashboard/admin/mi-panel/turnos")}
+            className={menuClass(
+              "/dashboard/admin/mi-panel/turnos"
+            )}
           >
-            <Calendar className="h-4 w-4" />
+            <Calendar className="h-4 w-4 shrink-0" />
             Agenda
           </Link>
 
           <Link
             href="/dashboard/admin/mi-panel/balance"
-            className={menuClass("/dashboard/admin/mi-panel/balance")}
+            className={menuClass(
+              "/dashboard/admin/mi-panel/balance"
+            )}
           >
-            <BarChart3 className="h-4 w-4" />
+            <BarChart3 className="h-4 w-4 shrink-0" />
             Balance
           </Link>
         </nav>
 
-        <div className="border-t border-[#DED9CD] pt-4 space-y-1">
+        {/* EMPUJA EL BLOQUE INFERIOR HACIA ABAJO */}
+        <div className="flex-1" />
+
+        {/* USUARIOS + CERRAR SESIÓN */}
+        <div className="shrink-0 border-t border-[#DED9CD] pt-3">
           <Link
             href="/dashboard/admin/usuarios"
-            className="flex items-center gap-3 px-4 py-3 text-sm text-[#5F6F6B] transition hover:bg-[#F0EDE6]"
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-[#5F6F6B] transition hover:bg-[#F0EDE6]"
           >
-            <Users className="h-4 w-4" />
+            <Users className="h-4 w-4 shrink-0" />
             Usuarios
           </Link>
 
           <button
+            type="button"
             onClick={() =>
               signOut({
                 callbackUrl: "/login",
               })
             }
-            className="flex w-full items-center gap-3 px-4 py-3 text-sm text-[#5F6F6B] transition hover:bg-[#F0EDE6]"
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-[#5F6F6B] transition hover:bg-[#F0EDE6]"
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 shrink-0" />
             Cerrar sesión
           </button>
         </div>

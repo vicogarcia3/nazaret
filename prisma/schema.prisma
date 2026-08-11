@@ -101,16 +101,19 @@ model Branch {
 }
 
 model Doctor {
-  id                  String  @id @default(cuid())
-  userId              String? @unique
+  id                  String    @id @default(cuid())
+  userId              String?   @unique
   specialty           String?
   description         String?
   photo               String?
   professionalLicense String?
   email               String?
-  active              Boolean @default(true)
+  phone               String?
+  birthDate           DateTime?
+  dni                 String?
+  active              Boolean   @default(true)
   name                String
-  visible             Boolean @default(true)
+  visible             Boolean   @default(true)
 
   appointments                Appointment[]
   budgets                     BudgetDoctor[]

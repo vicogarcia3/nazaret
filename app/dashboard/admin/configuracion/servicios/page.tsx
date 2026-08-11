@@ -12,10 +12,14 @@ import {
   Save,
   ShieldPlus,
   ChevronDown,
+  ListChecks,
+  BadgePlus,
 } from "lucide-react";
 import TreatmentManager from "@/components/admin/TratmentManager";
+import HealthInsuranceManager from "@/components/admin/HealthInsuranceManager";
 import DoctorScheduleManager from "@/components/admin/DoctorScheduleManager";
 import ImageUploader from "@/components/admin/ImageUploader";
+import PlansManager from "@/app/components/admin/content/PlansManager";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type Service = {
@@ -88,7 +92,9 @@ type Tab =
   | "tratamientos"
   | "equipo"
   | "testimonios"
-  | "contacto";
+  | "contacto"
+  | "planes"
+  | "obras-sociales";
 
 export default function ServiciosPage() {
   const [activeTab, setActiveTab] = useState<Tab>("servicios");
@@ -516,6 +522,16 @@ async function handleContactSubmit(e: React.FormEvent) {
       label: "Contacto",
       icon: Phone,
     },
+    {
+      id: "planes" as Tab,
+      label: "Planes",
+      icon: ListChecks,
+    },
+    {
+      id: "obras-sociales" as Tab,
+      label: "Obras Sociales",
+      icon: BadgePlus,
+    },
   ];
 
   const approvedTestimonials = testimonials.filter(
@@ -562,7 +578,7 @@ async function handleContactSubmit(e: React.FormEvent) {
           </p>
         </header>
 
-        <div className="grid border border-[#DED9CD] bg-white md:grid-cols-5">
+        <div className="grid border border-[#DED9CD] bg-white md:grid-cols-7">
           {tabs.map((tab) => {
             const Icon = tab.icon;
 
@@ -571,14 +587,17 @@ async function handleContactSubmit(e: React.FormEvent) {
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center justify-center gap-2 border-b border-[#DED9CD] px-6 py-2 text-sm font-semibold transition md:border-b-0 md:border-r ${
+                className={`flex items-center justify-center gap-2 border-b border-[#DED9CD] px-4 py-3 text-sm font-semibold transition md:border-b-0 md:border-r ${
                   activeTab === tab.id
                     ? "bg-[#263F3B] text-white"
                     : "text-[#5F6F6B] hover:bg-[#F7F5EF]"
                 }`}
               >
-                <Icon className="h-4 w-4" />
-                {tab.label}
+                <Icon className="h-4 w-4 shrink-0" />
+
+                <span className="whitespace-nowrap">
+                  {tab.label}
+                </span>
               </button>
             );
           })}
@@ -1186,7 +1205,7 @@ async function handleContactSubmit(e: React.FormEvent) {
             <div className="border border-[#DED9CD] bg-white p-8">
               <Star className="mb-5 h-5 w-5 text-[#A2B38B]" />
 
-              <h2 className="font-[var(--font-cormorant)] text-4xl font-medium">
+              <h2 className="font-serif text-3xl font-medium">
                 Testimonios
               </h2>
 
@@ -1724,6 +1743,14 @@ async function handleContactSubmit(e: React.FormEvent) {
               </div>
             </div>
           </section>
+        )}
+
+        {activeTab === "planes" && (
+          <PlansManager />
+        )}
+
+        {activeTab === "obras-sociales" && (
+          <HealthInsuranceManager />
         )}
       </div>
     </div>

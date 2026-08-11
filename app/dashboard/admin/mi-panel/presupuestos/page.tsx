@@ -1,27 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Banknote,
+  CheckCircle2,
+  ChevronRight,
+  Clock3,
+  FileText,
+  Loader2,
+  ReceiptText,
+  Search,
+  UsersRound,
+  Wallet,
+} from "lucide-react";
 
-type Patient = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  dni: string;
-  phone: string;
-  plan: {
-    name: string;
-    discount: number;
-    active: boolean;
-  } | null;
-};
+type BudgetStatus =
+  | "CREATED"
+  | "IN_PROGRESS"
+  | "COMPLETED";
 
 type Doctor = {
   id: string;
-  name: string | null;
-  user: {
-    name: string | null;
-  } | null;
+  name: string;
+  specialty: string | null;
+  professionalLicense: string | null;
 };
 
 type BudgetItem = {
@@ -35,327 +38,709 @@ type BudgetItem = {
 type Budget = {
   id: string;
   description: string | null;
+
   subtotal: number;
   discount: number;
   total: number;
+
+  paidAmount: number;
+  remainingAmount: number;
+
+  status: BudgetStatus;
+
   createdAt: string;
-  patient: Patient;
-  doctor: Doctor;
+  updatedAt: string;
+
+  patient: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    dni: string | null;
+
+    user?: {
+      name: string | null;
+      email: string | null;
+    } | null;
+
+    branch?: {
+      id: string;
+      name: string;
+      city: string;
+      address: string;
+    } | null;
+  };
+
+  doctors: Doctor[];
+
   items: BudgetItem[];
 };
 
+const STATUS_LABELS: Record<
+  BudgetStatus,
+  string
+> = {
+  CREATED: "Pendiente",
+  IN_PROGRESS: "En curso",
+  COMPLETED: "Abonado",
+};
+
+const STATUS_CLASSES: Record<
+  BudgetStatus,
+  string
+> = {
+  CREATED:
+    "bg-[#F3EFE5] text-[#816D3E]",
+  IN_PROGRESS:
+    "bg-[#EAF0E5] text-[#5F7653]",
+  COMPLETED:
+    "bg-[#E3EFE2] text-[#4F7049]",
+};
+
+function formatCurrency(
+  value: number
+) {
+  return new Intl.NumberFormat(
+    "es-AR",
+    {
+      style: "currency",
+      currency: "ARS",
+      maximumFractionDigits: 0,
+    }
+  ).format(value);
+}
+
+function formatDate(
+  value: string
+) {
+  return new Date(
+    value
+  ).toLocaleDateString(
+    "es-AR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    }
+  );
+}
+
 export default function PresupuestosPage() {
-  const [patients, setPatients] = useState<Patient[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [budgets, setBudgets] =
+    useState<Budget[]>([]);
 
-  const [form, setForm] = useState({
-    patientId: "",
-    doctorId: "",
-    items: [
-      {
-        serviceName: "",
-        unitPrice: "",
-      },
-    ],
-  });
+  const [loading, setLoading] =
+    useState(true);
 
-  async function loadData() {
-    const [patientsRes, doctorsRes, budgetsRes] = await Promise.all([
-      fetch("/api/patients"),
-      fetch("/api/doctors"),
-      fetch("/api/budgets"),
-    ]);
+  const [error, setError] =
+    useState("");
 
-    setPatients(await patientsRes.json());
-    setDoctors(await doctorsRes.json());
-    setBudgets(await budgetsRes.json());
-  }
+  const [search, setSearch] =
+    useState("");
+
+  const [statusFilter, setStatusFilter] =
+    useState<
+      "ALL" | BudgetStatus
+    >("ALL");
 
   useEffect(() => {
-    loadData();
+    void loadBudgets();
   }, []);
 
-  function updateItem(
-    index: number,
-    field: "serviceName" | "unitPrice",
-    value: string
-  ) {
-    const newItems = [...form.items];
+  async function loadBudgets() {
+    try {
+      setLoading(true);
+      setError("");
 
-    newItems[index] = {
-      ...newItems[index],
-      [field]: value,
-    };
-
-    setForm({
-      ...form,
-      items: newItems,
-    });
-  }
-
-  function addItem() {
-    setForm({
-      ...form,
-      items: [
-        ...form.items,
+      const response = await fetch(
+        "/api/budgets",
         {
-          serviceName: "",
-          unitPrice: "",
-        },
-      ],
-    });
-  }
+          cache: "no-store",
+        }
+      );
 
-  function removeItem(index: number) {
-    setForm({
-      ...form,
-      items: form.items.filter((_, itemIndex) => itemIndex !== index),
-    });
-  }
+      const data =
+        await response.json();
 
-  const selectedPatient = patients.find(
-    (patient) => patient.id === form.patientId
-  );
+      if (!response.ok) {
+        throw new Error(
+          data.error ||
+            "No se pudieron cargar los presupuestos."
+        );
+      }
 
-  const discount =
-    selectedPatient?.plan?.active ? selectedPatient.plan.discount : 0;
+      setBudgets(
+        Array.isArray(data)
+          ? data
+          : []
+      );
+    } catch (loadError) {
+      console.error(
+        "Error cargando presupuestos:",
+        loadError
+      );
 
-  const subtotal = form.items.reduce((acc, item) => {
-    return acc + Number(item.unitPrice || 0);
-  }, 0);
-
-  const total = subtotal - subtotal * (discount / 100);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    const res = await fetch("/api/budgets", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        patientId: form.patientId,
-        doctorId: form.doctorId,
-        items: form.items,
-      }),
-    });
-
-    if (!res.ok) {
-      toast.error("No se pudo crear el presupuesto.");
-      return;
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudieron cargar los presupuestos."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    setForm({
-      patientId: "",
-      doctorId: "",
-      items: [
-        {
-          serviceName: "",
-          unitPrice: "",
-        },
-      ],
-    });
-
-    loadData();
   }
+
+  const totals = useMemo(() => {
+    return budgets.reduce(
+      (result, budget) => {
+        result.total +=
+          Number(
+            budget.total || 0
+          );
+
+        result.paid +=
+          Number(
+            budget.paidAmount || 0
+          );
+
+        result.pending +=
+          Number(
+            budget.remainingAmount ||
+              0
+          );
+
+        return result;
+      },
+      {
+        total: 0,
+        paid: 0,
+        pending: 0,
+      }
+    );
+  }, [budgets]);
+
+  const filteredBudgets =
+    useMemo(() => {
+      const normalizedSearch =
+        search
+          .trim()
+          .toLowerCase();
+
+      return budgets.filter(
+        (budget) => {
+          if (
+            statusFilter !==
+              "ALL" &&
+            budget.status !==
+              statusFilter
+          ) {
+            return false;
+          }
+
+          if (
+            !normalizedSearch
+          ) {
+            return true;
+          }
+
+          const patientName = [
+            budget.patient
+              .firstName,
+            budget.patient
+              .lastName,
+            budget.patient.user
+              ?.name || "",
+          ]
+            .join(" ")
+            .toLowerCase();
+
+          const dni =
+            budget.patient.dni ||
+            "";
+
+          const doctors =
+            budget.doctors
+              .map(
+                (doctor) =>
+                  doctor.name
+              )
+              .join(" ")
+              .toLowerCase();
+
+          const treatments =
+            budget.items
+              .map(
+                (item) =>
+                  item.serviceName
+              )
+              .join(" ")
+              .toLowerCase();
+
+          return (
+            patientName.includes(
+              normalizedSearch
+            ) ||
+            dni.includes(
+              normalizedSearch
+            ) ||
+            doctors.includes(
+              normalizedSearch
+            ) ||
+            treatments.includes(
+              normalizedSearch
+            ) ||
+            (
+              budget.description ||
+              ""
+            )
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              )
+          );
+        }
+      );
+    }, [
+      budgets,
+      search,
+      statusFilter,
+    ]);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold">Presupuestos</h1>
-        <p className="mt-2 text-gray-500">
-          Creá presupuestos y aplicá descuentos automáticos por plan.
-        </p>
-      </div>
+    <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
+      <div className="space-y-8">
+        {/* HEADER */}
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-xl bg-white p-6 shadow"
-      >
-        <select
-          className="w-full rounded border p-3"
-          value={form.patientId}
-          onChange={(e) =>
-            setForm({ ...form, patientId: e.target.value })
-          }
-          required
-        >
-          <option value="">Seleccionar paciente</option>
+        <header>
+          <div className="mb-3 flex items-center gap-2 text-[#A2B38B]">
+            <ReceiptText className="h-5 w-5" />
 
-          {patients.map((patient) => (
-            <option key={patient.id} value={patient.id}>
-              {patient.lastName}, {patient.firstName} - DNI {patient.dni}
+            <span className="text-[10px] font-semibold uppercase tracking-[0.22em]">
+              Gestión financiera
+            </span>
+          </div>
+
+          <h1 className="font-serif text-4xl font-medium">
+            Presupuestos
+          </h1>
+
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6B7774]">
+            Consultá todos los
+            presupuestos del
+            consultorio, los importes
+            abonados y los saldos
+            pendientes de cada
+            paciente.
+          </p>
+        </header>
+
+        {/* RESUMEN */}
+
+        <section className="grid gap-4 md:grid-cols-4">
+          <SummaryCard
+            label="Presupuestos"
+            value={String(
+              budgets.length
+            )}
+            description="Total registrados"
+            icon={
+              <FileText className="h-5 w-5" />
+            }
+          />
+
+          <SummaryCard
+            label="Total presupuestado"
+            value={formatCurrency(
+              totals.total
+            )}
+            description="Importe total"
+            icon={
+              <Wallet className="h-5 w-5" />
+            }
+          />
+
+          <SummaryCard
+            label="Abonado"
+            value={formatCurrency(
+              totals.paid
+            )}
+            description="Pagos registrados"
+            icon={
+              <Banknote className="h-5 w-5" />
+            }
+          />
+
+          <SummaryCard
+            label="Pendiente"
+            value={formatCurrency(
+              totals.pending
+            )}
+            description="Saldo por cobrar"
+            icon={
+              <Clock3 className="h-5 w-5" />
+            }
+          />
+        </section>
+
+        {/* FILTROS */}
+
+        <section className="grid gap-4 border border-[#DED9CD] bg-white p-5 md:grid-cols-[1fr_240px]">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A2B38B]" />
+
+            <input
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Buscar por paciente, DNI, especialista o tratamiento"
+              className="w-full border border-[#DED9CD] bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#263F3B]"
+            />
+          </div>
+
+          <select
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(
+                event.target
+                  .value as
+                  | "ALL"
+                  | BudgetStatus
+              )
+            }
+            className="border border-[#DED9CD] bg-white px-4 py-3 text-sm outline-none focus:border-[#263F3B]"
+          >
+            <option value="ALL">
+              Todos los estados
             </option>
-          ))}
-        </select>
 
-        <select
-          className="w-full rounded border p-3"
-          value={form.doctorId}
-          onChange={(e) => setForm({ ...form, doctorId: e.target.value })}
-          required
-        >
-          <option value="">Seleccionar odontólogo</option>
-
-          {doctors.map((doctor) => (
-            <option key={doctor.id} value={doctor.id}>
-              {doctor.name || doctor.user?.name || "Especialista"}
+            <option value="CREATED">
+              Pendientes
             </option>
-          ))}
-        </select>
 
-        <div className="space-y-3">
-          <p className="font-medium">Tratamientos</p>
+            <option value="IN_PROGRESS">
+              En curso
+            </option>
 
-          {form.items.map((item, index) => (
-            <div
-              key={index}
-              className="grid gap-3 md:grid-cols-[1fr_220px_auto]"
-            >
-              <textarea
-                className="w-full rounded border p-3"
-                placeholder="Descripción del tratamiento"
-                value={item.serviceName}
-                onChange={(e) =>
-                  updateItem(index, "serviceName", e.target.value)
-                }
-                required
-              />
+            <option value="COMPLETED">
+              Abonados
+            </option>
+          </select>
+        </section>
 
-              <div className="flex items-center rounded border px-3">
-                <span className="mr-2 text-gray-500">$</span>
+        {/* ERROR */}
 
-                <input
-                  type="number"
-                  className="w-full p-3 outline-none"
-                  placeholder="Precio"
-                  value={item.unitPrice}
-                  onChange={(e) =>
-                    updateItem(index, "unitPrice", e.target.value)
-                  }
-                  required
-                />
+        {error && (
+          <div className="border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {/* CARGANDO */}
+
+        {loading ? (
+          <div className="flex min-h-[300px] items-center justify-center border border-[#DED9CD] bg-white">
+            <Loader2 className="h-7 w-7 animate-spin text-[#6F855F]" />
+          </div>
+        ) : (
+          <section className="border border-[#DED9CD] bg-white">
+            {/* CABECERA */}
+
+            <div className="flex items-end justify-between border-b border-[#DED9CD] px-6 py-5">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#A2B38B]">
+                  Listado general
+                </p>
+
+                <h2 className="mt-2 font-serif text-2xl">
+                  Todos los presupuestos
+                </h2>
               </div>
 
-              {form.items.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeItem(index)}
-                  className="rounded bg-[#D97A7A] px-4 py-2 text-white hover:bg-[#C96767]"
-                >
-                  Eliminar
-                </button>
-              )}
-            </div>
-          ))}
-
-          <button
-            type="button"
-            onClick={addItem}
-            className="rounded bg-gray-200 px-4 py-2 hover:bg-gray-300"
-          >
-            + Agregar tratamiento
-          </button>
-        </div>
-
-        <div className="rounded-lg bg-gray-50 p-4">
-          <p>
-            Plan del paciente:{" "}
-            <strong>
-              {selectedPatient?.plan ? selectedPatient.plan.name : "Sin plan"}
-            </strong>
-          </p>
-
-          <p>Subtotal: ${subtotal.toLocaleString("es-AR")}</p>
-          <p>Descuento aplicado: {discount}%</p>
-
-          <p className="mt-2 text-xl font-bold">
-            Total final: ${total.toLocaleString("es-AR")}
-          </p>
-        </div>
-
-        <button className="rounded bg-[#A2B38B] px-5 py-3 text-white hover:bg-[#8FA178]">
-          Crear presupuesto
-        </button>
-      </form>
-
-      <div className="grid gap-4">
-        {budgets.map((budget) => (
-          <div
-            key={budget.id}
-            className="rounded-xl border bg-white p-6 shadow-sm"
-          >
-            <h2 className="text-2xl font-bold">
-              {budget.patient.lastName}, {budget.patient.firstName}
-            </h2>
-
-            <p className="mt-2 text-gray-500">
-              Odontólogo: {budget.doctor.name || budget.doctor.user?.name || "Especialista"}
-            </p>
-
-            <div className="mt-4 space-y-2">
-              {budget.items?.length > 0 ? (
-                budget.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex justify-between rounded bg-gray-50 p-3"
-                  >
-                    <span>{item.serviceName}</span>
-                    <span>${item.total.toLocaleString("es-AR")}</span>
-                  </div>
-                ))
-              ) : (
-                <p>{budget.description || "Sin descripción"}</p>
-              )}
+              <p className="text-sm text-[#6B7774]">
+                {
+                  filteredBudgets.length
+                }{" "}
+                {filteredBudgets.length ===
+                1
+                  ? "resultado"
+                  : "resultados"}
+              </p>
             </div>
 
-            <p className="mt-4">
-              Subtotal: ${budget.subtotal.toLocaleString("es-AR")}
-            </p>
+            {filteredBudgets.length >
+            0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[1100px]">
+                  <thead className="bg-[#FAF9F5]">
+                    <tr className="text-left text-[10px] font-semibold uppercase tracking-[0.18em] text-[#71807C]">
+                      <th className="px-6 py-4">
+                        Paciente
+                      </th>
 
-            <p>Descuento aplicado: {budget.discount}%</p>
+                      <th className="px-5 py-4">
+                        Tratamiento
+                      </th>
 
-            <p className="text-xl font-bold">
-              Total: ${budget.total.toLocaleString("es-AR")}
-            </p>
+                      <th className="px-5 py-4">
+                        Especialista/s
+                      </th>
 
-            <div className="mt-4 flex flex-wrap gap-3">
-              <a
-                href={`/dashboard/admin/mi-panel/presupuestos/${budget.id}`}
-                className="rounded bg-[#A2B38B] px-4 py-2 text-white hover:bg-[#8FA178]"
-              >
-                Ver presupuesto
-              </a>
+                      <th className="px-5 py-4">
+                        Fecha
+                      </th>
 
-              <a
-                href={`/dashboard/admin/mi-panel/presupuestos/${budget.id}`}
-                target="_blank"
-                className="rounded bg-slate-600 px-4 py-2 text-white hover:bg-slate-700"
-              >
-                Descargar PDF
-              </a>
+                      <th className="px-5 py-4 text-right">
+                        Total
+                      </th>
 
-              <a
-                href={`https://wa.me/${budget.patient.phone?.replace(
-                  /\D/g,
-                  ""
-                )}?text=${encodeURIComponent(
-                  `Hola ${budget.patient.firstName}, te enviamos tu presupuesto odontológico por un total de $${budget.total.toLocaleString(
-                    "es-AR"
-                  )}.`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="rounded bg-green-600 px-4 py-2 text-white hover:bg-green-700"
-              >
-                WhatsApp
-              </a>
-            </div>
-          </div>
-        ))}
+                      <th className="px-5 py-4 text-right">
+                        Abonado
+                      </th>
+
+                      <th className="px-5 py-4 text-right">
+                        Pendiente
+                      </th>
+
+                      <th className="px-5 py-4">
+                        Estado
+                      </th>
+
+                      <th className="px-6 py-4" />
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredBudgets.map(
+                      (budget) => {
+                        const patientName =
+                          `${budget.patient.lastName}, ${budget.patient.firstName}`;
+
+                        const treatments =
+                          budget.items
+                            ?.map(
+                              (item) =>
+                                item.serviceName
+                            )
+                            .filter(Boolean)
+                            .join(", ") ||
+                          budget.description ||
+                          "Sin descripción";
+
+                        const doctorNames =
+                          budget.doctors
+                            ?.map(
+                              (doctor) =>
+                                doctor.name
+                            )
+                            .filter(Boolean)
+                            .join(", ") ||
+                          "Sin especialista";
+
+                        return (
+                          <tr
+                            key={
+                              budget.id
+                            }
+                            className="border-t border-[#E8E3D9] transition hover:bg-[#FCFBF8]"
+                          >
+                            {/* PACIENTE */}
+
+                            <td className="px-6 py-5">
+                              <p className="font-semibold text-[#263F3B]">
+                                {
+                                  patientName
+                                }
+                              </p>
+
+                              {budget
+                                .patient
+                                .dni && (
+                                <p className="mt-1 text-xs text-[#7B8582]">
+                                  DNI{" "}
+                                  {
+                                    budget
+                                      .patient
+                                      .dni
+                                  }
+                                </p>
+                              )}
+
+                              {budget
+                                .patient
+                                .branch && (
+                                <p className="mt-1 text-xs text-[#A2B38B]">
+                                  {
+                                    budget
+                                      .patient
+                                      .branch
+                                      .name
+                                  }
+                                </p>
+                              )}
+                            </td>
+
+                            {/* TRATAMIENTO */}
+
+                            <td className="max-w-[240px] px-5 py-5">
+                              <p className="line-clamp-2 text-sm leading-5">
+                                {
+                                  treatments
+                                }
+                              </p>
+
+                              {budget.discount >
+                                0 && (
+                                <p className="mt-1 text-xs text-[#6F855F]">
+                                  {
+                                    budget.discount
+                                  }
+                                  % de
+                                  descuento
+                                </p>
+                              )}
+                            </td>
+
+                            {/* DOCTORES */}
+
+                            <td className="max-w-[210px] px-5 py-5">
+                              <div className="flex items-start gap-2">
+                                <UsersRound className="mt-0.5 h-4 w-4 shrink-0 text-[#A2B38B]" />
+
+                                <p className="text-sm leading-5">
+                                  {
+                                    doctorNames
+                                  }
+                                </p>
+                              </div>
+                            </td>
+
+                            {/* FECHA */}
+
+                            <td className="whitespace-nowrap px-5 py-5 text-sm text-[#6B7774]">
+                              {formatDate(
+                                budget.createdAt
+                              )}
+                            </td>
+
+                            {/* TOTAL */}
+
+                            <td className="whitespace-nowrap px-5 py-5 text-right font-semibold">
+                              {formatCurrency(
+                                budget.total
+                              )}
+                            </td>
+
+                            {/* ABONADO */}
+
+                            <td className="whitespace-nowrap px-5 py-5 text-right font-semibold text-[#5F7653]">
+                              {formatCurrency(
+                                budget.paidAmount
+                              )}
+                            </td>
+
+                            {/* PENDIENTE */}
+
+                            <td className="whitespace-nowrap px-5 py-5 text-right font-semibold">
+                              {formatCurrency(
+                                budget.remainingAmount
+                              )}
+                            </td>
+
+                            {/* ESTADO */}
+
+                            <td className="px-5 py-5">
+                              <span
+                                className={`inline-flex whitespace-nowrap px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                  STATUS_CLASSES[
+                                    budget
+                                      .status
+                                  ]
+                                }`}
+                              >
+                                {
+                                  STATUS_LABELS[
+                                    budget
+                                      .status
+                                  ]
+                                }
+                              </span>
+                            </td>
+
+                            {/* DETALLE */}
+
+                            <td className="px-6 py-5">
+                              <Link
+                                href={`/dashboard/admin/mi-panel/presupuestos/${budget.id}`}
+                                className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] transition hover:text-[#6F855F]"
+                              >
+                                Ver detalle
+
+                                <ChevronRight className="h-4 w-4" />
+                              </Link>
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="flex min-h-[260px] flex-col items-center justify-center px-6 text-center">
+                <CheckCircle2 className="h-7 w-7 text-[#A2B38B]" />
+
+                <h3 className="mt-4 font-serif text-2xl">
+                  No encontramos presupuestos
+                </h3>
+
+                <p className="mt-2 text-sm text-[#6B7774]">
+                  Probá cambiando los
+                  filtros o el término de
+                  búsqueda.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
       </div>
     </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  description,
+  icon,
+}: {
+  label: string;
+  value: string;
+  description: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <article className="border border-[#DED9CD] bg-white p-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+            {label}
+          </p>
+
+          <p className="mt-4 text-2xl font-semibold tracking-tight text-[#263F3B]">
+            {value}
+          </p>
+
+          <p className="mt-2 text-xs text-[#7B8582]">
+            {description}
+          </p>
+        </div>
+
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#EEF2E9] text-[#6F855F]">
+          {icon}
+        </div>
+      </div>
+    </article>
   );
 }

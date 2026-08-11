@@ -6,8 +6,10 @@ import { signOut } from "next-auth/react";
 import {
   CalendarDays,
   CircleDollarSign,
+  ClipboardList,
   Home,
   LogOut,
+  UserRound,
   UsersRound,
   X,
 } from "lucide-react";
@@ -87,7 +89,6 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor"
           className={menuClass("/dashboard/doctor")}
-          onClick={() => setOpen(false)}
         >
           <Home className="h-5 w-5" />
           Inicio
@@ -96,7 +97,6 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor/agenda"
           className={menuClass("/dashboard/doctor/agenda")}
-          onClick={() => setOpen(false)}
         >
           <CalendarDays className="h-5 w-5" />
           Agenda
@@ -105,19 +105,33 @@ export default function DoctorSidebar({
         <Link
           href="/dashboard/doctor/pacientes"
           className={menuClass("/dashboard/doctor/pacientes")}
-          onClick={() => setOpen(false)}
         >
           <UsersRound className="h-5 w-5" />
           Pacientes
         </Link>
 
         <Link
+          href="/acceso-clinico"
+          className={menuClass("/acceso-clinico")}
+        >
+          <ClipboardList className="h-5 w-5" />
+          Historias clínicas
+        </Link>
+
+        <Link
           href="/dashboard/doctor/balance"
           className={menuClass("/dashboard/doctor/balance")}
-          onClick={() => setOpen(false)}
         >
           <CircleDollarSign className="h-5 w-5" />
           Balance
+        </Link>
+
+        <Link
+          href="/dashboard/doctor/perfil"
+          className={menuClass("/dashboard/doctor/perfil")}
+        >
+          <UserRound className="h-5 w-5" />
+          Mi perfil
         </Link>
       </nav>
 
