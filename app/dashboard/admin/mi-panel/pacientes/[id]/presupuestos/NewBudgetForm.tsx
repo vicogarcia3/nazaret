@@ -243,7 +243,7 @@ export default function NewBudgetForm({
           ) ||
           Number(
             item.unitPrice
-          ) <= 0
+          ) < 0
       );
 
     if (invalidItem) {
@@ -506,7 +506,7 @@ export default function NewBudgetForm({
                       className="border border-[#DED9CD] bg-white p-2 outline-none focus:border-[#263F3B]"
                       placeholder="Precio"
                       type="number"
-                      min="0.01"
+                      min="0"
                       step="0.01"
                       value={
                         item.unitPrice

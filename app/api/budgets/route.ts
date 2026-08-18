@@ -446,14 +446,14 @@ export async function POST(request: Request) {
       .filter(
         (item) =>
           item.serviceName.length > 0 &&
-          item.unitPrice > 0
+          item.unitPrice >= 0
       );
 
     if (validItems.length === 0) {
       return NextResponse.json(
         {
           error:
-            "El presupuesto debe contener al menos un tratamiento con un precio válido.",
+            "El presupuesto debe contener al menos un tratamiento.",
         },
         {
           status: 400,

@@ -154,7 +154,7 @@ export async function PATCH(
           !Number.isFinite(
             item.unitPrice
           ) ||
-          item.unitPrice <= 0
+          item.unitPrice < 0
       );
 
     if (invalidItem) {
