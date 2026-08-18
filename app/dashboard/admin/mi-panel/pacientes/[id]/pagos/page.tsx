@@ -614,9 +614,9 @@ export default async function PagosPacientePage({
                     </div>
 
                     <div className="mt-8 flex flex-wrap justify-end gap-3">
-                      {payment.status === "PAID" && payment.receiptNumber && (
+                      {payment.status === "PAID" && (
                         <Link
-                          href={`/api/payments/${payment.id}/receipt`}
+                          href={`/api/payments/${payment.id}/pdf`}
                           target="_blank"
                           className="inline-flex items-center gap-2 border border-[#DED9CD] px-4 py-2 text-xs font-semibold uppercase tracking-[0.15em] text-[#263F3B] transition hover:bg-[#F7F5EF]"
                         >
