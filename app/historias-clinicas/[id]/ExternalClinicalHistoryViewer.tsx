@@ -38,6 +38,9 @@ type Props = {
     debit: number | null;
     credit: number | null;
     balance: number | null;
+
+    performedAt: string;
+
     nextAppointment: string | null;
     patientSignature: string | null;
     createdAt: string;

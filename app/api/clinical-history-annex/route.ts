@@ -232,21 +232,29 @@ export async function POST(request: Request) {
       );
     }
 
+    const performedAt =
+      optionalDate(body.performedAt);
+
+    if (performedAt === undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "La fecha y hora de la prestación no es válida.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const entry =
       await prisma.clinicalHistoryAnnexEntry.create({
         data: {
           clinicalHistoryId,
 
-          /*
-           * Autor real interno.
-           */
           createdByDoctorId:
             clinicalSession.doctor.id,
 
-          /*
-           * Profesional actuante visible:
-           * se carga manualmente.
-           */
           professionalName,
 
           treatment,
@@ -257,6 +265,9 @@ export async function POST(request: Request) {
           debit,
           credit,
           balance,
+
+          performedAt:
+            performedAt || new Date(),
 
           nextAppointment,
 

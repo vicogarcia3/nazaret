@@ -97,6 +97,9 @@ export default async function AnexoHistoriaClinicaPage({
           ? Number(entry.balance)
           : null,
 
+      performedAt:
+        entry.performedAt.toISOString(),
+
       nextAppointment:
         entry.nextAppointment
           ? entry.nextAppointment.toISOString()
@@ -112,15 +115,14 @@ export default async function AnexoHistoriaClinicaPage({
         entry.updatedAt.toISOString(),
 
       /*
-       * En el panel administrador permitimos
-       * administrar las prestaciones.
-       */
+      * En el panel administrador permitimos
+      * administrar las prestaciones.
+      */
       isOwn: true,
     })) ?? [];
 
   const basePath =
     `/dashboard/admin/mi-panel/pacientes/${patient.id}/historia-clinica`;
-
   return (
     <div className="space-y-8">
       <Link

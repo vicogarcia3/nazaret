@@ -29,13 +29,19 @@ export type PersistedAnnexEntry = {
   professionalName: string;
   treatment: string;
   indications: string | null;
+
   debit: number | null;
   credit: number | null;
   balance: number | null;
+
+  performedAt: string;
+
   nextAppointment: string | null;
   patientSignature: string | null;
+
   createdAt: string;
   updatedAt: string;
+
   isOwn: boolean;
 };
 
@@ -54,29 +60,76 @@ type EntryForm = {
   professionalName: string;
   treatment: string;
   indications: string;
+
   debit: string;
   credit: string;
   balance: string;
+
+  performedDate: string;
+  performedTime: string;
+
   nextAppointment: string;
   patientSignature: string;
 };
 
 const EMPTY_ROWS = 20;
 
-const EMPTY_ENTRY_FORM: EntryForm = {
-  professionalName: "",
-  treatment: "",
-  indications: "",
-  debit: "",
-  credit: "",
-  balance: "",
-  nextAppointment: "",
-  patientSignature: "",
-};
+function getCurrentDateInputValue() {
+  const date = new Date();
+
+  const year = date.getFullYear();
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getCurrentTimeInputValue() {
+  const date = new Date();
+
+  const hours = String(
+    date.getHours()
+  ).padStart(2, "0");
+
+  const minutes = String(
+    date.getMinutes()
+  ).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}
+
+function createEmptyEntryForm(): EntryForm {
+  return {
+    professionalName: "",
+    treatment: "",
+    indications: "",
+
+    debit: "",
+    credit: "",
+    balance: "",
+
+    performedDate:
+      getCurrentDateInputValue(),
+
+    performedTime:
+      getCurrentTimeInputValue(),
+
+    nextAppointment: "",
+    patientSignature: "",
+  };
+}
 
 function createInitialRows(): AnnexRow[] {
   return Array.from(
-    { length: EMPTY_ROWS },
+    {
+      length: EMPTY_ROWS,
+    },
     (_, index) => ({
       id: index + 1,
       dateTime: "",
@@ -94,29 +147,47 @@ function createInitialRows(): AnnexRow[] {
 function formatDateTime(value: string) {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
-  return date.toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return date.toLocaleString(
+    "es-AR",
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
 }
 
 function formatDateOnly(value: string) {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const year = date.getFullYear();
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const year =
+    date.getFullYear();
 
   return `${day}/${month}/${year}`;
 }
@@ -124,12 +195,21 @@ function formatDateOnly(value: string) {
 function formatTimeOnly(value: string) {
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
-  const hours = String(date.getHours()).padStart(2, "0");
-  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const hours = String(
+    date.getHours()
+  ).padStart(2, "0");
+
+  const minutes = String(
+    date.getMinutes()
+  ).padStart(2, "0");
 
   return `${hours}:${minutes}`;
 }
@@ -143,11 +223,17 @@ function formatNextAppointment(
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
-  return date.toLocaleDateString("es-AR");
+  return date.toLocaleDateString(
+    "es-AR"
+  );
 }
 
 function toDateInputValue(
@@ -159,11 +245,16 @@ function toDateInputValue(
 
   const date = new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return "";
   }
 
-  const year = date.getFullYear();
+  const year =
+    date.getFullYear();
 
   const month = String(
     date.getMonth() + 1
@@ -176,14 +267,46 @@ function toDateInputValue(
   return `${year}-${month}-${day}`;
 }
 
-function currentDateTimeLabel() {
-  return new Date().toLocaleString("es-AR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+function toTimeInputValue(
+  value: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return "";
+  }
+
+  const hours = String(
+    date.getHours()
+  ).padStart(2, "0");
+
+  const minutes = String(
+    date.getMinutes()
+  ).padStart(2, "0");
+
+  return `${hours}:${minutes}`;
+}
+
+function buildPerformedAt(
+  date: string,
+  time: string
+) {
+  if (
+    !date ||
+    !time
+  ) {
+    return "";
+  }
+
+  return `${date}T${time}`;
 }
 
 export default function ClinicalHistoryAnnex({
@@ -199,37 +322,49 @@ export default function ClinicalHistoryAnnex({
   const router = useRouter();
 
   const persistentMode =
-    Boolean(clinicalHistoryId);
-
-  const [localRows, setLocalRows] =
-    useState<AnnexRow[]>(
-      createInitialRows()
+    Boolean(
+      clinicalHistoryId
     );
+
+  const [
+    localRows,
+    setLocalRows,
+  ] = useState<AnnexRow[]>(
+    createInitialRows()
+  );
 
   const [
     activeRowId,
     setActiveRowId,
-  ] = useState<string | "new" | null>(
-    null
-  );
+  ] = useState<
+    string | "new" | null
+  >(null);
 
   const [
     editingEntryId,
     setEditingEntryId,
-  ] = useState<string | null>(null);
+  ] = useState<
+    string | null
+  >(null);
 
-  const [entryForm, setEntryForm] =
-    useState<EntryForm>(
-      EMPTY_ENTRY_FORM
-    );
+  const [
+    entryForm,
+    setEntryForm,
+  ] = useState<EntryForm>(
+    createEmptyEntryForm()
+  );
 
-  const [saving, setSaving] =
-    useState(false);
+  const [
+    saving,
+    setSaving,
+  ] = useState(false);
 
   const [
     deletingId,
     setDeletingId,
-  ] = useState<string | null>(null);
+  ] = useState<
+    string | null
+  >(null);
 
   const [
     signatureOpen,
@@ -251,15 +386,18 @@ export default function ClinicalHistoryAnnex({
       return;
     }
 
-    setLocalRows((currentRows) =>
-      currentRows.map((row) =>
-        row.id === rowId
-          ? {
-              ...row,
-              [field]: value,
-            }
-          : row
-      )
+    setLocalRows(
+      (currentRows) =>
+        currentRows.map(
+          (row) =>
+            row.id === rowId
+              ? {
+                  ...row,
+                  [field]:
+                    value,
+                }
+              : row
+        )
     );
   }
 
@@ -267,10 +405,12 @@ export default function ClinicalHistoryAnnex({
     field: keyof EntryForm,
     value: string
   ) {
-    setEntryForm((current) => ({
-      ...current,
-      [field]: value,
-    }));
+    setEntryForm(
+      (current) => ({
+        ...current,
+        [field]: value,
+      })
+    );
   }
 
   function openNewEntry() {
@@ -281,13 +421,17 @@ export default function ClinicalHistoryAnnex({
       return;
     }
 
-    setEditingEntryId(null);
-
-    setEntryForm(
-      EMPTY_ENTRY_FORM
+    setEditingEntryId(
+      null
     );
 
-    setActiveRowId("new");
+    setEntryForm(
+      createEmptyEntryForm()
+    );
+
+    setActiveRowId(
+      "new"
+    );
   }
 
   function openEditEntry(
@@ -300,8 +444,13 @@ export default function ClinicalHistoryAnnex({
       return;
     }
 
-    setEditingEntryId(entry.id);
-    setActiveRowId(entry.id);
+    setEditingEntryId(
+      entry.id
+    );
+
+    setActiveRowId(
+      entry.id
+    );
 
     setEntryForm({
       professionalName:
@@ -311,22 +460,39 @@ export default function ClinicalHistoryAnnex({
         entry.treatment,
 
       indications:
-        entry.indications || "",
+        entry.indications ||
+        "",
 
       debit:
         entry.debit !== null
-          ? String(entry.debit)
+          ? String(
+              entry.debit
+            )
           : "",
 
       credit:
         entry.credit !== null
-          ? String(entry.credit)
+          ? String(
+              entry.credit
+            )
           : "",
 
       balance:
         entry.balance !== null
-          ? String(entry.balance)
+          ? String(
+              entry.balance
+            )
           : "",
+
+      performedDate:
+        toDateInputValue(
+          entry.performedAt
+        ),
+
+      performedTime:
+        toTimeInputValue(
+          entry.performedAt
+        ),
 
       nextAppointment:
         toDateInputValue(
@@ -334,7 +500,8 @@ export default function ClinicalHistoryAnnex({
         ),
 
       patientSignature:
-        entry.patientSignature || "",
+        entry.patientSignature ||
+        "",
     });
   }
 
@@ -343,16 +510,43 @@ export default function ClinicalHistoryAnnex({
       return;
     }
 
-    setActiveRowId(null);
-    setEditingEntryId(null);
+    setActiveRowId(
+      null
+    );
+
+    setEditingEntryId(
+      null
+    );
 
     setEntryForm(
-      EMPTY_ENTRY_FORM
+      createEmptyEntryForm()
     );
   }
 
   async function saveEntry() {
-    if (!clinicalHistoryId) {
+    if (
+      !clinicalHistoryId
+    ) {
+      return;
+    }
+
+    if (
+      !entryForm.performedDate
+    ) {
+      toast.error(
+        "Ingresá la fecha de la prestación."
+      );
+
+      return;
+    }
+
+    if (
+      !entryForm.performedTime
+    ) {
+      toast.error(
+        "Ingresá la hora de la prestación."
+      );
+
       return;
     }
 
@@ -362,6 +556,7 @@ export default function ClinicalHistoryAnnex({
       toast.error(
         "Ingresá el profesional actuante."
       );
+
       return;
     }
 
@@ -371,8 +566,15 @@ export default function ClinicalHistoryAnnex({
       toast.error(
         "Ingresá el tratamiento realizado."
       );
+
       return;
     }
+
+    const performedAt =
+      buildPerformedAt(
+        entryForm.performedDate,
+        entryForm.performedTime
+      );
 
     try {
       setSaving(true);
@@ -388,47 +590,55 @@ export default function ClinicalHistoryAnnex({
           : "POST";
 
       const response =
-        await fetch(url, {
-          method,
+        await fetch(
+          url,
+          {
+            method,
 
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
 
-          body: JSON.stringify({
-            clinicalHistoryId,
+            body:
+              JSON.stringify({
+                clinicalHistoryId,
 
-            professionalName:
-              entryForm.professionalName,
+                professionalName:
+                  entryForm.professionalName,
 
-            treatment:
-              entryForm.treatment,
+                treatment:
+                  entryForm.treatment,
 
-            indications:
-              entryForm.indications,
+                indications:
+                  entryForm.indications,
 
-            debit:
-              entryForm.debit,
+                debit:
+                  entryForm.debit,
 
-            credit:
-              entryForm.credit,
+                credit:
+                  entryForm.credit,
 
-            balance:
-              entryForm.balance,
+                balance:
+                  entryForm.balance,
 
-            nextAppointment:
-              entryForm.nextAppointment,
+                performedAt,
 
-            patientSignature:
-              entryForm.patientSignature,
-          }),
-        });
+                nextAppointment:
+                  entryForm.nextAppointment,
+
+                patientSignature:
+                  entryForm.patientSignature,
+              }),
+          }
+        );
 
       const data =
         await response.json();
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         toast.error(
           data.error ||
             "No se pudo guardar el registro."
@@ -443,12 +653,16 @@ export default function ClinicalHistoryAnnex({
           : "Prestación agregada al anexo."
       );
 
-      setActiveRowId(null);
+      setActiveRowId(
+        null
+      );
 
-      setEditingEntryId(null);
+      setEditingEntryId(
+        null
+      );
 
       setEntryForm(
-        EMPTY_ENTRY_FORM
+        createEmptyEntryForm()
       );
 
       router.refresh();
@@ -481,25 +695,32 @@ export default function ClinicalHistoryAnnex({
         "¿Querés eliminar este registro del anexo?"
       );
 
-    if (!confirmed) {
+    if (
+      !confirmed
+    ) {
       return;
     }
 
     try {
-      setDeletingId(entry.id);
+      setDeletingId(
+        entry.id
+      );
 
       const response =
         await fetch(
           `/api/clinical-history-annex/${entry.id}`,
           {
-            method: "DELETE",
+            method:
+              "DELETE",
           }
         );
 
       const data =
         await response.json();
 
-      if (!response.ok) {
+      if (
+        !response.ok
+      ) {
         toast.error(
           data.error ||
             "No se pudo eliminar el registro."
@@ -509,7 +730,8 @@ export default function ClinicalHistoryAnnex({
       }
 
       if (
-        activeRowId === entry.id
+        activeRowId ===
+        entry.id
       ) {
         cancelActiveRow();
       }
@@ -529,21 +751,27 @@ export default function ClinicalHistoryAnnex({
         "No se pudo eliminar el registro."
       );
     } finally {
-      setDeletingId(null);
+      setDeletingId(
+        null
+      );
     }
   }
 
   const newRowVisible =
     persistentMode &&
-    activeRowId === "new";
+    activeRowId ===
+      "new";
 
   const usedRows =
     entries.length +
-    (newRowVisible ? 1 : 0);
+    (newRowVisible
+      ? 1
+      : 0);
 
   const emptyRowsCount =
     Math.max(
-      EMPTY_ROWS - usedRows,
+      EMPTY_ROWS -
+        usedRows,
       0
     );
 
@@ -557,11 +785,14 @@ export default function ClinicalHistoryAnnex({
       {persistentMode &&
         allowCreate &&
         !readOnly &&
-        activeRowId === null && (
+        activeRowId ===
+          null && (
           <div className="mx-auto -mt-11 mb-2 flex w-full max-w-[1180px] justify-end print:hidden">
             <button
               type="button"
-              onClick={openNewEntry}
+              onClick={
+                openNewEntry
+              }
               className="inline-flex items-center gap-2 bg-[#263F3B] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-[#1D302D]"
             >
               <Plus className="h-4 w-4" />
@@ -577,7 +808,8 @@ export default function ClinicalHistoryAnnex({
           <header className="annex-header">
             <div className="annex-header-top">
               <div className="annex-title">
-                Anexo a Historia Clínica
+                Anexo a Historia
+                Clínica
               </div>
 
               <div
@@ -585,10 +817,17 @@ export default function ClinicalHistoryAnnex({
                 aria-hidden="true"
               >
                 {Array.from(
-                  { length: 20 },
-                  (_, index) => (
+                  {
+                    length: 20,
+                  },
+                  (
+                    _,
+                    index
+                  ) => (
                     <span
-                      key={index}
+                      key={
+                        index
+                      }
                     />
                   )
                 )}
@@ -603,7 +842,9 @@ export default function ClinicalHistoryAnnex({
 
                 <input
                   type="text"
-                  value={patientName}
+                  value={
+                    patientName
+                  }
                   aria-label="Nombre del paciente"
                   readOnly
                 />
@@ -631,7 +872,9 @@ export default function ClinicalHistoryAnnex({
 
                 <input
                   type="text"
-                  value={folioNumber}
+                  value={
+                    folioNumber
+                  }
                   aria-label="Número de folio"
                   readOnly
                 />
@@ -663,8 +906,9 @@ export default function ClinicalHistoryAnnex({
                   </th>
 
                   <th>
-                    Tratamiento realizado
-                    e indicaciones
+                    Tratamiento
+                    realizado e
+                    indicaciones
                   </th>
 
                   <th>
@@ -680,15 +924,18 @@ export default function ClinicalHistoryAnnex({
                   </th>
 
                   <th>
-                    Prof. actuante
+                    Prof.
+                    actuante
                   </th>
 
                   <th>
-                    Próximo turno
+                    Próximo
+                    turno
                   </th>
 
                   <th>
-                    Firma del paciente
+                    Firma del
+                    paciente
                   </th>
                 </tr>
               </thead>
@@ -698,7 +945,9 @@ export default function ClinicalHistoryAnnex({
 
                 {persistentMode &&
                   entries.map(
-                    (entry) => {
+                    (
+                      entry
+                    ) => {
                       const editing =
                         activeRowId ===
                         entry.id;
@@ -708,8 +957,12 @@ export default function ClinicalHistoryAnnex({
                           entry.treatment,
                           entry.indications,
                         ]
-                          .filter(Boolean)
-                          .join(" — ");
+                          .filter(
+                            Boolean
+                          )
+                          .join(
+                            " — "
+                          );
 
                       return (
                         <tr
@@ -720,20 +973,66 @@ export default function ClinicalHistoryAnnex({
                             editing
                               ? "editing-row"
                               : entry.isOwn
-                                ? "own-row"
-                                : ""
+                              ? "own-row"
+                              : ""
                           }
                         >
-                          <td className="p-0 text-center align-middle">
-                            <div className="flex h-full min-h-[34px] w-full flex-col items-center justify-center gap-[2px]">
-                              <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
-                                {formatDateOnly(entry.createdAt)}
-                              </span>
+                          {/* FECHA Y HORA */}
 
-                              <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
-                                {formatTimeOnly(entry.createdAt)}
-                              </span>
-                            </div>
+                          <td className="p-0 text-center align-middle">
+                            {editing ? (
+                              <div className="annex-date-edit">
+                                <input
+                                  type="date"
+                                  value={
+                                    entryForm.performedDate
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateEntryForm(
+                                      "performedDate",
+                                      event
+                                        .target
+                                        .value
+                                    )
+                                  }
+                                  aria-label="Fecha de la prestación"
+                                />
+
+                                <input
+                                  type="time"
+                                  value={
+                                    entryForm.performedTime
+                                  }
+                                  onChange={(
+                                    event
+                                  ) =>
+                                    updateEntryForm(
+                                      "performedTime",
+                                      event
+                                        .target
+                                        .value
+                                    )
+                                  }
+                                  aria-label="Hora de la prestación"
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex h-full min-h-[34px] w-full flex-col items-center justify-center gap-[2px]">
+                                <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
+                                  {formatDateOnly(
+                                    entry.performedAt
+                                  )}
+                                </span>
+
+                                <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
+                                  {formatTimeOnly(
+                                    entry.performedAt
+                                  )}
+                                </span>
+                              </div>
+                            )}
                           </td>
 
                           <td>
@@ -905,8 +1204,6 @@ export default function ClinicalHistoryAnnex({
                             />
                           </td>
 
-                          {/* FIRMA EXISTENTE */}
-
                           <td className="signature-cell">
                             {editing ? (
                               entryForm.patientSignature ? (
@@ -959,15 +1256,45 @@ export default function ClinicalHistoryAnnex({
 
                 {newRowVisible && (
                   <tr className="editing-row">
-                    <td className="p-0 text-center align-middle">
-                      <div className="flex h-full min-h-[34px] w-full flex-col items-center justify-center gap-[2px]">
-                        <span className="block whitespace-nowrap text-center text-[10px] font-normal leading-none text-[#879792]">
-                          {formatDateOnly(new Date().toISOString())}
-                        </span>
+                    {/* FECHA Y HORA EDITABLE */}
 
-                        <span className="block whitespace-nowrap text-center text-[10px] font-normal leading-none text-[#879792]">
-                          {formatTimeOnly(new Date().toISOString())}
-                        </span>
+                    <td className="p-0 text-center align-middle">
+                      <div className="annex-date-edit">
+                        <input
+                          type="date"
+                          value={
+                            entryForm.performedDate
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateEntryForm(
+                              "performedDate",
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          aria-label="Fecha de la prestación"
+                        />
+
+                        <input
+                          type="time"
+                          value={
+                            entryForm.performedTime
+                          }
+                          onChange={(
+                            event
+                          ) =>
+                            updateEntryForm(
+                              "performedTime",
+                              event
+                                .target
+                                .value
+                            )
+                          }
+                          aria-label="Hora de la prestación"
+                        />
                       </div>
                     </td>
 
@@ -982,7 +1309,8 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "treatment",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
@@ -1002,7 +1330,8 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "debit",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
@@ -1021,7 +1350,8 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "credit",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
@@ -1040,7 +1370,8 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "balance",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
@@ -1057,7 +1388,8 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "professionalName",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
@@ -1076,14 +1408,13 @@ export default function ClinicalHistoryAnnex({
                         ) =>
                           updateEntryForm(
                             "nextAppointment",
-                            event.target
+                            event
+                              .target
                               .value
                           )
                         }
                       />
                     </td>
-
-                    {/* FIRMA NUEVA */}
 
                     <td className="signature-cell">
                       {entryForm.patientSignature ? (
@@ -1129,7 +1460,10 @@ export default function ClinicalHistoryAnnex({
                       length:
                         emptyRowsCount,
                     },
-                    (_, index) => (
+                    (
+                      _,
+                      index
+                    ) => (
                       <tr
                         key={`empty-${index}`}
                       >
@@ -1175,8 +1509,7 @@ export default function ClinicalHistoryAnnex({
                           />
                         </td>
 
-                        <td>
-                        </td>
+                        <td />
                       </tr>
                     )
                   )}
@@ -1187,7 +1520,9 @@ export default function ClinicalHistoryAnnex({
                   localRows.map(
                     (row) => (
                       <tr
-                        key={row.id}
+                        key={
+                          row.id
+                        }
                       >
                         <td>
                           <input
@@ -1380,25 +1715,31 @@ export default function ClinicalHistoryAnnex({
       {/* GUARDAR / CANCELAR */}
 
       {persistentMode &&
-        activeRowId !== null && (
+        activeRowId !==
+          null && (
           <div className="mx-auto mt-4 flex w-full max-w-[1180px] justify-end gap-3 print:hidden">
             <button
               type="button"
               onClick={
                 cancelActiveRow
               }
-              disabled={saving}
+              disabled={
+                saving
+              }
               className="inline-flex items-center gap-2 border border-[#DED9CD] bg-white px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-[#263F3B] transition hover:bg-[#F7F5EF] disabled:opacity-50"
             >
               <X className="h-4 w-4" />
-
               Cancelar
             </button>
 
             <button
               type="button"
-              onClick={saveEntry}
-              disabled={saving}
+              onClick={
+                saveEntry
+              }
+              disabled={
+                saving
+              }
               className="inline-flex items-center gap-2 bg-[#263F3B] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.17em] text-white transition hover:bg-[#1D302D] disabled:opacity-50"
             >
               <Check className="h-4 w-4" />
@@ -1406,8 +1747,8 @@ export default function ClinicalHistoryAnnex({
               {saving
                 ? "Guardando..."
                 : editingEntryId
-                  ? "Guardar cambios"
-                  : "Guardar prestación"}
+                ? "Guardar cambios"
+                : "Guardar prestación"}
             </button>
           </div>
         )}
@@ -1415,9 +1756,11 @@ export default function ClinicalHistoryAnnex({
       {/* MIS PRESTACIONES */}
 
       {persistentMode &&
-        activeRowId === null &&
+        activeRowId ===
+          null &&
         entries.some(
-          (entry) => entry.isOwn
+          (entry) =>
+            entry.isOwn
         ) && (
           <div className="mx-auto mt-5 w-full max-w-[1180px] border border-[#DED9CD] bg-white p-5 print:hidden">
             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
@@ -1425,7 +1768,10 @@ export default function ClinicalHistoryAnnex({
             </p>
 
             <p className="mt-1 text-xs text-[#6B7774]">
-              Podés editar o eliminar únicamente los registros creados por vos.
+              Podés editar o
+              eliminar únicamente
+              los registros creados
+              por vos.
             </p>
 
             <div className="mt-4 space-y-2">
@@ -1458,7 +1804,7 @@ export default function ClinicalHistoryAnnex({
 
                         <p className="mt-1 text-xs text-[#6B7774]">
                           {formatDateTime(
-                            entry.createdAt
+                            entry.performedAt
                           )}{" "}
                           ·{" "}
                           {
@@ -1478,7 +1824,6 @@ export default function ClinicalHistoryAnnex({
                           className="inline-flex items-center gap-2 border border-[#DED9CD] px-3 py-2 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] hover:bg-[#F7F5EF]"
                         >
                           <Pencil className="h-3.5 w-3.5" />
-
                           Editar
                         </button>
 
@@ -1526,14 +1871,19 @@ export default function ClinicalHistoryAnnex({
                 </h3>
 
                 <p className="mt-1 text-sm leading-6 text-[#6B7774]">
-                  Firmá dentro del recuadro usando el mouse o una tableta gráfica.
+                  Firmá dentro del
+                  recuadro usando el
+                  mouse o una tableta
+                  gráfica.
                 </p>
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setSignatureOpen(false)
+                  setSignatureOpen(
+                    false
+                  )
                 }
                 className="text-[#6B7774] hover:text-[#263F3B]"
               >
@@ -1546,7 +1896,9 @@ export default function ClinicalHistoryAnnex({
               value={
                 entryForm.patientSignature
               }
-              onChange={(value) =>
+              onChange={(
+                value
+              ) =>
                 updateEntryForm(
                   "patientSignature",
                   value
@@ -1558,7 +1910,9 @@ export default function ClinicalHistoryAnnex({
               <button
                 type="button"
                 onClick={() =>
-                  setSignatureOpen(false)
+                  setSignatureOpen(
+                    false
+                  )
                 }
                 className="bg-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white hover:bg-[#1D302D]"
               >
@@ -1575,10 +1929,6 @@ export default function ClinicalHistoryAnnex({
           color: #263f3b;
         }
 
-        /*
-         * La hoja ya no tiene 1180 px obligatorios.
-         * Se adapta al ancho disponible.
-         */
         .annex-page {
           box-sizing: border-box;
           position: relative;
@@ -1586,7 +1936,8 @@ export default function ClinicalHistoryAnnex({
           max-width: 1180px;
           min-height: 720px;
           padding: 30px 32px;
-          font-family: Arial, Helvetica,
+          font-family: Arial,
+            Helvetica,
             sans-serif;
         }
 
@@ -1702,9 +2053,6 @@ export default function ClinicalHistoryAnnex({
           line-height: 1;
         }
 
-        /*
-         * Sin scroll interno.
-         */
         .annex-table-wrapper {
           width: 100%;
           overflow: visible;
@@ -1787,7 +2135,8 @@ export default function ClinicalHistoryAnnex({
           padding: 0 3px;
           color: #263f3b;
           font-family: Arial,
-            Helvetica, sans-serif;
+            Helvetica,
+            sans-serif;
           font-size: clamp(
             8px,
             0.85vw,
@@ -1801,8 +2150,36 @@ export default function ClinicalHistoryAnnex({
         .annex-table
           input:not([readonly]):focus {
           background: #f2f6ed;
-          box-shadow: inset 0 0 0 1px
+          box-shadow: inset
+            0 0 0 1px
             #a2b38b;
+        }
+
+        /*
+         * Fecha y hora editables.
+         * Las mostramos una debajo de la otra
+         * para mantener la columna compacta.
+         */
+        .annex-date-edit {
+          display: flex;
+          width: 100%;
+          height: 100%;
+          min-height: 34px;
+          flex-direction: column;
+          align-items: stretch;
+          justify-content: center;
+          gap: 1px;
+          padding: 1px;
+        }
+
+        .annex-date-edit input {
+          width: 100%;
+          height: 16px;
+          min-height: 16px;
+          padding: 0 1px;
+          font-size: 7px;
+          line-height: 1;
+          text-align: center;
         }
 
         .editing-row {
@@ -1907,6 +2284,10 @@ export default function ClinicalHistoryAnnex({
 
           .annex-table input {
             font-size: 8px;
+          }
+
+          .annex-date-edit input {
+            font-size: 6px;
           }
         }
 

@@ -118,6 +118,8 @@ export default async function ExternalClinicalHistoryPage({
           ? Number(entry.balance)
           : null,
 
+      performedAt: entry.performedAt.toISOString(),
+
       nextAppointment:
         entry.nextAppointment
           ? entry.nextAppointment.toISOString()

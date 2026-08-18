@@ -228,6 +228,21 @@ export async function PUT(
       );
     }
 
+    const performedAt =
+      optionalDate(body.performedAt);
+
+    if (performedAt === undefined) {
+      return NextResponse.json(
+        {
+          error:
+            "La fecha y hora de la prestación no es válida.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
     const updatedEntry =
       await prisma.clinicalHistoryAnnexEntry.update({
         where: {
@@ -244,6 +259,9 @@ export async function PUT(
           debit,
           credit,
           balance,
+
+          performedAt:
+            performedAt || existingEntry.performedAt,
 
           nextAppointment,
 
