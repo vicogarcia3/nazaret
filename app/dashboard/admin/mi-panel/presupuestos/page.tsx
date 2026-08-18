@@ -142,6 +142,9 @@ export default function PresupuestosPage() {
       "ALL" | BudgetStatus
     >("ALL");
 
+  const [doctorFilter, setDoctorFilter] =
+    useState("ALL");
+
   useEffect(() => {
     void loadBudgets();
   }, []);
@@ -189,35 +192,6 @@ export default function PresupuestosPage() {
     }
   }
 
-  const totals = useMemo(() => {
-    return budgets.reduce(
-      (result, budget) => {
-        result.total +=
-          Number(
-            budget.total || 0
-          );
-
-        result.paid +=
-          Number(
-            budget.paidAmount || 0
-          );
-
-        result.pending +=
-          Number(
-            budget.remainingAmount ||
-              0
-          );
-
-        return result;
-      },
-      {
-        total: 0,
-        paid: 0,
-        pending: 0,
-      }
-    );
-  }, [budgets]);
-
   const filteredBudgets =
     useMemo(() => {
       const normalizedSearch =
@@ -228,17 +202,23 @@ export default function PresupuestosPage() {
       return budgets.filter(
         (budget) => {
           if (
-            statusFilter !==
-              "ALL" &&
-            budget.status !==
-              statusFilter
+            statusFilter !== "ALL" &&
+            budget.status !== statusFilter
           ) {
             return false;
           }
 
           if (
-            !normalizedSearch
+            doctorFilter !== "ALL" &&
+            !budget.doctors.some(
+              (doctor) =>
+                doctor.id === doctorFilter
+            )
           ) {
+            return false;
+          }
+
+          if (!normalizedSearch) {
             return true;
           }
 
@@ -303,7 +283,58 @@ export default function PresupuestosPage() {
       budgets,
       search,
       statusFilter,
+      doctorFilter,
     ]);
+
+  const totals = useMemo(() => {
+    return filteredBudgets.reduce(
+      (result, budget) => {
+        result.total += Number(
+          budget.total || 0
+        );
+
+        result.paid += Number(
+          budget.paidAmount || 0
+        );
+
+        result.pending += Number(
+          budget.remainingAmount || 0
+        );
+
+        return result;
+      },
+      {
+        total: 0,
+        paid: 0,
+        pending: 0,
+      }
+    );
+  }, [filteredBudgets]);
+
+  const availableDoctors = useMemo(() => {
+    const doctorMap = new Map<
+      string,
+      Doctor
+    >();
+
+    budgets.forEach((budget) => {
+      budget.doctors.forEach((doctor) => {
+        doctorMap.set(
+          doctor.id,
+          doctor
+        );
+      });
+    });
+
+    return Array.from(
+      doctorMap.values()
+    ).sort((a, b) =>
+      a.name.localeCompare(
+        b.name,
+        "es"
+      )
+    );
+  }, [budgets]);
 
   return (
     <div className="min-h-screen bg-[#F7F5EF] text-[#263F3B]">
@@ -339,7 +370,7 @@ export default function PresupuestosPage() {
           <SummaryCard
             label="Presupuestos"
             value={String(
-              budgets.length
+              filteredBudgets.length
             )}
             description="Total registrados"
             icon={
@@ -382,17 +413,14 @@ export default function PresupuestosPage() {
         </section>
 
         {/* FILTROS */}
-
-        <section className="grid gap-4 border border-[#DED9CD] bg-white p-5 md:grid-cols-[1fr_240px]">
+        <section className="grid gap-4 border border-[#DED9CD] bg-white p-5 md:grid-cols-[1fr_240px_240px]">
           <div className="relative">
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#A2B38B]" />
 
             <input
               value={search}
               onChange={(event) =>
-                setSearch(
-                  event.target.value
-                )
+                setSearch(event.target.value)
               }
               placeholder="Buscar por paciente, DNI, especialista o tratamiento"
               className="w-full border border-[#DED9CD] bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#263F3B]"
@@ -400,11 +428,35 @@ export default function PresupuestosPage() {
           </div>
 
           <select
+            value={doctorFilter}
+            onChange={(event) =>
+              setDoctorFilter(
+                event.target.value
+              )
+            }
+            className="border border-[#DED9CD] bg-white px-4 py-3 text-sm outline-none focus:border-[#263F3B]"
+          >
+            <option value="ALL">
+              Todos los especialistas
+            </option>
+
+            {availableDoctors.map(
+              (doctor) => (
+                <option
+                  key={doctor.id}
+                  value={doctor.id}
+                >
+                  {doctor.name}
+                </option>
+              )
+            )}
+          </select>
+
+          <select
             value={statusFilter}
             onChange={(event) =>
               setStatusFilter(
-                event.target
-                  .value as
+                event.target.value as
                   | "ALL"
                   | BudgetStatus
               )
