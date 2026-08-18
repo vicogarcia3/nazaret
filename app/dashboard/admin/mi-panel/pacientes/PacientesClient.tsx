@@ -296,11 +296,10 @@ export default function PacientesClient({
                       email: e.target.value.toLowerCase(),
                     })
                   }
-                  required
                 />
 
                 <p className="mt-2 text-xs leading-5 text-[#6B7774]">
-                  El paciente deberá utilizar este mismo email cuando cree su cuenta.
+                  Opcional. Si se carga un email, el paciente deberá utilizar este mismo correo cuando cree su cuenta.
                 </p>
               </div>
 

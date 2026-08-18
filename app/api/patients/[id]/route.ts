@@ -250,7 +250,7 @@ export async function PUT(
                 lastName,
                 dni,
                 phone,
-                email,
+                email: email || null,
                 branchId,
                 planId,
               },
@@ -265,40 +265,56 @@ export async function PUT(
            * Si el paciente ya tiene una cuenta vinculada,
            * mantenemos sincronizado su email de acceso.
            */
-          if (
-            existingPatient.userId &&
-            existingPatient.email?.toLowerCase() !==
-              email
-          ) {
-            const userWithSameEmail =
-              await tx.user.findUnique({
+          if (existingPatient.userId) {
+            /*
+            * Siempre mantenemos actualizado
+            * el nombre de la cuenta vinculada.
+            *
+            * El email de acceso solo se modifica
+            * si la admin cargó un nuevo email.
+            */
+            if (
+              email &&
+              existingPatient.email?.toLowerCase() !== email
+            ) {
+              const userWithSameEmail =
+                await tx.user.findUnique({
+                  where: {
+                    email,
+                  },
+                  select: {
+                    id: true,
+                  },
+                });
+
+              if (
+                userWithSameEmail &&
+                userWithSameEmail.id !== existingPatient.userId
+              ) {
+                throw new Error(
+                  "USER_EMAIL_ALREADY_EXISTS"
+                );
+              }
+
+              await tx.user.update({
                 where: {
-                  email,
+                  id: existingPatient.userId,
                 },
-                select: {
-                  id: true,
+                data: {
+                  email,
+                  name: `${firstName} ${lastName}`,
                 },
               });
-
-            if (
-              userWithSameEmail &&
-              userWithSameEmail.id !==
-                existingPatient.userId
-            ) {
-              throw new Error(
-                "USER_EMAIL_ALREADY_EXISTS"
-              );
+            } else {
+              await tx.user.update({
+                where: {
+                  id: existingPatient.userId,
+                },
+                data: {
+                  name: `${firstName} ${lastName}`,
+                },
+              });
             }
-
-            await tx.user.update({
-              where: {
-                id: existingPatient.userId,
-              },
-              data: {
-                email,
-                name: `${firstName} ${lastName}`,
-              },
-            });
           }
 
           return updatedPatient;

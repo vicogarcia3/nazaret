@@ -138,14 +138,14 @@ export default async function PacienteDetallePage({ params }: Props) {
         </header>
 
         <section className="grid gap-6 md:grid-cols-2">
-          <article className="border border-[#DED9CD] bg-white p-8">
+          <article className="min-w-0 overflow-hidden border border-[#DED9CD] bg-white p-8">
             <User className="mb-3 h-4 w-4 text-[#A2B38B]" />
 
             <h2 className="font-[var(--font-cormorant)] text-2xl font-medium">
               Datos personales
             </h2>
 
-            <div className="mt-4 grid gap-5 text-sm md:grid-cols-2">
+            <div className="mt-4 grid gap-5 text-sm md:grid-cols-[0.8fr_1.2fr]">
               <p>
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   DNI
@@ -156,17 +156,17 @@ export default async function PacienteDetallePage({ params }: Props) {
                 </span>
               </p>
 
-              <p>
+              <div className="min-w-0">
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Email
                 </span>
 
-                <span className="mt-1 block">
+                <span className="mt-1 block whitespace-nowrap text-sm tracking-[-0.01em] text-[#263F3B]">
                   {patient.user?.email ||
                     patient.email ||
                     "No cargado"}
                 </span>
-              </p>
+              </div>
 
               <p>
                 <span className="block text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
