@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
 
@@ -62,45 +63,69 @@ function optionalDate(value: unknown) {
   return date;
 }
 
-async function getAuthorizedEntry(
-  entryId: string,
-  doctorId: string
-) {
-  const doctor = await prisma.doctor.findUnique({
-    where: {
-      id: doctorId,
-    },
+/* =========================================================
+   BUSCAR ENTRADA AUTORIZADA
+========================================================= */
 
-    select: {
-      branches: {
-        select: {
-          branchId: true,
+async function getAuthorizedEntry({
+  entryId,
+  isAdmin,
+  doctorId,
+}: {
+  entryId: string;
+  isAdmin: boolean;
+  doctorId?: string;
+}) {
+  /*
+   * ADMIN puede administrar cualquier entrada.
+   */
+  if (isAdmin) {
+    return prisma.clinicalHistoryAnnexEntry.findUnique({
+      where: {
+        id: entryId,
+      },
+    });
+  }
+
+  /*
+   * Especialista externo:
+   * solamente puede modificar/eliminar
+   * sus propias prestaciones.
+   */
+  if (!doctorId) {
+    return null;
+  }
+
+  const doctor =
+    await prisma.doctor.findUnique({
+      where: {
+        id: doctorId,
+      },
+
+      select: {
+        branches: {
+          select: {
+            branchId: true,
+          },
         },
       },
-    },
-  });
+    });
 
   if (!doctor) {
     return null;
   }
 
-  const branchIds = doctor.branches.map(
-    (branch) => branch.branchId
-  );
+  const branchIds =
+    doctor.branches.map(
+      (branch) => branch.branchId
+    );
 
   return prisma.clinicalHistoryAnnexEntry.findFirst({
     where: {
       id: entryId,
 
-      /*
-       * Solamente puede modificar su propia entrada.
-       */
       createdByDoctorId: doctorId,
 
-      /*
-       * Y además la HC debe pertenecer a una
-       * de sus sucursales.
-       */
       clinicalHistory: {
         patient: {
           branchId: {
@@ -112,19 +137,32 @@ async function getAuthorizedEntry(
   });
 }
 
+/* =========================================================
+   PUT - EDITAR PRESTACIÓN
+========================================================= */
+
 export async function PUT(
   request: Request,
   context: RouteContext
 ) {
   try {
+    const session =
+      await auth();
+
     const clinicalSession =
       await getClinicalExternalSession();
 
-    if (!clinicalSession) {
+    const isAdmin =
+      session?.user?.role === "ADMIN";
+
+    if (
+      !isAdmin &&
+      !clinicalSession
+    ) {
       return NextResponse.json(
         {
           error:
-            "Tu sesión clínica no es válida o venció.",
+            "No autorizado.",
         },
         {
           status: 401,
@@ -132,13 +170,16 @@ export async function PUT(
       );
     }
 
-    const { id } = await context.params;
+    const { id } =
+      await context.params;
 
     const existingEntry =
-      await getAuthorizedEntry(
-        id,
-        clinicalSession.doctor.id
-      );
+      await getAuthorizedEntry({
+        entryId: id,
+        isAdmin,
+        doctorId:
+          clinicalSession?.doctor.id,
+      });
 
     if (!existingEntry) {
       return NextResponse.json(
@@ -152,7 +193,8 @@ export async function PUT(
       );
     }
 
-    const body = await request.json();
+    const body =
+      await request.json();
 
     const professionalName =
       typeof body.professionalName === "string"
@@ -214,9 +256,13 @@ export async function PUT(
     }
 
     const nextAppointment =
-      optionalDate(body.nextAppointment);
+      optionalDate(
+        body.nextAppointment
+      );
 
-    if (nextAppointment === undefined) {
+    if (
+      nextAppointment === undefined
+    ) {
       return NextResponse.json(
         {
           error:
@@ -229,9 +275,13 @@ export async function PUT(
     }
 
     const performedAt =
-      optionalDate(body.performedAt);
+      optionalDate(
+        body.performedAt
+      );
 
-    if (performedAt === undefined) {
+    if (
+      performedAt === undefined
+    ) {
       return NextResponse.json(
         {
           error:
@@ -246,22 +296,31 @@ export async function PUT(
     const updatedEntry =
       await prisma.clinicalHistoryAnnexEntry.update({
         where: {
-          id: existingEntry.id,
+          id:
+            existingEntry.id,
         },
 
         data: {
           professionalName,
+
           treatment,
 
           indications:
-            optionalText(body.indications),
+            optionalText(
+              body.indications
+            ),
 
           debit,
           credit,
           balance,
 
+          /*
+           * Si no vino una nueva fecha,
+           * conservamos la anterior.
+           */
           performedAt:
-            performedAt || existingEntry.performedAt,
+            performedAt ||
+            existingEntry.performedAt,
 
           nextAppointment,
 
@@ -294,19 +353,32 @@ export async function PUT(
   }
 }
 
+/* =========================================================
+   DELETE - ELIMINAR PRESTACIÓN
+========================================================= */
+
 export async function DELETE(
   _request: Request,
   context: RouteContext
 ) {
   try {
+    const session =
+      await auth();
+
     const clinicalSession =
       await getClinicalExternalSession();
 
-    if (!clinicalSession) {
+    const isAdmin =
+      session?.user?.role === "ADMIN";
+
+    if (
+      !isAdmin &&
+      !clinicalSession
+    ) {
       return NextResponse.json(
         {
           error:
-            "Tu sesión clínica no es válida o venció.",
+            "No autorizado.",
         },
         {
           status: 401,
@@ -314,13 +386,16 @@ export async function DELETE(
       );
     }
 
-    const { id } = await context.params;
+    const { id } =
+      await context.params;
 
     const existingEntry =
-      await getAuthorizedEntry(
-        id,
-        clinicalSession.doctor.id
-      );
+      await getAuthorizedEntry({
+        entryId: id,
+        isAdmin,
+        doctorId:
+          clinicalSession?.doctor.id,
+      });
 
     if (!existingEntry) {
       return NextResponse.json(
@@ -336,12 +411,14 @@ export async function DELETE(
 
     await prisma.clinicalHistoryAnnexEntry.delete({
       where: {
-        id: existingEntry.id,
+        id:
+          existingEntry.id,
       },
     });
 
     return NextResponse.json({
       success: true,
+
       message:
         "Registro eliminado correctamente.",
     });

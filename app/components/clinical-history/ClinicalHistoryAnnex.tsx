@@ -74,36 +74,6 @@ type EntryForm = {
 
 const EMPTY_ROWS = 20;
 
-function getCurrentDateInputValue() {
-  const date = new Date();
-
-  const year = date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function getCurrentTimeInputValue() {
-  const date = new Date();
-
-  const hours = String(
-    date.getHours()
-  ).padStart(2, "0");
-
-  const minutes = String(
-    date.getMinutes()
-  ).padStart(2, "0");
-
-  return `${hours}:${minutes}`;
-}
-
 function createEmptyEntryForm(): EntryForm {
   return {
     professionalName: "",
@@ -114,11 +84,8 @@ function createEmptyEntryForm(): EntryForm {
     credit: "",
     balance: "",
 
-    performedDate:
-      getCurrentDateInputValue(),
-
-    performedTime:
-      getCurrentTimeInputValue(),
+    performedDate: "",
+    performedTime: "",
 
     nextAppointment: "",
     patientSignature: "",
@@ -295,18 +262,68 @@ function toTimeInputValue(
   return `${hours}:${minutes}`;
 }
 
+function toManualDateValue(
+  value: string | null
+) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const day = String(
+    date.getDate()
+  ).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1
+  ).padStart(2, "0");
+
+  const year =
+    date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function parseManualDate(
+  value: string
+) {
+  const match =
+    value
+      .trim()
+      .match(
+        /^(\d{2})\/(\d{2})\/(\d{4})$/
+      );
+
+  if (!match) {
+    return "";
+  }
+
+  const [, day, month, year] =
+    match;
+
+  return `${year}-${month}-${day}`;
+}
+
 function buildPerformedAt(
   date: string,
   time: string
 ) {
+  const normalizedDate =
+    parseManualDate(date);
+
   if (
-    !date ||
+    !normalizedDate ||
     !time
   ) {
     return "";
   }
 
-  return `${date}T${time}`;
+  return `${normalizedDate}T${time}`;
 }
 
 export default function ClinicalHistoryAnnex({
@@ -485,7 +502,7 @@ export default function ClinicalHistoryAnnex({
           : "",
 
       performedDate:
-        toDateInputValue(
+        toManualDateValue(
           entry.performedAt
         ),
 
@@ -495,7 +512,7 @@ export default function ClinicalHistoryAnnex({
         ),
 
       nextAppointment:
-        toDateInputValue(
+        toManualDateValue(
           entry.nextAppointment
         ),
 
@@ -576,6 +593,24 @@ export default function ClinicalHistoryAnnex({
         entryForm.performedTime
       );
 
+    const normalizedNextAppointment =
+      entryForm.nextAppointment.trim()
+        ? parseManualDate(
+            entryForm.nextAppointment
+          )
+        : "";
+
+    if (
+      entryForm.nextAppointment.trim() &&
+      !normalizedNextAppointment
+    ) {
+      toast.error(
+        "Ingresá el próximo turno con formato DD/MM/AAAA."
+      );
+
+      return;
+    }
+
     try {
       setSaving(true);
 
@@ -625,7 +660,7 @@ export default function ClinicalHistoryAnnex({
                 performedAt,
 
                 nextAppointment:
-                  entryForm.nextAppointment,
+                  normalizedNextAppointment,
 
                 patientSignature:
                   entryForm.patientSignature,
@@ -981,43 +1016,32 @@ export default function ClinicalHistoryAnnex({
 
                           <td className="p-0 text-center align-middle">
                             {editing ? (
-                              <div className="annex-date-edit">
-                                <input
-                                  type="date"
-                                  value={
-                                    entryForm.performedDate
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateEntryForm(
-                                      "performedDate",
-                                      event
-                                        .target
-                                        .value
-                                    )
-                                  }
-                                  aria-label="Fecha de la prestación"
-                                />
+                              <textarea
+                                className="annex-datetime-textarea"
+                                value={[
+                                  entryForm.performedDate,
+                                  entryForm.performedTime,
+                                ]
+                                  .filter(Boolean)
+                                  .join("\n")}
+                                onChange={(event) => {
+                                  const lines =
+                                    event.target.value.split("\n");
 
-                                <input
-                                  type="time"
-                                  value={
-                                    entryForm.performedTime
-                                  }
-                                  onChange={(
-                                    event
-                                  ) =>
-                                    updateEntryForm(
-                                      "performedTime",
-                                      event
-                                        .target
-                                        .value
-                                    )
-                                  }
-                                  aria-label="Hora de la prestación"
-                                />
-                              </div>
+                                  updateEntryForm(
+                                    "performedDate",
+                                    lines[0] || ""
+                                  );
+
+                                  updateEntryForm(
+                                    "performedTime",
+                                    lines[1] || ""
+                                  );
+                                }}
+                                rows={2}
+                                spellCheck={false}
+                                aria-label="Fecha y hora de la prestación"
+                              />
                             ) : (
                               <div className="flex h-full min-h-[34px] w-full flex-col items-center justify-center gap-[2px]">
                                 <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
@@ -1228,14 +1252,12 @@ export default function ClinicalHistoryAnnex({
                                 <button
                                   type="button"
                                   onClick={() =>
-                                    setSignatureOpen(
-                                      true
-                                    )
+                                    setSignatureOpen(true)
                                   }
                                   className="signature-add-button"
-                                >
-                                  Agregar firma
-                                </button>
+                                  aria-label="Firmar"
+                                  title="Firmar"
+                                />
                               )
                             ) : entry.patientSignature ? (
                               <img
@@ -1259,43 +1281,32 @@ export default function ClinicalHistoryAnnex({
                     {/* FECHA Y HORA EDITABLE */}
 
                     <td className="p-0 text-center align-middle">
-                      <div className="annex-date-edit">
-                        <input
-                          type="date"
-                          value={
-                            entryForm.performedDate
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateEntryForm(
-                              "performedDate",
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          aria-label="Fecha de la prestación"
-                        />
+                      <textarea
+                        className="annex-datetime-textarea"
+                        value={[
+                          entryForm.performedDate,
+                          entryForm.performedTime,
+                        ]
+                          .filter(Boolean)
+                          .join("\n")}
+                        onChange={(event) => {
+                          const lines =
+                            event.target.value.split("\n");
 
-                        <input
-                          type="time"
-                          value={
-                            entryForm.performedTime
-                          }
-                          onChange={(
-                            event
-                          ) =>
-                            updateEntryForm(
-                              "performedTime",
-                              event
-                                .target
-                                .value
-                            )
-                          }
-                          aria-label="Hora de la prestación"
-                        />
-                      </div>
+                          updateEntryForm(
+                            "performedDate",
+                            lines[0] || ""
+                          );
+
+                          updateEntryForm(
+                            "performedTime",
+                            lines[1] || ""
+                          );
+                        }}
+                        rows={2}
+                        spellCheck={false}
+                        aria-label="Fecha y hora de la prestación"
+                      />
                     </td>
 
                     <td>
@@ -1314,7 +1325,6 @@ export default function ClinicalHistoryAnnex({
                               .value
                           )
                         }
-                        placeholder="Tratamiento e indicaciones"
                       />
                     </td>
 
@@ -1393,26 +1403,23 @@ export default function ClinicalHistoryAnnex({
                               .value
                           )
                         }
-                        placeholder="Profesional"
                       />
                     </td>
 
                     <td>
                       <input
-                        type="date"
+                        type="text"
+                        inputMode="numeric"
                         value={
                           entryForm.nextAppointment
                         }
-                        onChange={(
-                          event
-                        ) =>
+                        onChange={(event) =>
                           updateEntryForm(
                             "nextAppointment",
-                            event
-                              .target
-                              .value
+                            event.target.value
                           )
                         }
+                        aria-label="Próximo turno"
                       />
                     </td>
 
@@ -1439,14 +1446,12 @@ export default function ClinicalHistoryAnnex({
                         <button
                           type="button"
                           onClick={() =>
-                            setSignatureOpen(
-                              true
-                            )
+                            setSignatureOpen(true)
                           }
                           className="signature-add-button"
-                        >
-                          Agregar firma
-                        </button>
+                          aria-label="Firmar"
+                          title="Firmar"
+                        />
                       )}
                     </td>
                   </tr>
@@ -2155,31 +2160,37 @@ export default function ClinicalHistoryAnnex({
             #a2b38b;
         }
 
-        /*
-         * Fecha y hora editables.
-         * Las mostramos una debajo de la otra
-         * para mantener la columna compacta.
-         */
-        .annex-date-edit {
-          display: flex;
+        .annex-datetime-textarea {
+          box-sizing: border-box;
+          display: block;
+
           width: 100%;
-          height: 100%;
-          min-height: 34px;
-          flex-direction: column;
-          align-items: stretch;
-          justify-content: center;
-          gap: 1px;
-          padding: 1px;
+          height: 30px;
+          min-height: 30px;
+          max-height: 30px;
+
+          margin: 0;
+          padding: 3px 2px;
+
+          resize: none;
+          overflow: hidden;
+
+          border: 0;
+          border-radius: 0;
+          outline: none;
+          background: transparent;
+
+          color: #263f3b;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 8px;
+          font-weight: 500;
+          line-height: 11px;
+          text-align: center;
         }
 
-        .annex-date-edit input {
-          width: 100%;
-          height: 16px;
-          min-height: 16px;
-          padding: 0 1px;
-          font-size: 7px;
-          line-height: 1;
-          text-align: center;
+        .annex-datetime-textarea:focus {
+          background: #f2f6ed;
+          box-shadow: inset 0 0 0 1px #a2b38b;
         }
 
         .editing-row {
@@ -2223,10 +2234,11 @@ export default function ClinicalHistoryAnnex({
           height: 100%;
           border: 0;
           background: transparent;
-          color: #6f855f;
-          font-size: 8px;
-          font-weight: 600;
           cursor: pointer;
+        }
+
+        .signature-add-button:hover {
+          background: #f6f8f2;
         }
 
         .signature-add-button:hover {

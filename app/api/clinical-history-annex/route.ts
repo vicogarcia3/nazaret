@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
 
@@ -58,14 +59,23 @@ function optionalDate(value: unknown) {
 
 export async function POST(request: Request) {
   try {
+    /*
+     * Puede ingresar:
+     * - ADMIN desde el panel
+     * - Especialista mediante acceso clínico externo
+     */
+    const session = await auth();
+
     const clinicalSession =
       await getClinicalExternalSession();
 
-    if (!clinicalSession) {
+    const isAdmin =
+      session?.user?.role === "ADMIN";
+
+    if (!isAdmin && !clinicalSession) {
       return NextResponse.json(
         {
-          error:
-            "Tu sesión clínica no es válida o venció.",
+          error: "No autorizado.",
         },
         {
           status: 401,
@@ -93,70 +103,136 @@ export async function POST(request: Request) {
     }
 
     /*
-     * Buscamos las sucursales a las que pertenece
-     * el especialista.
+     * ID del especialista que crea el registro.
+     *
+     * Si lo crea ADMIN queda null.
+     * Si lo crea un especialista externo,
+     * guardamos su doctorId.
      */
-    const doctor = await prisma.doctor.findUnique({
-      where: {
-        id: clinicalSession.doctor.id,
-      },
-      select: {
-        branches: {
-          select: {
-            branchId: true,
-          },
-        },
-      },
-    });
-
-    if (!doctor) {
-      return NextResponse.json(
-        {
-          error:
-            "No se encontró el especialista.",
-        },
-        {
-          status: 404,
-        }
-      );
-    }
-
-    const branchIds = doctor.branches.map(
-      (branch) => branch.branchId
-    );
+    let createdByDoctorId: string | null =
+      null;
 
     /*
-     * La historia tiene que pertenecer a un paciente
-     * de alguna sucursal del especialista.
+     * =====================================================
+     * ADMIN
+     * =====================================================
      */
-    const clinicalHistory =
-      await prisma.clinicalHistory.findFirst({
-        where: {
-          id: clinicalHistoryId,
 
-          patient: {
-            branchId: {
-              in: branchIds,
+    if (isAdmin) {
+      const clinicalHistory =
+        await prisma.clinicalHistory.findUnique({
+          where: {
+            id: clinicalHistoryId,
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+      if (!clinicalHistory) {
+        return NextResponse.json(
+          {
+            error:
+              "La historia clínica no existe.",
+          },
+          {
+            status: 404,
+          }
+        );
+      }
+    }
+
+    /*
+     * =====================================================
+     * ESPECIALISTA EXTERNO
+     * =====================================================
+     */
+
+    else {
+      /*
+       * Acá sabemos que clinicalSession existe,
+       * porque arriba ya validamos:
+       *
+       * if (!isAdmin && !clinicalSession)
+       */
+      const doctorId =
+        clinicalSession!.doctor.id;
+
+      const doctor =
+        await prisma.doctor.findUnique({
+          where: {
+            id: doctorId,
+          },
+
+          select: {
+            branches: {
+              select: {
+                branchId: true,
+              },
             },
           },
-        },
+        });
 
-        select: {
-          id: true,
-        },
-      });
+      if (!doctor) {
+        return NextResponse.json(
+          {
+            error:
+              "No se encontró el especialista.",
+          },
+          {
+            status: 404,
+          }
+        );
+      }
 
-    if (!clinicalHistory) {
-      return NextResponse.json(
-        {
-          error:
-            "No tenés acceso a esta historia clínica.",
-        },
-        {
-          status: 403,
-        }
-      );
+      const branchIds =
+        doctor.branches.map(
+          (branch) => branch.branchId
+        );
+
+      /*
+       * La historia clínica debe pertenecer
+       * a un paciente de una sucursal a la
+       * que tenga acceso el especialista.
+       */
+      const clinicalHistory =
+        await prisma.clinicalHistory.findFirst({
+          where: {
+            id: clinicalHistoryId,
+
+            patient: {
+              branchId: {
+                in: branchIds,
+              },
+            },
+          },
+
+          select: {
+            id: true,
+          },
+        });
+
+      if (!clinicalHistory) {
+        return NextResponse.json(
+          {
+            error:
+              "No tenés acceso a esta historia clínica.",
+          },
+          {
+            status: 403,
+          }
+        );
+      }
+
+      createdByDoctorId = doctorId;
     }
+
+    /*
+     * =====================================================
+     * DATOS DE LA PRESTACIÓN
+     * =====================================================
+     */
 
     const professionalName =
       typeof body.professionalName === "string"
@@ -192,6 +268,12 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * =====================================================
+     * DEBE / HABER / SALDO
+     * =====================================================
+     */
+
     const debit =
       optionalDecimal(body.debit);
 
@@ -217,6 +299,12 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * =====================================================
+     * PRÓXIMO TURNO
+     * =====================================================
+     */
+
     const nextAppointment =
       optionalDate(body.nextAppointment);
 
@@ -231,6 +319,12 @@ export async function POST(request: Request) {
         }
       );
     }
+
+    /*
+     * =====================================================
+     * FECHA Y HORA REAL DE LA PRESTACIÓN
+     * =====================================================
+     */
 
     const performedAt =
       optionalDate(body.performedAt);
@@ -247,13 +341,18 @@ export async function POST(request: Request) {
       );
     }
 
+    /*
+     * =====================================================
+     * CREAR REGISTRO
+     * =====================================================
+     */
+
     const entry =
       await prisma.clinicalHistoryAnnexEntry.create({
         data: {
           clinicalHistoryId,
 
-          createdByDoctorId:
-            clinicalSession.doctor.id,
+          createdByDoctorId,
 
           professionalName,
 
@@ -266,8 +365,12 @@ export async function POST(request: Request) {
           credit,
           balance,
 
+          /*
+           * Si no se envía una fecha manual,
+           * usamos el momento actual.
+           */
           performedAt:
-            performedAt || new Date(),
+            performedAt ?? new Date(),
 
           nextAppointment,
 
