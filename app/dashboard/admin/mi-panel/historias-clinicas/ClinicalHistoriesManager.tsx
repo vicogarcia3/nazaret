@@ -17,8 +17,11 @@ type Patient = {
   firstName: string;
   lastName: string;
   dni: string | null;
+
+  branchId: string;
   branchName: string;
   branchCity: string;
+  branchAddress: string;
 
   history: {
     id: string;
@@ -48,6 +51,8 @@ export default function ClinicalHistoriesManager({
   const router = useRouter();
 
   const [search, setSearch] = useState("");
+  const [selectedCity, setSelectedCity] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState("");
   const [shareOpen, setShareOpen] =
     useState(false);
   const [savingAccess, setSavingAccess] =
@@ -63,14 +68,54 @@ export default function ClinicalHistoriesManager({
         .map((doctor) => doctor.id)
     );
 
+  const cities = useMemo(() => {
+    return Array.from(
+      new Set(
+        patients
+          .map((patient) => patient.branchCity)
+          .filter(Boolean)
+      )
+    ).sort((a, b) => a.localeCompare(b));
+  }, [patients]);
+
+  const availableBranches = useMemo(() => {
+    const source = selectedCity
+      ? patients.filter(
+          (patient) =>
+            patient.branchCity === selectedCity
+        )
+      : patients;
+
+    const map = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        city: string;
+        address: string;
+      }
+    >();
+
+    source.forEach((patient) => {
+      if (!map.has(patient.branchId)) {
+        map.set(patient.branchId, {
+          id: patient.branchId,
+          name: patient.branchName,
+          city: patient.branchCity,
+          address: patient.branchAddress,
+        });
+      }
+    });
+
+    return Array.from(map.values()).sort((a, b) =>
+      a.address.localeCompare(b.address)
+    );
+  }, [patients, selectedCity]);
+
   const filteredPatients = useMemo(() => {
     const value = search
       .trim()
       .toLowerCase();
-
-    if (!value) {
-      return patients;
-    }
 
     return patients.filter((patient) => {
       const text = [
@@ -79,13 +124,34 @@ export default function ClinicalHistoriesManager({
         patient.dni || "",
         patient.branchName,
         patient.branchCity,
+        patient.branchAddress,
       ]
         .join(" ")
         .toLowerCase();
 
-      return text.includes(value);
+      const matchesSearch =
+        !value || text.includes(value);
+
+      const matchesCity =
+        !selectedCity ||
+        patient.branchCity === selectedCity;
+
+      const matchesBranch =
+        !selectedBranch ||
+        patient.branchId === selectedBranch;
+
+      return (
+        matchesSearch &&
+        matchesCity &&
+        matchesBranch
+      );
     });
-  }, [patients, search]);
+  }, [
+    patients,
+    search,
+    selectedCity,
+    selectedBranch,
+  ]);
 
   function toggleDoctor(doctorId: string) {
     setSelectedDoctorIds((current) =>
@@ -185,8 +251,7 @@ export default function ClinicalHistoriesManager({
         </button>
       </div>
 
-      {/* BUSCADOR */}
-
+      {/* BUSCADOR Y FILTROS */}
       <section className="border border-[#DED9CD] bg-white p-6">
         <label className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#A2B38B]">
           Buscar paciente
@@ -198,13 +263,80 @@ export default function ClinicalHistoriesManager({
           <input
             value={search}
             onChange={(event) =>
-              setSearch(
-                event.target.value
-              )
+              setSearch(event.target.value)
             }
             placeholder="Nombre, apellido, DNI o sucursal"
             className="w-full border border-[#DED9CD] bg-white py-3 pl-11 pr-4 text-sm outline-none transition focus:border-[#263F3B]"
           />
+        </div>
+
+        <div className="mt-4 grid gap-4 md:grid-cols-2">
+          {/* CIUDAD */}
+
+          <div>
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A2B38B]">
+              Ciudad
+            </label>
+
+            <select
+              value={selectedCity}
+              onChange={(event) => {
+                setSelectedCity(event.target.value);
+
+                // Al cambiar de ciudad limpiamos
+                // la sucursal seleccionada.
+                setSelectedBranch("");
+              }}
+              className="w-full border border-[#DED9CD] bg-white px-4 py-3 text-sm text-[#263F3B] outline-none transition focus:border-[#263F3B]"
+            >
+              <option value="">
+                Todas las ciudades
+              </option>
+
+              {cities.map((city) => (
+                <option
+                  key={city}
+                  value={city}
+                >
+                  {city}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* SUCURSAL */}
+
+          <div>
+            <label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[#A2B38B]">
+              Sucursal
+            </label>
+
+            <select
+              value={selectedBranch}
+              onChange={(event) =>
+                setSelectedBranch(
+                  event.target.value
+                )
+              }
+              className="w-full border border-[#DED9CD] bg-white px-4 py-3 text-sm text-[#263F3B] outline-none transition focus:border-[#263F3B]"
+            >
+              <option value="">
+                Todas las sucursales
+              </option>
+
+              {availableBranches.map(
+                (branch) => (
+                  <option
+                    key={branch.id}
+                    value={branch.id}
+                  >
+                    {branch.name} —{" "}
+                    {branch.address}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
         </div>
       </section>
 
@@ -247,7 +379,8 @@ export default function ClinicalHistoriesManager({
                     </span>
 
                     <span>
-                      {patient.branchName} - {patient.branchCity}
+                      {patient.branchName} — {patient.branchAddress},{" "}
+                      {patient.branchCity}
                     </span>
                   </div>
 

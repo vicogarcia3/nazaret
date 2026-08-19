@@ -62,8 +62,11 @@ export default async function ClinicalHistoriesPage() {
     firstName: patient.firstName,
     lastName: patient.lastName,
     dni: patient.dni,
+
+    branchId: patient.branch.id,
     branchName: patient.branch.name,
     branchCity: patient.branch.city,
+    branchAddress: patient.branch.address,
 
     history: patient.histories[0]
       ? {
