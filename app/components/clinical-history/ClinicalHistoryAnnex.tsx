@@ -65,8 +65,7 @@ type EntryForm = {
   credit: string;
   balance: string;
 
-  performedDate: string;
-  performedTime: string;
+  performedDateTime: string;
 
   nextAppointment: string;
   patientSignature: string;
@@ -84,8 +83,7 @@ function createEmptyEntryForm(): EntryForm {
     credit: "",
     balance: "",
 
-    performedDate: "",
-    performedTime: "",
+    performedDateTime: "",
 
     nextAppointment: "",
     patientSignature: "",
@@ -203,68 +201,7 @@ function formatNextAppointment(
   );
 }
 
-function toDateInputValue(
-  value: string | null
-) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  const year =
-    date.getFullYear();
-
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function toTimeInputValue(
-  value: string | null
-) {
-  if (!value) {
-    return "";
-  }
-
-  const date = new Date(value);
-
-  if (
-    Number.isNaN(
-      date.getTime()
-    )
-  ) {
-    return "";
-  }
-
-  const hours = String(
-    date.getHours()
-  ).padStart(2, "0");
-
-  const minutes = String(
-    date.getMinutes()
-  ).padStart(2, "0");
-
-  return `${hours}:${minutes}`;
-}
-
-function toManualDateValue(
-  value: string | null
-) {
+function toManualDateTimeValue(value: string | null) {
   if (!value) {
     return "";
   }
@@ -275,56 +212,118 @@ function toManualDateValue(
     return "";
   }
 
-  const day = String(
-    date.getDate()
-  ).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
 
-  const month = String(
-    date.getMonth() + 1
-  ).padStart(2, "0");
-
-  const year =
-    date.getFullYear();
-
-  return `${day}/${month}/${year}`;
+  return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
-function parseManualDate(
-  value: string
-) {
-  const match =
-    value
-      .trim()
-      .match(
-        /^(\d{2})\/(\d{2})\/(\d{4})$/
-      );
+function parseManualDateTime(value: string) {
+  const match = value
+    .trim()
+    .match(
+      /^(\\d{2})\/(\\d{2})\/(\\d{4})\\s+(\\d{2}):(\\d{2})$/
+    );
 
   if (!match) {
     return "";
   }
 
-  const [, day, month, year] =
-    match;
+  const [, day, month, year, hours, minutes] = match;
 
-  return `${year}-${month}-${day}`;
-}
-
-function buildPerformedAt(
-  date: string,
-  time: string
-) {
-  const normalizedDate =
-    parseManualDate(date);
+  const dayNumber = Number(day);
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+  const hoursNumber = Number(hours);
+  const minutesNumber = Number(minutes);
 
   if (
-    !normalizedDate ||
-    !time
+    dayNumber < 1 ||
+    dayNumber > 31 ||
+    monthNumber < 1 ||
+    monthNumber > 12 ||
+    hoursNumber < 0 ||
+    hoursNumber > 23 ||
+    minutesNumber < 0 ||
+    minutesNumber > 59
   ) {
     return "";
   }
 
-  return `${normalizedDate}T${time}`;
+  const date = new Date(
+    yearNumber,
+    monthNumber - 1,
+    dayNumber,
+    hoursNumber,
+    minutesNumber
+  );
+
+  if (
+    date.getFullYear() !== yearNumber ||
+    date.getMonth() !== monthNumber - 1 ||
+    date.getDate() !== dayNumber ||
+    date.getHours() !== hoursNumber ||
+    date.getMinutes() !== minutesNumber
+  ) {
+    return "";
+  }
+
+  return date.toISOString();
 }
+
+function toManualDateValue(value: string | null) {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const year = date.getFullYear();
+
+  return `${day}/${month}/${year}`;
+}
+
+function parseManualDate(value: string) {
+  const match = value
+    .trim()
+    .match(/^(\\d{2})\/(\\d{2})\/(\\d{4})$/);
+
+  if (!match) {
+    return "";
+  }
+
+  const [, day, month, year] = match;
+
+  const dayNumber = Number(day);
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+
+  const date = new Date(
+    yearNumber,
+    monthNumber - 1,
+    dayNumber
+  );
+
+  if (
+    date.getFullYear() !== yearNumber ||
+    date.getMonth() !== monthNumber - 1 ||
+    date.getDate() !== dayNumber
+  ) {
+    return "";
+  }
+
+  return `${year}-${month}-${day}`;
+}
+
 
 export default function ClinicalHistoryAnnex({
   patientName = "",
@@ -501,13 +500,8 @@ export default function ClinicalHistoryAnnex({
             )
           : "",
 
-      performedDate:
-        toManualDateValue(
-          entry.performedAt
-        ),
-
-      performedTime:
-        toTimeInputValue(
+      performedDateTime:
+        toManualDateTimeValue(
           entry.performedAt
         ),
 
@@ -540,64 +534,69 @@ export default function ClinicalHistoryAnnex({
     );
   }
 
+  function focusNextField(
+    event: React.KeyboardEvent<HTMLInputElement>
+  ) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    event.preventDefault();
+
+    const inputs = Array.from(
+      document.querySelectorAll(
+        ".annex-table input:not([readonly]), .annex-table textarea:not([readonly])"
+      )
+    ) as HTMLInputElement[];
+
+    const current = event.currentTarget;
+    const index = inputs.indexOf(current);
+
+    if (index >= 0) {
+      inputs[index + 1]?.focus();
+    }
+  }
+
   async function saveEntry() {
-    if (
-      !clinicalHistoryId
-    ) {
+    if (!clinicalHistoryId) {
       return;
     }
 
-    if (
-      !entryForm.performedDate
-    ) {
+    if (!entryForm.performedDateTime.trim()) {
       toast.error(
-        "Ingresá la fecha de la prestación."
+        "Ingresá la fecha y hora de la prestación. Ejemplo: 21/08/2026 13:00."
       );
-
       return;
     }
 
-    if (
-      !entryForm.performedTime
-    ) {
+    const performedAt = parseManualDateTime(
+      entryForm.performedDateTime
+    );
+
+    if (!performedAt) {
       toast.error(
-        "Ingresá la hora de la prestación."
+        "La fecha y hora no son válidas. Usá DD/MM/AAAA HH:MM."
       );
-
       return;
     }
 
-    if (
-      !entryForm.professionalName.trim()
-    ) {
+    if (!entryForm.professionalName.trim()) {
       toast.error(
         "Ingresá el profesional actuante."
       );
-
       return;
     }
 
-    if (
-      !entryForm.treatment.trim()
-    ) {
+    if (!entryForm.treatment.trim()) {
       toast.error(
         "Ingresá el tratamiento realizado."
       );
-
       return;
     }
 
-    const performedAt =
-      buildPerformedAt(
-        entryForm.performedDate,
-        entryForm.performedTime
-      );
-
     const normalizedNextAppointment =
       entryForm.nextAppointment.trim()
-        ? parseManualDate(
-            entryForm.nextAppointment
-          )
+        ? parseManualDate(entryForm.nextAppointment)
         : "";
 
     if (
@@ -607,78 +606,49 @@ export default function ClinicalHistoryAnnex({
       toast.error(
         "Ingresá el próximo turno con formato DD/MM/AAAA."
       );
-
       return;
     }
 
     try {
       setSaving(true);
 
-      const url =
-        editingEntryId
-          ? `/api/clinical-history-annex/${editingEntryId}`
-          : "/api/clinical-history-annex";
+      const url = editingEntryId
+        ? `/api/clinical-history-annex/${editingEntryId}`
+        : "/api/clinical-history-annex";
 
-      const method =
-        editingEntryId
-          ? "PUT"
-          : "POST";
+      const method = editingEntryId
+        ? "PUT"
+        : "POST";
 
-      const response =
-        await fetch(
-          url,
-          {
-            method,
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          clinicalHistoryId,
+          professionalName:
+            entryForm.professionalName,
+          treatment: entryForm.treatment,
+          indications: entryForm.indications,
+          debit: entryForm.debit,
+          credit: entryForm.credit,
+          balance: entryForm.balance,
+          performedAt,
+          nextAppointment:
+            normalizedNextAppointment,
+          patientSignature:
+            entryForm.patientSignature,
+        }),
+      });
 
-            headers: {
-              "Content-Type":
-                "application/json",
-            },
+      const data = await response.json();
 
-            body:
-              JSON.stringify({
-                clinicalHistoryId,
-
-                professionalName:
-                  entryForm.professionalName,
-
-                treatment:
-                  entryForm.treatment,
-
-                indications:
-                  entryForm.indications,
-
-                debit:
-                  entryForm.debit,
-
-                credit:
-                  entryForm.credit,
-
-                balance:
-                  entryForm.balance,
-
-                performedAt,
-
-                nextAppointment:
-                  normalizedNextAppointment,
-
-                patientSignature:
-                  entryForm.patientSignature,
-              }),
-          }
-        );
-
-      const data =
-        await response.json();
-
-      if (
-        !response.ok
-      ) {
+      if (!response.ok) {
         toast.error(
           data.error ||
             "No se pudo guardar el registro."
         );
-
         return;
       }
 
@@ -688,17 +658,9 @@ export default function ClinicalHistoryAnnex({
           : "Prestación agregada al anexo."
       );
 
-      setActiveRowId(
-        null
-      );
-
-      setEditingEntryId(
-        null
-      );
-
-      setEntryForm(
-        createEmptyEntryForm()
-      );
+      setActiveRowId(null);
+      setEditingEntryId(null);
+      setEntryForm(createEmptyEntryForm());
 
       router.refresh();
     } catch (error) {
@@ -1016,45 +978,28 @@ export default function ClinicalHistoryAnnex({
 
                           <td className="p-0 text-center align-middle">
                             {editing ? (
-                              <textarea
-                                className="annex-datetime-textarea"
-                                value={[
-                                  entryForm.performedDate,
-                                  entryForm.performedTime,
-                                ]
-                                  .filter(Boolean)
-                                  .join("\n")}
-                                onChange={(event) => {
-                                  const lines =
-                                    event.target.value.split("\n");
-
+                              <input
+                                className="annex-datetime-input"
+                                type="text"
+                                inputMode="numeric"
+                                value={
+                                  entryForm.performedDateTime
+                                }
+                                onChange={(event) =>
                                   updateEntryForm(
-                                    "performedDate",
-                                    lines[0] || ""
-                                  );
-
-                                  updateEntryForm(
-                                    "performedTime",
-                                    lines[1] || ""
-                                  );
-                                }}
-                                rows={2}
+                                    "performedDateTime",
+                                    event.target.value
+                                  )
+                                }
+                                onKeyDown={focusNextField}
                                 spellCheck={false}
                                 aria-label="Fecha y hora de la prestación"
                               />
                             ) : (
-                              <div className="flex h-full min-h-[34px] w-full flex-col items-center justify-center gap-[2px]">
-                                <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
-                                  {formatDateOnly(
-                                    entry.performedAt
-                                  )}
-                                </span>
-
-                                <span className="block whitespace-nowrap text-center text-[8px] font-normal leading-none text-[#879792]">
-                                  {formatTimeOnly(
-                                    entry.performedAt
-                                  )}
-                                </span>
+                              <div className="flex h-full min-h-[34px] w-full items-center justify-center px-1 text-center text-[8px] font-normal leading-none text-[#263F3B]">
+                                {toManualDateTimeValue(
+                                  entry.performedAt
+                                )}
                               </div>
                             )}
                           </td>
@@ -1200,11 +1145,8 @@ export default function ClinicalHistoryAnnex({
 
                           <td>
                             <input
-                              type={
-                                editing
-                                  ? "date"
-                                  : "text"
-                              }
+                              type="text"
+                              inputMode="numeric"
                               value={
                                 editing
                                   ? entryForm.nextAppointment
@@ -1225,6 +1167,7 @@ export default function ClinicalHistoryAnnex({
                                     .value
                                 )
                               }
+                              onKeyDown={focusNextField}
                             />
                           </td>
 
@@ -1281,29 +1224,21 @@ export default function ClinicalHistoryAnnex({
                     {/* FECHA Y HORA EDITABLE */}
 
                     <td className="p-0 text-center align-middle">
-                      <textarea
-                        className="annex-datetime-textarea"
-                        value={[
-                          entryForm.performedDate,
-                          entryForm.performedTime,
-                        ]
-                          .filter(Boolean)
-                          .join("\n")}
-                        onChange={(event) => {
-                          const lines =
-                            event.target.value.split("\n");
-
+                      <input
+                        autoFocus
+                        className="annex-datetime-input"
+                        type="text"
+                        inputMode="numeric"
+                        value={
+                          entryForm.performedDateTime
+                        }
+                        onChange={(event) =>
                           updateEntryForm(
-                            "performedDate",
-                            lines[0] || ""
-                          );
-
-                          updateEntryForm(
-                            "performedTime",
-                            lines[1] || ""
-                          );
-                        }}
-                        rows={2}
+                            "performedDateTime",
+                            event.target.value
+                          )
+                        }
+                        onKeyDown={focusNextField}
                         spellCheck={false}
                         aria-label="Fecha y hora de la prestación"
                       />
@@ -1311,7 +1246,6 @@ export default function ClinicalHistoryAnnex({
 
                     <td>
                       <input
-                        autoFocus
                         value={
                           entryForm.treatment
                         }
@@ -1419,6 +1353,7 @@ export default function ClinicalHistoryAnnex({
                             event.target.value
                           )
                         }
+                        onKeyDown={focusNextField}
                         aria-label="Próximo turno"
                       />
                     </td>
@@ -2160,35 +2095,27 @@ export default function ClinicalHistoryAnnex({
             #a2b38b;
         }
 
-        .annex-datetime-textarea {
+        .annex-datetime-input {
           box-sizing: border-box;
           display: block;
-
           width: 100%;
-          height: 30px;
-          min-height: 30px;
-          max-height: 30px;
-
+          height: 100%;
+          min-height: 34px;
           margin: 0;
-          padding: 3px 2px;
-
-          resize: none;
-          overflow: hidden;
-
+          padding: 0 2px;
           border: 0;
           border-radius: 0;
           outline: none;
           background: transparent;
-
           color: #263f3b;
           font-family: Arial, Helvetica, sans-serif;
           font-size: 8px;
           font-weight: 500;
-          line-height: 11px;
+          line-height: 1;
           text-align: center;
         }
 
-        .annex-datetime-textarea:focus {
+        .annex-datetime-input:focus {
           background: #f2f6ed;
           box-shadow: inset 0 0 0 1px #a2b38b;
         }
