@@ -1152,20 +1152,18 @@ export default function ClinicalHistoryAnnex({
                                       entry.nextAppointment
                                     )
                               }
-                              readOnly={
-                                !editing
-                              }
-                              onChange={(
-                                event
-                              ) =>
+                              readOnly={!editing}
+                              onChange={(event) =>
                                 updateEntryForm(
                                   "nextAppointment",
-                                  event
-                                    .target
-                                    .value
+                                  event.target.value
                                 )
                               }
                               onKeyDown={focusNextField}
+                              placeholder={
+                                editing ? "DD/MM/AAAA" : ""
+                              }
+                              aria-label="Próximo turno"
                             />
                           </td>
 
@@ -2078,6 +2076,14 @@ export default function ClinicalHistoryAnnex({
           font-weight: 500;
           text-align: center;
           outline: none;
+        }
+
+        .annex-table td:nth-child(7) input {
+          font-size: clamp(
+            9px,
+            0.9vw,
+            11px
+          );
         }
 
         .annex-table
