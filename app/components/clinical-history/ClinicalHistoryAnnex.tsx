@@ -2110,13 +2110,17 @@ export default function ClinicalHistoryAnnex({
           background: transparent;
           color: #263f3b;
           font-family: Arial, Helvetica, sans-serif;
-          font-size: 8px;
+          font-size: clamp(
+            8px,
+            0.85vw,
+            11px
+          );
           font-weight: 500;
           line-height: 1.25;
           text-align: center;
           white-space: pre-line;
         }
-
+          
         .annex-datetime-input:focus {
           background: #f2f6ed;
           box-shadow: inset 0 0 0 1px #a2b38b;
