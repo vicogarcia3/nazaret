@@ -222,11 +222,14 @@ function toManualDateTimeValue(value: string | null) {
 }
 
 function parseManualDateTime(value: string) {
-  const match = value
+  const normalized = value
     .trim()
-    .match(
-      /^(\\d{2})\/(\\d{2})\/(\\d{4})\\s+(\\d{2}):(\\d{2})$/
-    );
+    .replace(/\r?\n/g, " ")
+    .replace(/\s+/g, " ");
+
+  const match = normalized.match(
+    /^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})$/
+  );
 
   if (!match) {
     return "";
@@ -978,20 +981,15 @@ export default function ClinicalHistoryAnnex({
 
                           <td className="p-0 text-center align-middle">
                             {editing ? (
-                              <input
+                              <textarea
                                 className="annex-datetime-input"
-                                type="text"
-                                inputMode="numeric"
-                                value={
-                                  entryForm.performedDateTime
-                                }
+                                value={entryForm.performedDateTime}
                                 onChange={(event) =>
                                   updateEntryForm(
                                     "performedDateTime",
                                     event.target.value
                                   )
                                 }
-                                onKeyDown={focusNextField}
                                 spellCheck={false}
                                 aria-label="Fecha y hora de la prestación"
                               />
@@ -1224,21 +1222,16 @@ export default function ClinicalHistoryAnnex({
                     {/* FECHA Y HORA EDITABLE */}
 
                     <td className="p-0 text-center align-middle">
-                      <input
+                      <textarea
                         autoFocus
                         className="annex-datetime-input"
-                        type="text"
-                        inputMode="numeric"
-                        value={
-                          entryForm.performedDateTime
-                        }
+                        value={entryForm.performedDateTime}
                         onChange={(event) =>
                           updateEntryForm(
                             "performedDateTime",
                             event.target.value
                           )
                         }
-                        onKeyDown={focusNextField}
                         spellCheck={false}
                         aria-label="Fecha y hora de la prestación"
                       />
@@ -2102,17 +2095,20 @@ export default function ClinicalHistoryAnnex({
           height: 100%;
           min-height: 34px;
           margin: 0;
-          padding: 0 2px;
+          padding: 3px 2px;
           border: 0;
           border-radius: 0;
           outline: none;
+          resize: none;
+          overflow: hidden;
           background: transparent;
           color: #263f3b;
           font-family: Arial, Helvetica, sans-serif;
           font-size: 8px;
           font-weight: 500;
-          line-height: 1;
+          line-height: 1.25;
           text-align: center;
+          white-space: pre-line;
         }
 
         .annex-datetime-input:focus {
