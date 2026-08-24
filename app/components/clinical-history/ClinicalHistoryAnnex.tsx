@@ -296,19 +296,44 @@ function toManualDateValue(value: string | null) {
 }
 
 function parseManualDate(value: string) {
-  const match = value
-    .trim()
-    .match(/^(\\d{2})\/(\\d{2})\/(\\d{4})$/);
+  const cleanValue = value.trim();
 
-  if (!match) {
+  const parts = cleanValue.split("/");
+
+  if (parts.length !== 3) {
     return "";
   }
 
-  const [, day, month, year] = match;
+  const [day, month, year] = parts;
+
+  if (
+    day.length !== 2 ||
+    month.length !== 2 ||
+    year.length !== 4
+  ) {
+    return "";
+  }
 
   const dayNumber = Number(day);
   const monthNumber = Number(month);
   const yearNumber = Number(year);
+
+  if (
+    !Number.isInteger(dayNumber) ||
+    !Number.isInteger(monthNumber) ||
+    !Number.isInteger(yearNumber)
+  ) {
+    return "";
+  }
+
+  if (
+    dayNumber < 1 ||
+    dayNumber > 31 ||
+    monthNumber < 1 ||
+    monthNumber > 12
+  ) {
+    return "";
+  }
 
   const date = new Date(
     yearNumber,
