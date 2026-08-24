@@ -218,7 +218,7 @@ function toManualDateTimeValue(value: string | null) {
   const hours = String(date.getHours()).padStart(2, "0");
   const minutes = String(date.getMinutes()).padStart(2, "0");
 
-  return `${day}/${month}/${year} ${hours}:${minutes}`;
+  return `${day}/${month}/${year}\n${hours}:${minutes}`;
 }
 
 function parseManualDateTime(value: string) {
@@ -335,10 +335,15 @@ function parseManualDate(value: string) {
     return "";
   }
 
+  // Usamos el mediodía para evitar corrimientos de día
+  // por diferencias de zona horaria.
   const date = new Date(
     yearNumber,
     monthNumber - 1,
-    dayNumber
+    dayNumber,
+    12,
+    0,
+    0
   );
 
   if (
@@ -349,7 +354,7 @@ function parseManualDate(value: string) {
     return "";
   }
 
-  return `${year}-${month}-${day}`;
+  return date.toISOString();
 }
 
 
