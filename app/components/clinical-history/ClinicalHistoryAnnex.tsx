@@ -1024,7 +1024,7 @@ export default function ClinicalHistoryAnnex({
                                 aria-label="Fecha y hora de la prestación"
                               />
                             ) : (
-                              <div className="flex h-full min-h-[34px] w-full items-center justify-center px-1 text-center text-[8px] font-normal leading-none text-[#263F3B]">
+                              <div className="annex-datetime-display">
                                 {toManualDateTimeValue(
                                   entry.performedAt
                                 )}
@@ -2154,6 +2154,27 @@ export default function ClinicalHistoryAnnex({
         .annex-datetime-input:focus {
           background: #f2f6ed;
           box-shadow: inset 0 0 0 1px #a2b38b;
+        }
+
+        .annex-datetime-display {
+          box-sizing: border-box;
+          display: flex;
+          width: 100%;
+          min-height: 34px;
+          align-items: center;
+          justify-content: center;
+          padding: 3px 2px;
+          color: #263f3b;
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: clamp(
+            8px,
+            0.85vw,
+            11px
+          );
+          font-weight: 500;
+          line-height: 1.25;
+          text-align: center;
+          white-space: pre-line;
         }
 
         .editing-row {
