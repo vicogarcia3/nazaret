@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
-
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
 import DoctorPacientesClient from "./DoctorPacientesClient";
 
 export default async function DoctorPacientesPage() {
@@ -16,6 +14,10 @@ export default async function DoctorPacientesPage() {
     redirect("/dashboard");
   }
 
+  /*
+   * Buscamos el perfil de odontólogo asociado
+   * al usuario que inició sesión.
+   */
   const doctor = await prisma.doctor.findUnique({
     where: {
       userId: session.user.id,
@@ -46,57 +48,55 @@ export default async function DoctorPacientesPage() {
     );
   }
 
-  const branchIds = doctor.branches.map(
-    (doctorBranch) => doctorBranch.branchId
-  );
+  /*
+   * =====================================================
+   * PACIENTES DEL ESPECIALISTA
+   * =====================================================
+   *
+   * El vínculo se obtiene desde la HISTORIA CLÍNICA.
+   *
+   * En ClinicalHistory.data se guarda:
+   *
+   * {
+   *   odontologo: "Victoria Garcia",
+   *   ...
+   * }
+   *
+   * Por lo tanto, un paciente aparece en el portal
+   * del especialista cuando alguna de sus historias clínicas
+   * tiene data.odontologo igual al nombre del especialista.
+   *
+   * NO usamos patient.doctorId.
+   */
 
-  const [patients, branches] = await Promise.all([
-    prisma.patient.findMany({
+  const [histories, branches] = await Promise.all([
+    prisma.clinicalHistory.findMany({
       where: {
-        OR: [
-          {
-            branchId: {
-              in: branchIds,
-            },
-          },
-          {
-            appointments: {
-              some: {
-                doctorId: doctor.id,
-              },
-            },
-          },
-          {
-            budgets: {
-              some: {
-                doctors: {
-                  some: {
-                    doctorId: doctor.id,
-                  },
-                },
-              },
-            },
-          },
-        ],
+        data: {
+          path: ["odontologo"],
+          equals: doctor.name,
+        },
       },
       include: {
-        branch: true,
-        plan: true,
+        patient: {
+          include: {
+            branch: true,
+            plan: true,
+          },
+        },
       },
-      orderBy: [
-        {
-          lastName: "asc",
-        },
-        {
-          firstName: "asc",
-        },
-      ],
     }),
 
+    /*
+     * Mostramos solamente las sucursales a las
+     * que pertenece este especialista.
+     */
     prisma.branch.findMany({
       where: {
         id: {
-          in: branchIds,
+          in: doctor.branches.map(
+            (doctorBranch) => doctorBranch.branchId
+          ),
         },
         active: true,
       },
@@ -105,6 +105,31 @@ export default async function DoctorPacientesPage() {
       },
     }),
   ]);
+
+  /*
+   * Una misma persona podría tener más de una Historia Clínica.
+   * Por eso eliminamos pacientes duplicados.
+   */
+  const patientsMap = new Map<
+    string,
+    (typeof histories)[number]["patient"]
+  >();
+
+  for (const history of histories) {
+    if (history.patient) {
+      patientsMap.set(history.patient.id, history.patient);
+    }
+  }
+
+  const patients = Array.from(patientsMap.values()).sort((a, b) => {
+    const lastNameCompare = a.lastName.localeCompare(b.lastName);
+
+    if (lastNameCompare !== 0) {
+      return lastNameCompare;
+    }
+
+    return a.firstName.localeCompare(b.firstName);
+  });
 
   return (
     <DoctorPacientesClient

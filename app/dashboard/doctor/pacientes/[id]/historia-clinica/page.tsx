@@ -1,7 +1,11 @@
 import { auth } from "@/lib/auth";
+
 import { prisma } from "@/lib/prisma";
+
 import { notFound, redirect } from "next/navigation";
+
 import Link from "next/link";
+
 import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 
 type Props = {
@@ -25,17 +29,13 @@ export default async function DoctorClinicalHistoryPage({
 
   const { id } = await params;
 
+  // Buscamos el perfil de odontólogo asociado
   const doctor = await prisma.doctor.findUnique({
     where: {
       userId: session.user.id,
     },
     select: {
       id: true,
-      branches: {
-        select: {
-          branchId: true,
-        },
-      },
     },
   });
 
@@ -43,38 +43,12 @@ export default async function DoctorClinicalHistoryPage({
     notFound();
   }
 
-  const branchIds = doctor.branches.map(
-    (doctorBranch) => doctorBranch.branchId
-  );
-
+  // El odontólogo solamente puede acceder a pacientes
+  // que estén directamente asociados a él mediante patient.doctorId
   const patient = await prisma.patient.findFirst({
     where: {
       id,
-      OR: [
-        {
-          branchId: {
-            in: branchIds,
-          },
-        },
-        {
-          appointments: {
-            some: {
-              doctorId: doctor.id,
-            },
-          },
-        },
-        {
-          budgets: {
-            some: {
-              doctors: {
-                some: {
-                  doctorId: doctor.id,
-                },
-              },
-            },
-          },
-        },
-      ],
+      doctorId: doctor.id,
     },
     include: {
       user: true,

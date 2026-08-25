@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   BadgeCheck,
   CalendarDays,
-  ChevronRight,
   CircleCheck,
   Clock3,
   FileText,
@@ -14,6 +13,8 @@ import {
   Phone,
   Stethoscope,
   UserRound,
+  Wallet,
+  AlertCircle,
 } from "lucide-react";
 
 import { auth } from "@/lib/auth";
@@ -58,6 +59,10 @@ function formatAppointmentTime(date: Date) {
   }).format(date);
 }
 
+function formatMoney(value: number) {
+  return `$${value.toLocaleString("es-AR")}`;
+}
+
 function getInitials(firstName: string, lastName: string) {
   return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
 }
@@ -75,17 +80,16 @@ export default async function DoctorPatientPage({ params }: Props) {
 
   const { id } = await params;
 
+  /*
+   * Buscamos al especialista asociado al usuario logueado.
+   */
   const doctor = await prisma.doctor.findUnique({
     where: {
       userId: session.user.id,
     },
     select: {
       id: true,
-      branches: {
-        select: {
-          branchId: true,
-        },
-      },
+      name: true,
     },
   });
 
@@ -93,51 +97,68 @@ export default async function DoctorPatientPage({ params }: Props) {
     notFound();
   }
 
-  const branchIds = doctor.branches.map(
-    (doctorBranch) => doctorBranch.branchId
-  );
-
+  /*
+   * =====================================================
+   * ACCESO AL PACIENTE
+   * =====================================================
+   *
+   * El paciente solamente pertenece al portal del
+   * especialista si alguna Historia Clínica tiene:
+   *
+   * data.odontologo === doctor.name
+   *
+   * No usamos sucursal, turnos ni presupuestos
+   * como criterio de acceso.
+   */
   const patient = await prisma.patient.findFirst({
     where: {
       id,
-      OR: [
-        {
-          branchId: {
-            in: branchIds,
+      histories: {
+        some: {
+          data: {
+            path: ["odontologo"],
+            equals: doctor.name,
           },
         },
-        {
-          appointments: {
-            some: {
-              doctorId: doctor.id,
-            },
-          },
-        },
-        {
-          budgets: {
-            some: {
-              doctors: {
-                some: {
-                  doctorId: doctor.id,
-                },
-              },
-            },
-          },
-        },
-      ],
+      },
     },
+
     include: {
       user: true,
       branch: true,
       plan: true,
-      appointments: {
-        where: {
-          doctorId: doctor.id,
+
+      histories: {
+        orderBy: {
+          updatedAt: "desc",
         },
+        take: 1,
+      },
+
+      budgets: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        include: {
+          items: true,
+          payments: true,
+        },
+      },
+
+      payments: {
+        orderBy: {
+          dueDate: "desc",
+        },
+      },
+
+      appointments: {
         orderBy: {
           date: "desc",
         },
-        take: 5,
+        include: {
+          doctor: true,
+          branch: true,
+        },
       },
     },
   });
@@ -146,8 +167,57 @@ export default async function DoctorPatientPage({ params }: Props) {
     notFound();
   }
 
-  const fullName = `${patient.lastName}, ${patient.firstName}`;
-  const initials = getInitials(patient.firstName, patient.lastName);
+  const latestHistory = patient.histories[0];
+
+  const paidPayments = patient.payments.filter(
+    (payment) => payment.status === "PAID"
+  );
+
+  const pendingPayments = patient.payments.filter(
+    (payment) => payment.status === "PENDING"
+  );
+
+  const delayedPayments = pendingPayments.filter(
+    (payment) => new Date(payment.dueDate) < new Date()
+  );
+
+  const totalPaid = paidPayments.reduce(
+    (acc, payment) => acc + Number(payment.amount),
+    0
+  );
+
+  const totalPending = pendingPayments.reduce(
+    (acc, payment) => acc + Number(payment.amount),
+    0
+  );
+
+  const totalDelayed = delayedPayments.reduce(
+    (acc, payment) => acc + Number(payment.amount),
+    0
+  );
+
+  const totalBudgets = patient.budgets.reduce(
+    (acc, budget) => acc + Number(budget.total),
+    0
+  );
+
+  const completedAppointments = patient.appointments.filter(
+    (appointment) => appointment.status === "COMPLETED"
+  );
+
+  const futureAppointments = patient.appointments
+    .filter(
+      (appointment) =>
+        new Date(appointment.date) > new Date() &&
+        appointment.status !== "CANCELED"
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.date).getTime() -
+        new Date(b.date).getTime()
+    );
+
+  const nextAppointment = futureAppointments[0];
 
   const whatsappPhone = formatPhoneForWhatsApp(patient.phone);
 
@@ -155,9 +225,12 @@ export default async function DoctorPatientPage({ params }: Props) {
     `Hola ${patient.firstName}, te escribimos desde Consultorios Nazaret.`
   );
 
-  const completedAppointments = patient.appointments.filter(
-    (appointment) => appointment.status === "COMPLETED"
-  ).length;
+  const fullName = `${patient.lastName}, ${patient.firstName}`;
+
+  const initials = getInitials(
+    patient.firstName,
+    patient.lastName
+  );
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] px-4 py-6 text-[#263F3B] sm:px-6 md:px-10 md:py-8">
@@ -170,9 +243,11 @@ export default async function DoctorPatientPage({ params }: Props) {
           Volver a pacientes
         </Link>
 
+        {/* =========================
+            CABECERA DEL PACIENTE
+        ========================== */}
         <header className="overflow-hidden border border-[#DED9CD] bg-white">
           <div className="grid lg:grid-cols-[360px_minmax(0,1fr)]">
-            {/* Perfil principal */}
             <section className="flex flex-col justify-between bg-[#EEF1E8] p-6 md:p-8">
               <div>
                 <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white text-xl font-semibold text-[#6F855F] shadow-sm">
@@ -213,7 +288,6 @@ export default async function DoctorPatientPage({ params }: Props) {
               </div>
             </section>
 
-            {/* Información y acciones */}
             <section className="flex flex-col">
               <div className="flex flex-col justify-between gap-5 border-b border-[#EEEAE1] p-6 md:flex-row md:items-start md:p-8">
                 <div>
@@ -226,8 +300,7 @@ export default async function DoctorPatientPage({ params }: Props) {
                   </h2>
 
                   <p className="mt-2 max-w-lg text-sm leading-6 text-[#6B7774]">
-                    Información de contacto y asignación dentro de Consultorios
-                    Nazaret.
+                    Información de contacto y datos generales del paciente.
                   </p>
                 </div>
 
@@ -288,218 +361,311 @@ export default async function DoctorPatientPage({ params }: Props) {
           </div>
         </header>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* =========================
+            RESUMEN
+        ========================== */}
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard
             icon={<CalendarDays className="h-5 w-5" />}
-            label="Turnos recientes"
+            label="Turnos"
             value={String(patient.appointments.length)}
-            detail="Últimos registros disponibles"
+            detail="Turnos registrados"
           />
 
           <MetricCard
             icon={<CircleCheck className="h-5 w-5" />}
-            label="Atenciones completadas"
-            value={String(completedAppointments)}
-            detail="Dentro de los últimos turnos"
+            label="Atenciones"
+            value={String(completedAppointments.length)}
+            detail="Atenciones completadas"
           />
 
           <MetricCard
-            icon={<MapPin className="h-5 w-5" />}
-            label="Sucursal asignada"
-            value={patient.branch.city}
-            detail={patient.branch.name}
+            icon={<FileText className="h-5 w-5" />}
+            label="Presupuestos"
+            value={String(patient.budgets.length)}
+            detail={formatMoney(totalBudgets)}
+          />
+
+          <MetricCard
+            icon={<Wallet className="h-5 w-5" />}
+            label="Pagos"
+            value={String(patient.payments.length)}
+            detail={formatMoney(totalPaid)}
           />
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-[minmax(0,1.45fr)_380px]">
-          <article className="border border-[#DED9CD] bg-white">
-            <div className="flex flex-col justify-between gap-4 border-b border-[#DED9CD] px-5 py-5 sm:flex-row sm:items-center md:px-7">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
-                  Actividad reciente
-                </p>
+        {/* =========================
+            PAGOS / SALDOS
+        ========================== */}
+        <section className="grid gap-4 md:grid-cols-3">
+          <article className="border border-[#DED9CD] bg-white p-6">
+            <Wallet className="mb-4 h-5 w-5 text-[#A2B38B]" />
 
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                  Últimos turnos
-                </h2>
-              </div>
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+              Cobrado
+            </p>
 
-              <Link
-                href="/dashboard/doctor/agenda"
-                className="inline-flex items-center gap-2 text-sm font-medium text-[#6F855F] transition hover:text-[#263F3B]"
-              >
-                Ver agenda
-                <ChevronRight className="h-4 w-4" />
-              </Link>
-            </div>
+            <p className="mt-3 text-3xl font-semibold text-green-700">
+              {formatMoney(totalPaid)}
+            </p>
 
-            {patient.appointments.length === 0 ? (
-              <div className="flex min-h-[350px] flex-col items-center justify-center px-6 py-14 text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#EEF1E8] text-[#6F855F]">
-                  <CalendarDays className="h-7 w-7" />
-                </div>
-
-                <h3 className="mt-5 text-2xl font-semibold tracking-tight">
-                  No hay turnos registrados
-                </h3>
-
-                <p className="mt-2 max-w-sm text-sm leading-6 text-[#6B7774]">
-                  Este paciente todavía no tiene atenciones registradas con
-                  vos.
-                </p>
-
-                <Link
-                  href="/dashboard/doctor/agenda"
-                  className="mt-6 inline-flex items-center gap-2 border border-[#263F3B] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#263F3B] transition hover:bg-[#263F3B] hover:text-white"
-                >
-                  Abrir agenda
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-            ) : (
-              <div>
-                {patient.appointments.map((appointment, index) => (
-                  <article
-                    key={appointment.id}
-                    className={`grid gap-4 px-5 py-5 md:grid-cols-[110px_minmax(0,1fr)_auto] md:items-center md:px-7 ${
-                      index !== patient.appointments.length - 1
-                        ? "border-b border-[#EEEAE1]"
-                        : ""
-                    }`}
-                  >
-                    <div>
-                      <p className="text-xl font-semibold tracking-tight">
-                        {formatAppointmentTime(appointment.date)}
-                      </p>
-
-                      <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A2B38B]">
-                        Horario
-                      </p>
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="capitalize font-semibold text-[#263F3B]">
-                        {formatAppointmentDate(appointment.date)}
-                      </p>
-
-                      <p className="mt-1 line-clamp-2 text-sm leading-6 text-[#6B7774]">
-                        {appointment.notes || "Consulta sin especificar"}
-                      </p>
-                    </div>
-
-                    <AppointmentStatus status={appointment.status} />
-                  </article>
-                ))}
-              </div>
-            )}
+            <p className="mt-2 text-sm text-[#6B7774]">
+              Pagos registrados como cobrados.
+            </p>
           </article>
 
-          <aside className="space-y-4">
+          <article className="border border-[#DED9CD] bg-white p-6">
+            <Clock3 className="mb-4 h-5 w-5 text-[#A2B38B]" />
+
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+              Pendiente
+            </p>
+
+            <p className="mt-3 text-3xl font-semibold text-amber-700">
+              {formatMoney(totalPending)}
+            </p>
+
+            <p className="mt-2 text-sm text-[#6B7774]">
+              Pagos pendientes.
+            </p>
+          </article>
+
+          <article className="border border-[#DED9CD] bg-white p-6">
+            <AlertCircle className="mb-4 h-5 w-5 text-[#A2B38B]" />
+
+            <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
+              Demorados
+            </p>
+
+            <p className="mt-3 text-3xl font-semibold text-red-600">
+              {formatMoney(totalDelayed)}
+            </p>
+
+            <p className="mt-2 text-sm text-[#6B7774]">
+              Pagos pendientes con vencimiento superado.
+            </p>
+          </article>
+        </section>
+
+        {/* =========================
+            PRESUPUESTOS
+        ========================== */}
+        <section className="border border-[#DED9CD] bg-white">
+          <div className="border-b border-[#DED9CD] px-6 py-5 md:px-8">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
+              Información económica
+            </p>
+
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight">
+              Presupuestos
+            </h2>
+          </div>
+
+          {patient.budgets.length === 0 ? (
+            <div className="p-8 text-sm text-[#6B7774]">
+              El paciente no tiene presupuestos registrados.
+            </div>
+          ) : (
+            <div>
+              {patient.budgets.map((budget, index) => {
+                const budgetPaid = budget.payments
+                  .filter((payment) => payment.status === "PAID")
+                  .reduce(
+                    (sum, payment) => sum + Number(payment.amount),
+                    0
+                  );
+
+                const remaining = Math.max(
+                  Number(budget.total) - budgetPaid,
+                  0
+                );
+
+                return (
+                  <article
+                    key={budget.id}
+                    className="border-b border-[#EEEAE1] p-6 last:border-b-0 md:p-8"
+                  >
+                    <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                          Presupuesto #{index + 1}
+                        </p>
+
+                        <h3 className="mt-2 text-xl font-semibold">
+                          {budget.description || "Sin descripción"}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-[#6B7774]">
+                          Estado: {budget.status}
+                        </p>
+                      </div>
+
+                      <div className="grid gap-4 sm:grid-cols-3 md:min-w-[420px]">
+                        <MoneySummary
+                          label="Total"
+                          value={Number(budget.total)}
+                        />
+
+                        <MoneySummary
+                          label="Abonado"
+                          value={budgetPaid}
+                          className="text-green-700"
+                        />
+
+                        <MoneySummary
+                          label="Pendiente"
+                          value={remaining}
+                          className="text-amber-700"
+                        />
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
+
+        {/* =========================
+            TURNOS
+        ========================== */}
+        <section className="border border-[#DED9CD] bg-white">
+          <div className="flex flex-col justify-between gap-4 border-b border-[#DED9CD] px-6 py-5 sm:flex-row sm:items-center md:px-8">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
-                Accesos rápidos
+                Actividad
               </p>
 
               <h2 className="mt-2 text-2xl font-semibold tracking-tight">
-                Gestión del paciente
+                Turnos
               </h2>
             </div>
 
-            <QuickAccess
-              href={`/dashboard/doctor/pacientes/${patient.id}/historia-clinica`}
-              icon={<Stethoscope className="h-5 w-5" />}
-              title="Historia clínica"
-              description="Consultar y actualizar los datos clínicos y el odontograma."
-              primary
-            />
-
-            <QuickAccess
-              href={`/print/historia-clinica/${patient.id}`}
-              target="_blank"
-              icon={<FileText className="h-5 w-5" />}
-              title="Historia clínica en PDF"
-              description="Abrir la versión imprimible de la historia clínica."
-            />
-
-            <QuickAccess
+            <Link
               href="/dashboard/doctor/agenda"
-              icon={<CalendarDays className="h-5 w-5" />}
-              title="Consultar agenda"
-              description="Revisar turnos y actualizar el estado de las atenciones."
-            />
+              className="inline-flex items-center gap-2 text-sm font-medium text-[#6F855F] transition hover:text-[#263F3B]"
+            >
+              Ver agenda
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
 
-            {whatsappPhone && (
-              <a
-                href={`https://wa.me/${whatsappPhone}?text=${whatsappMessage}`}
-                target="_blank"
-                rel="noreferrer"
-                className="group block border border-[#DED9CD] bg-white p-5 transition hover:border-[#6F855F]"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEF1E8] text-[#6F855F] transition group-hover:bg-[#6F855F] group-hover:text-white">
-                    <Phone className="h-5 w-5" />
-                  </div>
+          {patient.appointments.length === 0 ? (
+            <div className="p-8 text-sm text-[#6B7774]">
+              No hay turnos registrados para este paciente.
+            </div>
+          ) : (
+            <div>
+              {patient.appointments.slice(0, 10).map((appointment, index) => (
+                <article
+                  key={appointment.id}
+                  className={`grid gap-4 px-6 py-5 md:grid-cols-[120px_minmax(0,1fr)_auto] md:items-center md:px-8 ${
+                    index !==
+                    Math.min(patient.appointments.length, 10) - 1
+                      ? "border-b border-[#EEEAE1]"
+                      : ""
+                  }`}
+                >
+                  <div>
+                    <p className="text-xl font-semibold tracking-tight">
+                      {formatAppointmentTime(appointment.date)}
+                    </p>
 
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-[#263F3B]">
-                      Contactar por WhatsApp
-                    </h3>
-
-                    <p className="mt-1 text-sm leading-6 text-[#6B7774]">
-                      Iniciar una conversación con {patient.firstName}.
+                    <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A2B38B]">
+                      Horario
                     </p>
                   </div>
 
-                  <ArrowUpRight className="h-4 w-4 shrink-0 text-[#8FA07F]" />
+                  <div className="min-w-0">
+                    <p className="capitalize font-semibold text-[#263F3B]">
+                      {formatAppointmentDate(appointment.date)}
+                    </p>
+
+                    <p className="mt-1 text-sm leading-6 text-[#6B7774]">
+                      {appointment.notes || "Consulta sin especificar"}
+                    </p>
+
+                    <p className="mt-1 text-xs text-[#8A9692]">
+                      {appointment.doctor?.name || "Profesional no informado"}
+                    </p>
+                  </div>
+
+                  <AppointmentStatus status={appointment.status} />
+                </article>
+              ))}
+            </div>
+          )}
+
+          {nextAppointment && (
+            <div className="border-t border-[#DED9CD] bg-[#FAF9F5] px-6 py-5 md:px-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#A2B38B]">
+                Próximo turno
+              </p>
+
+              <p className="mt-2 text-sm font-semibold text-[#263F3B]">
+                {formatAppointmentDate(nextAppointment.date)} a las{" "}
+                {formatAppointmentTime(nextAppointment.date)}
+              </p>
+            </div>
+          )}
+        </section>
+
+        {/* =========================
+            ACCESOS RÁPIDOS
+        ========================== */}
+        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <QuickAccess
+            href={`/dashboard/doctor/pacientes/${patient.id}/historia-clinica`}
+            icon={<Stethoscope className="h-5 w-5" />}
+            title="Historia clínica"
+            description="Consultar los datos clínicos y el odontograma."
+            primary
+          />
+
+          <QuickAccess
+            href={`/print/historia-clinica/${patient.id}`}
+            target="_blank"
+            icon={<FileText className="h-5 w-5" />}
+            title="Historia clínica en PDF"
+            description="Abrir la versión imprimible."
+          />
+
+          <QuickAccess
+            href="/dashboard/doctor/agenda"
+            icon={<CalendarDays className="h-5 w-5" />}
+            title="Consultar agenda"
+            description="Revisar y gestionar turnos."
+          />
+
+          {whatsappPhone && (
+            <a
+              href={`https://wa.me/${whatsappPhone}?text=${whatsappMessage}`}
+              target="_blank"
+              rel="noreferrer"
+              className="group block border border-[#DED9CD] bg-white p-5 transition hover:border-[#6F855F]"
+            >
+              <div className="flex items-center gap-4">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#EEF1E8] text-[#6F855F]">
+                  <Phone className="h-5 w-5" />
                 </div>
-              </a>
-            )}
-          </aside>
+
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold text-[#263F3B]">
+                    Contactar por WhatsApp
+                  </h3>
+
+                  <p className="mt-1 text-sm leading-6 text-[#6B7774]">
+                    Iniciar una conversación con {patient.firstName}.
+                  </p>
+                </div>
+
+                <ArrowUpRight className="h-4 w-4 text-[#8FA07F]" />
+              </div>
+            </a>
+          )}
         </section>
       </div>
     </main>
-  );
-}
-
-function HeaderDetail({
-  icon,
-  label,
-  value,
-  detail,
-  last = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  detail?: string;
-  last?: boolean;
-}) {
-  return (
-    <div
-      className={`flex min-w-0 gap-3 px-5 py-4 ${
-        last
-          ? ""
-          : "border-b border-[#EEEAE1] sm:border-b-0 sm:border-r"
-      }`}
-    >
-      <div className="mt-0.5 text-[#8FA07F]">{icon}</div>
-
-      <div className="min-w-0">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8FA07F]">
-          {label}
-        </p>
-
-        <p className="mt-1 truncate text-sm font-medium text-[#263F3B]">
-          {value}
-        </p>
-
-        {detail && (
-          <p className="mt-1 text-xs leading-5 text-[#6B7774]">
-            {detail}
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -568,6 +734,28 @@ function MetricCard({
         <p className="mt-1 text-xs text-[#6B7774]">{detail}</p>
       </div>
     </article>
+  );
+}
+
+function MoneySummary({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: number;
+  className?: string;
+}) {
+  return (
+    <div>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-[#A2B38B]">
+        {label}
+      </p>
+
+      <p className={`mt-1 text-lg font-semibold ${className}`}>
+        {formatMoney(value)}
+      </p>
+    </div>
   );
 }
 

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+
 import { auth } from "@/lib/auth";
+
 import { prisma } from "@/lib/prisma";
 
 function getAppointmentInclude() {
@@ -13,6 +15,7 @@ function getAppointmentInclude() {
         dni: true,
       },
     },
+
     doctor: {
       include: {
         user: {
@@ -22,6 +25,7 @@ function getAppointmentInclude() {
         },
       },
     },
+
     branch: {
       select: {
         id: true,
@@ -33,43 +37,85 @@ function getAppointmentInclude() {
   };
 }
 
+async function getDoctorProfile(userId: string) {
+  return prisma.doctor.findUnique({
+    where: {
+      userId,
+    },
+    include: {
+      branches: {
+        include: {
+          branch: true,
+        },
+      },
+    },
+  });
+}
+
+async function doctorCanAccessPatient(
+  doctorId: string,
+  doctorName: string,
+  patientId: string
+) {
+  const patient = await prisma.patient.findFirst({
+    where: {
+      id: patientId,
+      histories: {
+        some: {
+          data: {
+            path: ["odontologo"],
+            equals: doctorName,
+          },
+        },
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return Boolean(patient);
+}
+
 export async function GET() {
   try {
     const session = await auth();
 
-    if (!session?.user?.id || session.user.role !== "DOCTOR") {
+    if (
+      !session?.user?.id ||
+      session.user.role !== "DOCTOR"
+    ) {
       return NextResponse.json(
         { error: "No autorizado." },
         { status: 401 }
       );
     }
 
-    const doctor = await prisma.doctor.findUnique({
-      where: {
-        userId: session.user.id,
-      },
-      include: {
-        branches: {
-          include: {
-            branch: true,
-          },
-        },
-      },
-    });
+    const doctor = await getDoctorProfile(
+      session.user.id
+    );
 
     if (!doctor) {
       return NextResponse.json(
-        { error: "Perfil de odontólogo no encontrado." },
+        {
+          error:
+            "Perfil de odontólogo no encontrado.",
+        },
         { status: 404 }
       );
     }
 
     const branchIds = doctor.branches.map(
-      (doctorBranch) => doctorBranch.branchId
+      (doctorBranch) =>
+        doctorBranch.branchId
     );
 
-    const [appointments, patients] = await Promise.all([
-      prisma.appointment.findMany({
+    /*
+     * Los turnos que administra el profesional
+     * son los que están asignados a él.
+     */
+    const appointments =
+      await prisma.appointment.findMany({
         where: {
           doctorId: doctor.id,
           branchId: {
@@ -80,34 +126,25 @@ export async function GET() {
         orderBy: {
           date: "asc",
         },
-      }),
+      });
 
-      prisma.patient.findMany({
+    /*
+     * Los pacientes disponibles para crear turnos
+     * son solamente los vinculados por Historia Clínica.
+     */
+    const patients =
+      await prisma.patient.findMany({
         where: {
-          OR: [
-            {
-              doctorId: doctor.id,
-            },
-            {
-              appointments: {
-                some: {
-                  doctorId: doctor.id,
-                },
+          histories: {
+            some: {
+              data: {
+                path: ["odontologo"],
+                equals: doctor.name,
               },
             },
-            {
-              budgets: {
-                some: {
-                  doctors: {
-                    some: {
-                      doctorId: doctor.id,
-                    },
-                  },
-                },
-              },
-            },
-          ],
+          },
         },
+
         select: {
           id: true,
           firstName: true,
@@ -116,6 +153,7 @@ export async function GET() {
           phone: true,
           branchId: true,
         },
+
         orderBy: [
           {
             lastName: "asc",
@@ -124,11 +162,11 @@ export async function GET() {
             firstName: "asc",
           },
         ],
-      }),
-    ]);
+      });
 
     const branches = doctor.branches.map(
-      (doctorBranch) => doctorBranch.branch
+      (doctorBranch) =>
+        doctorBranch.branch
     );
 
     return NextResponse.json({
@@ -137,20 +175,31 @@ export async function GET() {
       patients,
     });
   } catch (error) {
-    console.error("ERROR OBTENIENDO AGENDA DEL DOCTOR:", error);
+    console.error(
+      "ERROR OBTENIENDO AGENDA DEL DOCTOR:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "No se pudo cargar la agenda." },
+      {
+        error:
+          "No se pudo cargar la agenda.",
+      },
       { status: 500 }
     );
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(
+  request: Request
+) {
   try {
     const session = await auth();
 
-    if (!session?.user?.id || session.user.role !== "DOCTOR") {
+    if (
+      !session?.user?.id ||
+      session.user.role !== "DOCTOR"
+    ) {
       return NextResponse.json(
         { error: "No autorizado." },
         { status: 401 }
@@ -161,7 +210,9 @@ export async function POST(request: Request) {
       where: {
         userId: session.user.id,
       },
-      include: {
+      select: {
+        id: true,
+        name: true,
         branches: {
           select: {
             branchId: true,
@@ -172,7 +223,10 @@ export async function POST(request: Request) {
 
     if (!doctor) {
       return NextResponse.json(
-        { error: "Perfil de odontólogo no encontrado." },
+        {
+          error:
+            "Perfil de odontólogo no encontrado.",
+        },
         { status: 404 }
       );
     }
@@ -204,7 +258,13 @@ export async function POST(request: Request) {
         ? body.notes.trim()
         : "";
 
-    if (!patientId || !branchId || !date || !time || !notes) {
+    if (
+      !patientId ||
+      !branchId ||
+      !date ||
+      !time ||
+      !notes
+    ) {
       return NextResponse.json(
         {
           error:
@@ -214,9 +274,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const doctorBranchIds = doctor.branches.map(
-      (doctorBranch) => doctorBranch.branchId
-    );
+    const doctorBranchIds =
+      doctor.branches.map(
+        (doctorBranch) =>
+          doctorBranch.branchId
+      );
 
     if (!doctorBranchIds.includes(branchId)) {
       return NextResponse.json(
@@ -228,64 +290,49 @@ export async function POST(request: Request) {
       );
     }
 
-    const patient = await prisma.patient.findFirst({
-      where: {
-        id: patientId,
-        OR: [
-          {
-            doctorId: doctor.id,
-          },
-          {
-            appointments: {
-              some: {
-                doctorId: doctor.id,
-              },
-            },
-          },
-          {
-            budgets: {
-              some: {
-                doctors: {
-                  some: {
-                    doctorId: doctor.id,
-                  },
-                },
-              },
-            },
-          },
-        ],
-      },
-      select: {
-        id: true,
-      },
-    });
+    /*
+     * El paciente debe estar vinculado al profesional
+     * mediante su Historia Clínica.
+     */
+    const hasPatientAccess =
+      await doctorCanAccessPatient(
+        doctor.id,
+        doctor.name,
+        patientId
+      );
 
-    if (!patient) {
+    if (!hasPatientAccess) {
       return NextResponse.json(
         {
           error:
-            "El paciente seleccionado no está asociado al profesional.",
+            "El paciente seleccionado no está asociado al profesional mediante la historia clínica.",
         },
         { status: 403 }
       );
     }
 
-    /*
-      Se agrega la zona horaria de Argentina para evitar que Vercel,
-      que normalmente trabaja en UTC, cambie el día o la hora.
-    */
     const appointmentDate = new Date(
       `${date}T${time}:00-03:00`
     );
 
-    if (Number.isNaN(appointmentDate.getTime())) {
+    if (
+      Number.isNaN(
+        appointmentDate.getTime()
+      )
+    ) {
       return NextResponse.json(
-        { error: "La fecha o el horario son inválidos." },
+        {
+          error:
+            "La fecha o el horario son inválidos.",
+        },
         { status: 400 }
       );
     }
 
-    if (appointmentDate.getTime() < Date.now()) {
+    if (
+      appointmentDate.getTime() <
+      Date.now()
+    ) {
       return NextResponse.json(
         {
           error:
@@ -304,6 +351,7 @@ export async function POST(request: Request) {
             not: "CANCELED",
           },
         },
+
         select: {
           id: true,
         },
@@ -319,17 +367,19 @@ export async function POST(request: Request) {
       );
     }
 
-    const appointment = await prisma.appointment.create({
-      data: {
-        patientId,
-        doctorId: doctor.id,
-        branchId,
-        date: appointmentDate,
-        notes,
-        status: "PENDING",
-      },
-      include: getAppointmentInclude(),
-    });
+    const appointment =
+      await prisma.appointment.create({
+        data: {
+          patientId,
+          doctorId: doctor.id,
+          branchId,
+          date: appointmentDate,
+          notes,
+          status: "PENDING",
+        },
+
+        include: getAppointmentInclude(),
+      });
 
     return NextResponse.json(
       {
@@ -340,10 +390,16 @@ export async function POST(request: Request) {
       }
     );
   } catch (error) {
-    console.error("ERROR CREANDO TURNO DEL DOCTOR:", error);
+    console.error(
+      "ERROR CREANDO TURNO DEL DOCTOR:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "No se pudo crear el turno." },
+      {
+        error:
+          "No se pudo crear el turno.",
+      },
       { status: 500 }
     );
   }

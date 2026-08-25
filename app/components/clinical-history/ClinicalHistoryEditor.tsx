@@ -12,6 +12,12 @@ type Props = {
 };
 
 type FormState = Record<string, string>;
+type Doctor = {
+  id: string;
+  name: string;
+  specialty: string | null;
+  professionalLicense: string | null;
+};
 type Color = "red" | "blue";
 type Face = "center" | "top" | "bottom" | "left" | "right";
 type SymbolType = "corona" | "extraccion" | "noErupcionado" | "sellador";
@@ -576,11 +582,27 @@ export default function ClinicalHistoryEditor({
   const [historyId, setHistoryId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(initialForm);
   const [odontogramData, setOdontogramData] = useState<Record<string, ToothMark>>({});
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   useEffect(() => {
-    fetch(`/api/clinical-history?patientId=${patientId}`)
-      .then((res) => res.json())
-      .then((history) => {
+    async function loadData() {
+      try {
+        const [historyRes, doctorsRes] = await Promise.all([
+          fetch(`/api/clinical-history?patientId=${patientId}`),
+          fetch("/api/doctors", {
+            cache: "no-store",
+          }),
+        ]);
+
+        const history = await historyRes.json();
+        const doctorsData = await doctorsRes.json();
+
+        setDoctors(
+          Array.isArray(doctorsData)
+            ? doctorsData
+            : []
+        );
+
         if (!history) {
           setHistoryId(null);
           setForm(initialForm);
@@ -605,7 +627,12 @@ export default function ClinicalHistoryEditor({
         });
 
         setOdontogramData(savedData.odontogramData || {});
-      });
+      } catch (error) {
+        console.error("Error cargando historia clínica:", error);
+      }
+    }
+
+    loadData();
   }, [patientId]);
 
   function update(field: string, value: string) {
@@ -689,7 +716,24 @@ export default function ClinicalHistoryEditor({
       <div className="grid gap-4 md:grid-cols-4">
         <LineInput label="Lugar" value={form.lugar} onChange={(v) => update("lugar", v)} />
         <LineInput label="Fecha" value={form.fecha} onChange={(v) => update("fecha", v)} />
-        <LineInput label="Odontólogo" value={form.odontologo} onChange={(v) => update("odontologo", v)} />
+        <label className="block">
+          <span className="text-sm font-medium">Odontólogo</span>
+
+          <select
+            className="mt-1 w-full border-b border-dotted border-gray-500 bg-transparent p-1 outline-none"
+            value={form.odontologo}
+            onChange={(e) => update("odontologo", e.target.value)}
+          >
+            <option value="">Seleccionar odontólogo</option>
+
+            {doctors.map((doctor) => (
+              <option key={doctor.id} value={doctor.name}>
+                {doctor.name}
+                {doctor.specialty ? ` — ${doctor.specialty}` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
         <LineInput label="Nº Matrícula" value={form.matricula} onChange={(v) => update("matricula", v)} />
       </div>
 

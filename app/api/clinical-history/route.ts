@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+
 import { prisma } from "@/lib/prisma";
+
 import { auth } from "@/lib/auth";
 
 type UserRole = "ADMIN" | "DOCTOR" | "PATIENT";
@@ -13,6 +15,7 @@ async function canAccessPatient({
   role: UserRole;
   patientId: string;
 }) {
+  // ADMIN puede acceder a cualquier paciente existente
   if (role === "ADMIN") {
     const patient = await prisma.patient.findUnique({
       where: {
@@ -26,21 +29,18 @@ async function canAccessPatient({
     return Boolean(patient);
   }
 
+  // Solamente ADMIN y DOCTOR pueden acceder
   if (role !== "DOCTOR") {
     return false;
   }
 
+  // Buscamos el perfil de odontólogo asociado al usuario
   const doctor = await prisma.doctor.findUnique({
     where: {
       userId,
     },
     select: {
       id: true,
-      branches: {
-        select: {
-          branchId: true,
-        },
-      },
     },
   });
 
@@ -48,38 +48,12 @@ async function canAccessPatient({
     return false;
   }
 
-  const doctorBranchIds = doctor.branches.map(
-    (doctorBranch) => doctorBranch.branchId
-  );
-
+  // El odontólogo solamente puede acceder a pacientes
+  // que estén directamente asociados a él mediante patient.doctorId
   const patient = await prisma.patient.findFirst({
     where: {
       id: patientId,
-      OR: [
-        {
-          branchId: {
-            in: doctorBranchIds,
-          },
-        },
-        {
-          appointments: {
-            some: {
-              doctorId: doctor.id,
-            },
-          },
-        },
-        {
-          budgets: {
-            some: {
-              doctors: {
-                some: {
-                  doctorId: doctor.id,
-                },
-              },
-            },
-          },
-        },
-      ],
+      doctorId: doctor.id,
     },
     select: {
       id: true,
