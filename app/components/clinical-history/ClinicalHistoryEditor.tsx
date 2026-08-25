@@ -585,23 +585,60 @@ export default function ClinicalHistoryEditor({
   const [doctors, setDoctors] = useState<Doctor[]>([]);
 
   useEffect(() => {
-    async function loadData() {
+    async function loadDoctors() {
       try {
-        const [historyRes, doctorsRes] = await Promise.all([
-          fetch(`/api/clinical-history?patientId=${patientId}`),
-          fetch("/api/doctors", {
-            cache: "no-store",
-          }),
-        ]);
+        const res = await fetch("/api/doctors", {
+          cache: "no-store",
+        });
 
-        const history = await historyRes.json();
-        const doctorsData = await doctorsRes.json();
+        const data = await res.json();
+
+        if (!res.ok) {
+          console.error("Error cargando especialistas:", data);
+          setDoctors([]);
+          return;
+        }
 
         setDoctors(
-          Array.isArray(doctorsData)
-            ? doctorsData
+          Array.isArray(data)
+            ? data.filter((doctor) => doctor.active)
             : []
         );
+      } catch (error) {
+        console.error(
+          "ERROR_CARGANDO_ESPECIALISTAS:",
+          error
+        );
+        setDoctors([]);
+      }
+    }
+
+    loadDoctors();
+  }, []);
+
+  useEffect(() => {
+    async function loadHistory() {
+      try {
+        const res = await fetch(
+          `/api/clinical-history?patientId=${patientId}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const history = await res.json();
+
+        if (!res.ok) {
+          console.error(
+            "Error cargando historia clínica:",
+            history
+          );
+
+          setHistoryId(null);
+          setForm(initialForm);
+          setOdontogramData({});
+          return;
+        }
 
         if (!history) {
           setHistoryId(null);
@@ -626,13 +663,22 @@ export default function ClinicalHistoryEditor({
           planTratamiento: history.treatment || "",
         });
 
-        setOdontogramData(savedData.odontogramData || {});
+        setOdontogramData(
+          savedData.odontogramData || {}
+        );
       } catch (error) {
-        console.error("Error cargando historia clínica:", error);
+        console.error(
+          "ERROR_CARGANDO_HISTORIA_CLINICA:",
+          error
+        );
+
+        setHistoryId(null);
+        setForm(initialForm);
+        setOdontogramData({});
       }
     }
 
-    loadData();
+    loadHistory();
   }, [patientId]);
 
   function update(field: string, value: string) {
