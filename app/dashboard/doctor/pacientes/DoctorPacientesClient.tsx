@@ -243,7 +243,7 @@ function PatientCard({
               Paciente
             </p>
 
-            <h2 className="mt-1 truncate text-xl font-semibold tracking-tight text-[#263F3B] md:text-2xl">
+            <h2 className="mt-1 break-words text-xl font-semibold tracking-tight text-[#263F3B] md:text-2xl">
               {fullName}
             </h2>
 
@@ -268,25 +268,8 @@ function PatientCard({
 
         <div className="flex flex-wrap gap-2 xl:justify-end xl:pt-4">
           <Link
-            href={`/dashboard/doctor/pacientes/${patient.id}/historia-clinica`}
-            aria-label={`Abrir historia clínica de ${fullName}`}
-            className="inline-flex h-11 w-11 items-center justify-center border border-[#DED9CD] text-[#6F855F] transition hover:border-[#6F855F] hover:bg-[#EEF1E8]"
-          >
-            <Stethoscope className="h-4 w-4" />
-          </Link>
-
-          <Link
-            href={`/print/historia-clinica/${patient.id}`}
-            target="_blank"
-            aria-label={`Abrir PDF de ${fullName}`}
-            className="inline-flex h-11 w-11 items-center justify-center border border-[#DED9CD] text-[#6F855F] transition hover:border-[#6F855F] hover:bg-[#EEF1E8]"
-          >
-            <FileText className="h-4 w-4" />
-          </Link>
-
-          <Link
             href={`/dashboard/doctor/pacientes/${patient.id}`}
-            className="inline-flex h-11 items-center justify-center gap-2 bg-[#A2B38B] px-4 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#6F855F]"
+            className="inline-flex h-11 items-center justify-center gap-2 bg-[#A2B38B] px-5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-[#6F855F]"
           >
             Ver ficha
             <ArrowUpRight className="h-4 w-4" />

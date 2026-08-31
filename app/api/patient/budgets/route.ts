@@ -26,7 +26,6 @@ export async function GET() {
         where: {
           userId: session.user.id,
         },
-
         select: {
           id: true,
         },
@@ -35,8 +34,7 @@ export async function GET() {
     if (!patient) {
       return NextResponse.json(
         {
-          error:
-            "Paciente no encontrado",
+          error: "Paciente no encontrado",
         },
         {
           status: 404,
@@ -62,6 +60,21 @@ export async function GET() {
           },
 
           items: true,
+
+          payments: {
+            where: {
+              status: "PAID",
+            },
+
+            orderBy: [
+              {
+                paidAt: "desc",
+              },
+              {
+                createdAt: "desc",
+              },
+            ],
+          },
         },
 
         orderBy: {
@@ -70,51 +83,109 @@ export async function GET() {
       });
 
     const serializedBudgets =
-      budgets.map((budget) => ({
-        id: budget.id,
+      budgets.map((budget) => {
+        const total =
+          Number(budget.total);
 
-        subtotal:
-          Number(budget.subtotal),
+        const paidAmount =
+          budget.payments.reduce(
+            (sum, payment) =>
+              sum + Number(payment.amount),
+            0
+          );
 
-        discount:
-          Number(budget.discount),
+        const remainingAmount =
+          Math.max(
+            total - paidAmount,
+            0
+          );
 
-        total:
-          Number(budget.total),
+        const status =
+          paidAmount >= total
+            ? "COMPLETED"
+            : "PENDING";
 
-        createdAt:
-          budget.createdAt.toISOString(),
+        return {
+          id: budget.id,
 
-        doctors:
-          budget.doctors.map(
-            ({ doctor }) => ({
-              id: doctor.id,
+          subtotal:
+            Number(budget.subtotal),
 
-              name:
-                doctor.name,
+          discount:
+            Number(budget.discount),
 
-              user: doctor.user
-                ? {
-                    name:
-                      doctor.user.name,
-                  }
-                : null,
-            })
-          ),
+          total,
 
-        items:
-          budget.items.map(
-            (item) => ({
-              id: item.id,
+          createdAt:
+            budget.createdAt.toISOString(),
 
-              serviceName:
-                item.serviceName,
+          status,
 
-              total:
-                Number(item.total),
-            })
-          ),
-      }));
+          paidAmount,
+
+          remainingAmount,
+
+          doctors:
+            budget.doctors.map(
+              ({ doctor }) => ({
+                id: doctor.id,
+
+                name:
+                  doctor.name,
+
+                user: doctor.user
+                  ? {
+                      name:
+                        doctor.user.name,
+                    }
+                  : null,
+              })
+            ),
+
+          items:
+            budget.items.map(
+              (item) => ({
+                id: item.id,
+
+                serviceName:
+                  item.serviceName,
+
+                quantity:
+                  item.quantity,
+
+                unitPrice:
+                  Number(item.unitPrice),
+
+                total:
+                  Number(item.total),
+              })
+            ),
+
+          payments:
+            budget.payments.map(
+              (payment) => ({
+                id: payment.id,
+
+                amount:
+                  Number(payment.amount),
+
+                concept:
+                  payment.concept,
+
+                paymentMethod:
+                  payment.paymentMethod,
+
+                paidAt:
+                  payment.paidAt
+                    ? payment.paidAt.toISOString()
+                    : null,
+
+                createdAt:
+                  payment.createdAt.toISOString(),
+              })
+            ),
+        };
+      });
 
     return NextResponse.json(
       serializedBudgets

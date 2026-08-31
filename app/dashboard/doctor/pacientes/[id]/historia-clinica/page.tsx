@@ -36,6 +36,7 @@ export default async function DoctorClinicalHistoryPage({
     },
     select: {
       id: true,
+      name: true,
     },
   });
 
@@ -44,11 +45,18 @@ export default async function DoctorClinicalHistoryPage({
   }
 
   // El odontólogo solamente puede acceder a pacientes
-  // que estén directamente asociados a él mediante patient.doctorId
+  // cuya Historia Clínica lo tenga asignado en el campo "odontologo".
   const patient = await prisma.patient.findFirst({
     where: {
       id,
-      doctorId: doctor.id,
+      histories: {
+        some: {
+          data: {
+            path: ["odontologo"],
+            equals: doctor.name,
+          },
+        },
+      },
     },
     include: {
       user: true,

@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { prisma } from "@/lib/prisma";
-
 import { auth } from "@/lib/auth";
 
-async function doctorCanAccessPatient(
-  userId: string,
-  patientId: string
-) {
-  const doctor = await prisma.doctor.findUnique({
+import { prisma } from "@/lib/prisma";
+
+async function getAuthenticatedDoctor(userId: string) {
+  return prisma.doctor.findUnique({
     where: {
       userId,
     },
@@ -17,6 +14,13 @@ async function doctorCanAccessPatient(
       name: true,
     },
   });
+}
+
+async function doctorCanAccessPatient(
+  userId: string,
+  patientId: string
+) {
+  const doctor = await getAuthenticatedDoctor(userId);
 
   if (!doctor) {
     return {
@@ -28,6 +32,7 @@ async function doctorCanAccessPatient(
   const patient = await prisma.patient.findFirst({
     where: {
       id: patientId,
+
       histories: {
         some: {
           data: {
@@ -37,6 +42,7 @@ async function doctorCanAccessPatient(
         },
       },
     },
+
     select: {
       id: true,
     },
@@ -51,31 +57,38 @@ async function doctorCanAccessPatient(
 export async function GET() {
   const session = await auth();
 
-  if (
-    !session?.user?.id ||
-    (session.user.role !== "ADMIN" &&
-      session.user.role !== "DOCTOR")
-  ) {
+  if (!session?.user) {
     return NextResponse.json(
       { error: "No autorizado" },
       { status: 401 }
     );
   }
 
-  try {
-    let where = {};
+  if (
+    session.user.role !== "ADMIN" &&
+    session.user.role !== "DOCTOR"
+  ) {
+    return NextResponse.json(
+      { error: "No autorizado" },
+      { status: 403 }
+    );
+  }
 
-    if (session.user.role === "DOCTOR") {
-      const access = await doctorCanAccessPatient(
-        session.user.id,
-        ""
+  try {
+    let where;
+
+    if (session.user.role === "ADMIN") {
+      where = undefined;
+    } else {
+      const doctor = await getAuthenticatedDoctor(
+        session.user.id
       );
 
-      if (!access.doctor) {
+      if (!doctor) {
         return NextResponse.json(
           {
             error:
-              "Perfil de odontólogo no encontrado.",
+              "No se encontró el perfil profesional.",
           },
           { status: 404 }
         );
@@ -87,7 +100,7 @@ export async function GET() {
             some: {
               data: {
                 path: ["odontologo"],
-                equals: access.doctor.name,
+                equals: doctor.name,
               },
             },
           },
@@ -97,7 +110,6 @@ export async function GET() {
 
     const payments = await prisma.payment.findMany({
       where,
-
       include: {
         patient: {
           include: {
@@ -107,7 +119,6 @@ export async function GET() {
         },
         budget: true,
       },
-
       orderBy: {
         dueDate: "asc",
       },
@@ -115,10 +126,15 @@ export async function GET() {
 
     return NextResponse.json(payments);
   } catch (error) {
-    console.error("Error obteniendo pagos:", error);
+    console.error(
+      "Error obteniendo pagos:",
+      error
+    );
 
     return NextResponse.json(
-      { error: "No se pudieron obtener los pagos." },
+      {
+        error: "No se pudieron obtener los pagos.",
+      },
       { status: 500 }
     );
   }
@@ -127,21 +143,30 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth();
 
-  if (
-    !session?.user?.id ||
-    (session.user.role !== "ADMIN" &&
-      session.user.role !== "DOCTOR")
-  ) {
+  if (!session?.user) {
     return NextResponse.json(
       { error: "No autorizado" },
       { status: 401 }
     );
   }
 
+  if (
+    session.user.role !== "ADMIN" &&
+    session.user.role !== "DOCTOR"
+  ) {
+    return NextResponse.json(
+      { error: "No autorizado" },
+      { status: 403 }
+    );
+  }
+
   try {
     const body = await req.json();
 
-    const patientId = String(body.patientId || "");
+    const patientId =
+      typeof body.patientId === "string"
+        ? body.patientId.trim()
+        : "";
 
     const budgetId = body.budgetId
       ? String(body.budgetId)
@@ -150,7 +175,9 @@ export async function POST(req: Request) {
     const amount = Number(body.amount);
 
     const status =
-      body.status === "PAID" ? "PAID" : "PENDING";
+      body.status === "PAID"
+        ? "PAID"
+        : "PENDING";
 
     if (!patientId) {
       return NextResponse.json(
@@ -161,7 +188,10 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
+    if (
+      !Number.isFinite(amount) ||
+      amount <= 0
+    ) {
       return NextResponse.json(
         {
           error:
@@ -180,36 +210,15 @@ export async function POST(req: Request) {
       );
     }
 
-    /*
-     * ADMIN puede operar sobre cualquier paciente.
-     * DOCTOR solamente sobre pacientes vinculados
-     * mediante Historia Clínica.
-     */
-    if (session.user.role === "DOCTOR") {
-      const access = await doctorCanAccessPatient(
-        session.user.id,
-        patientId
-      );
-
-      if (!access.allowed) {
-        return NextResponse.json(
-          {
-            error:
-              "El paciente no está vinculado a este profesional mediante la historia clínica.",
-          },
-          { status: 403 }
-        );
-      }
-    }
-
-    const patient = await prisma.patient.findUnique({
-      where: {
-        id: patientId,
-      },
-      select: {
-        id: true,
-      },
-    });
+    const patient =
+      await prisma.patient.findUnique({
+        where: {
+          id: patientId,
+        },
+        select: {
+          id: true,
+        },
+      });
 
     if (!patient) {
       return NextResponse.json(
@@ -220,123 +229,119 @@ export async function POST(req: Request) {
       );
     }
 
-    const payment = await prisma.$transaction(
-      async (transaction) => {
-        if (budgetId) {
-          const budget =
-            await transaction.budget.findUnique({
-              where: {
-                id: budgetId,
-              },
-              include: {
-                payments: {
-                  where: {
-                    status: "PAID",
-                  },
-                  select: {
-                    amount: true,
+    /*
+     * =====================================================
+     * DOCTOR
+     * =====================================================
+     *
+     * El doctor solamente puede registrar pagos
+     * de sus propios pacientes.
+     *
+     * También obtenemos el nombre del especialista
+     * para utilizarlo en la notificación.
+     */
+
+    let authenticatedDoctor = null;
+
+    if (session.user.role === "DOCTOR") {
+      authenticatedDoctor =
+        await getAuthenticatedDoctor(
+          session.user.id
+        );
+
+      if (!authenticatedDoctor) {
+        return NextResponse.json(
+          {
+            error:
+              "No se encontró el perfil profesional.",
+          },
+          { status: 404 }
+        );
+      }
+
+      const access =
+        await doctorCanAccessPatient(
+          session.user.id,
+          patientId
+        );
+
+      if (!access.allowed) {
+        return NextResponse.json(
+          {
+            error:
+              "No tenés permiso para administrar pagos de este paciente.",
+          },
+          { status: 403 }
+        );
+      }
+    }
+
+    const payment =
+      await prisma.$transaction(
+        async (transaction) => {
+          /*
+           * =================================================
+           * VALIDACIÓN DEL PRESUPUESTO
+           * =================================================
+           */
+
+          if (budgetId) {
+            const budget =
+              await transaction.budget.findUnique({
+                where: {
+                  id: budgetId,
+                },
+                include: {
+                  payments: {
+                    where: {
+                      status: "PAID",
+                    },
+                    select: {
+                      amount: true,
+                    },
                   },
                 },
-              },
-            });
+              });
 
-          if (!budget) {
-            throw new Error("BUDGET_NOT_FOUND");
-          }
-
-          if (budget.patientId !== patientId) {
-            throw new Error(
-              "INVALID_BUDGET_PATIENT"
-            );
-          }
-
-          /*
-           * Si es DOCTOR, además verificamos que el
-           * presupuesto corresponda a uno de sus
-           * pacientes vinculados.
-           */
-          if (session.user.role === "DOCTOR") {
-            const access =
-              await doctorCanAccessPatient(
-                session.user.id,
-                budget.patientId
-              );
-
-            if (!access.allowed) {
+            if (!budget) {
               throw new Error(
-                "DOCTOR_PATIENT_NOT_ALLOWED"
+                "BUDGET_NOT_FOUND"
               );
             }
-          }
 
-          const total = Number(budget.total);
+            if (
+              budget.patientId !== patientId
+            ) {
+              throw new Error(
+                "INVALID_BUDGET_PATIENT"
+              );
+            }
 
-          const currentPaidAmount =
-            budget.payments.reduce(
-              (accumulator, currentPayment) =>
-                accumulator +
-                Number(currentPayment.amount),
-              0
-            );
+            /*
+             * El especialista también debe poder
+             * administrar el presupuesto asociado.
+             */
 
-          const remainingAmount = Math.max(
-            total - currentPaidAmount,
-            0
-          );
+            if (
+              session.user.role === "DOCTOR"
+            ) {
+              const access =
+                await doctorCanAccessPatient(
+                  session.user.id,
+                  patientId
+                );
 
-          if (
-            status === "PAID" &&
-            amount > remainingAmount
-          ) {
-            throw new Error(
-              `AMOUNT_EXCEEDS_REMAINING:${remainingAmount}`
-            );
-          }
-        }
+              if (!access.allowed) {
+                throw new Error(
+                  "BUDGET_NOT_ALLOWED"
+                );
+              }
+            }
 
-        const createdPayment =
-          await transaction.payment.create({
-            data: {
-              patientId,
-              budgetId,
-              amount,
-              concept:
-                body.concept?.trim() || null,
-              dueDate: new Date(
-                `${body.dueDate}T12:00:00`
-              ),
-              status,
-              paidAt:
-                status === "PAID"
-                  ? new Date()
-                  : null,
-            },
-          });
+            const total =
+              Number(budget.total);
 
-        if (budgetId) {
-          const budget =
-            await transaction.budget.findUnique({
-              where: {
-                id: budgetId,
-              },
-              include: {
-                payments: {
-                  where: {
-                    status: "PAID",
-                  },
-                  select: {
-                    amount: true,
-                  },
-                },
-              },
-            });
-
-          if (budget) {
-            const total = Number(
-              budget.total
-            );
-
-            const totalPaid =
+            const currentPaidAmount =
               budget.payments.reduce(
                 (
                   accumulator,
@@ -349,27 +354,154 @@ export async function POST(req: Request) {
                 0
               );
 
-            const budgetStatus =
-              totalPaid >= total
-                ? "COMPLETED"
-                : totalPaid > 0
-                  ? "IN_PROGRESS"
-                  : "CREATED";
+            const remainingAmount =
+              Math.max(
+                total -
+                  currentPaidAmount,
+                0
+              );
 
-            await transaction.budget.update({
-              where: {
-                id: budget.id,
-              },
+            if (
+              status === "PAID" &&
+              amount > remainingAmount
+            ) {
+              throw new Error(
+                `AMOUNT_EXCEEDS_REMAINING:${remainingAmount}`
+              );
+            }
+          }
+
+          /*
+           * =================================================
+           * CREAR PAGO
+           * =================================================
+           */
+
+          const createdPayment =
+            await transaction.payment.create({
               data: {
-                status: budgetStatus,
+                patientId,
+                budgetId,
+                amount,
+
+                concept:
+                  typeof body.concept ===
+                    "string" &&
+                  body.concept.trim()
+                    ? body.concept.trim()
+                    : null,
+
+                dueDate: new Date(
+                  `${body.dueDate}T12:00:00`
+                ),
+
+                status,
+
+                paidAt:
+                  status === "PAID"
+                    ? new Date()
+                    : null,
+
+                paymentMethod:
+                  typeof body.paymentMethod ===
+                    "string" &&
+                  body.paymentMethod.trim()
+                    ? body.paymentMethod.trim()
+                    : null,
+              },
+            });
+
+          /*
+           * =================================================
+           * NOTIFICACIÓN AL PACIENTE
+           * =================================================
+           *
+           * Solamente se crea cuando un DOCTOR registra
+           * un pago efectivamente cobrado.
+           */
+
+          if (
+            status === "PAID" &&
+            session.user.role === "DOCTOR" &&
+            authenticatedDoctor
+          ) {
+            await transaction.notification.create({
+              data: {
+                patientId,
+                paymentId: createdPayment.id,
+                type: "PAYMENT",
+                actor: "DOCTOR",
+                title: "Nuevo pago registrado",
+                message:
+                  `${authenticatedDoctor.name} registró un nuevo pago. Podés descargar el comprobante en "Pagos".`,
+                actionUrl:
+                  "/dashboard/patient/pagos",
               },
             });
           }
-        }
 
-        return createdPayment;
-      }
-    );
+          /*
+           * =================================================
+           * ACTUALIZAR ESTADO DEL PRESUPUESTO
+           * =================================================
+           */
+
+          if (budgetId) {
+            const budget =
+              await transaction.budget.findUnique({
+                where: {
+                  id: budgetId,
+                },
+                include: {
+                  payments: {
+                    where: {
+                      status: "PAID",
+                    },
+                    select: {
+                      amount: true,
+                    },
+                  },
+                },
+              });
+
+            if (budget) {
+              const total =
+                Number(budget.total);
+
+              const totalPaid =
+                budget.payments.reduce(
+                  (
+                    accumulator,
+                    currentPayment
+                  ) =>
+                    accumulator +
+                    Number(
+                      currentPayment.amount
+                    ),
+                  0
+                );
+
+              const budgetStatus =
+                totalPaid >= total
+                  ? "COMPLETED"
+                  : totalPaid > 0
+                  ? "IN_PROGRESS"
+                  : "CREATED";
+
+              await transaction.budget.update({
+                where: {
+                  id: budget.id,
+                },
+                data: {
+                  status: budgetStatus,
+                },
+              });
+            }
+          }
+
+          return createdPayment;
+        }
+      );
 
     return NextResponse.json(
       {
@@ -390,7 +522,9 @@ export async function POST(req: Request) {
         ? error.message
         : String(error);
 
-    if (message === "BUDGET_NOT_FOUND") {
+    if (
+      message === "BUDGET_NOT_FOUND"
+    ) {
       return NextResponse.json(
         {
           error:
@@ -414,13 +548,12 @@ export async function POST(req: Request) {
     }
 
     if (
-      message ===
-      "DOCTOR_PATIENT_NOT_ALLOWED"
+      message === "BUDGET_NOT_ALLOWED"
     ) {
       return NextResponse.json(
         {
           error:
-            "No tenés permisos para operar sobre este paciente.",
+            "No tenés permiso para administrar este presupuesto.",
         },
         { status: 403 }
       );
@@ -431,9 +564,10 @@ export async function POST(req: Request) {
         "AMOUNT_EXCEEDS_REMAINING:"
       )
     ) {
-      const remainingAmount = Number(
-        message.split(":")[1]
-      );
+      const remainingAmount =
+        Number(
+          message.split(":")[1]
+        );
 
       const formattedRemainingAmount =
         new Intl.NumberFormat(
@@ -444,7 +578,9 @@ export async function POST(req: Request) {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2,
           }
-        ).format(remainingAmount);
+        ).format(
+          remainingAmount
+        );
 
       return NextResponse.json(
         {

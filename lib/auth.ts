@@ -24,6 +24,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) {
+          console.log("LOGIN ERROR: faltan credenciales");
           return null;
         }
 
@@ -33,13 +34,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const password = String(credentials.password);
 
+        console.log("LOGIN: buscando usuario:", email);
+
         const user = await prisma.user.findUnique({
           where: {
             email,
           },
         });
 
+        console.log(
+          "LOGIN: usuario encontrado:",
+          !!user,
+          "tiene password:",
+          !!user?.password
+        );
+
         if (!user || !user.password) {
+          console.log(
+            "LOGIN ERROR: usuario inexistente o sin password"
+          );
           return null;
         }
 
@@ -48,11 +61,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.password
         );
 
+        console.log(
+          "LOGIN: contraseña válida:",
+          validPassword
+        );
+
         if (!validPassword) {
+          console.log(
+            "LOGIN ERROR: contraseña incorrecta"
+          );
           return null;
         }
 
         if (!user.emailVerified) {
+          console.log(
+            "LOGIN ERROR: email no verificado"
+          );
           throw new EmailNotVerifiedError();
         }
 

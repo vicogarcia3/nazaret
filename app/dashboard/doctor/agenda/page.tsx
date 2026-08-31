@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import {
   CalendarDays,
   Check,
@@ -17,6 +24,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
+
 import { useConfirm } from "@/components/ui/ConfirmProvider";
 
 type AppointmentStatus =
@@ -92,19 +100,28 @@ function startOfWeek(date: Date) {
   return result;
 }
 
-function isSameDay(firstDate: Date, secondDate: Date) {
+function isSameDay(
+  firstDate: Date,
+  secondDate: Date
+) {
   return (
-    firstDate.getFullYear() === secondDate.getFullYear() &&
-    firstDate.getMonth() === secondDate.getMonth() &&
-    firstDate.getDate() === secondDate.getDate()
+    firstDate.getFullYear() ===
+      secondDate.getFullYear() &&
+    firstDate.getMonth() ===
+      secondDate.getMonth() &&
+    firstDate.getDate() ===
+      secondDate.getDate()
   );
 }
 
 function formatTime(date: string) {
-  return new Date(date).toLocaleTimeString("es-AR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return new Date(date).toLocaleTimeString(
+    "es-AR",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+    }
+  );
 }
 
 function formatFullDate(date: Date) {
@@ -116,19 +133,30 @@ function formatFullDate(date: Date) {
   });
 }
 
-function getLocalDateInputValue(date = new Date()) {
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Argentina/Cordoba",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
+function getLocalDateInputValue(
+  date = new Date()
+) {
+  const formatter = new Intl.DateTimeFormat(
+    "en-CA",
+    {
+      timeZone:
+        "America/Argentina/Cordoba",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }
+  );
 
   return formatter.format(date);
 }
 
-function getStatusLabel(status: AppointmentStatus) {
-  const labels: Record<AppointmentStatus, string> = {
+function getStatusLabel(
+  status: AppointmentStatus
+) {
+  const labels: Record<
+    AppointmentStatus,
+    string
+  > = {
     PENDING: "Pendiente",
     CONFIRMED: "Confirmado",
     COMPLETED: "Completado",
@@ -138,30 +166,53 @@ function getStatusLabel(status: AppointmentStatus) {
   return labels[status];
 }
 
-function getStatusClasses(status: AppointmentStatus) {
-  const classes: Record<AppointmentStatus, string> = {
-    PENDING: "bg-[#FFF4D8] text-[#8A6D1D]",
-    CONFIRMED: "bg-[#E8F0E3] text-[#5F7653]",
-    COMPLETED: "bg-[#E8ECEB] text-[#455B57]",
-    CANCELED: "bg-[#F8E6E6] text-[#A45858]",
+function getStatusClasses(
+  status: AppointmentStatus
+) {
+  const classes: Record<
+    AppointmentStatus,
+    string
+  > = {
+    PENDING:
+      "bg-[#FFF4D8] text-[#8A6D1D]",
+    CONFIRMED:
+      "bg-[#E8F0E3] text-[#5F7653]",
+    COMPLETED:
+      "bg-[#E8ECEB] text-[#455B57]",
+    CANCELED:
+      "bg-[#F8E6E6] text-[#A45858]",
   };
 
   return classes[status];
 }
 
-function getStatusBorder(status: AppointmentStatus) {
-  const classes: Record<AppointmentStatus, string> = {
-    PENDING: "border-l-[#D8B74B]",
-    CONFIRMED: "border-l-[#7B9A6C]",
-    COMPLETED: "border-l-[#62736F]",
-    CANCELED: "border-l-[#C77777]",
+function getStatusBorder(
+  status: AppointmentStatus
+) {
+  const classes: Record<
+    AppointmentStatus,
+    string
+  > = {
+    PENDING:
+      "border-l-[#D8B74B]",
+    CONFIRMED:
+      "border-l-[#7B9A6C]",
+    COMPLETED:
+      "border-l-[#62736F]",
+    CANCELED:
+      "border-l-[#C77777]",
   };
 
   return classes[status];
 }
 
-function getStatusDot(status: AppointmentStatus) {
-  const classes: Record<AppointmentStatus, string> = {
+function getStatusDot(
+  status: AppointmentStatus
+) {
+  const classes: Record<
+    AppointmentStatus,
+    string
+  > = {
     PENDING: "bg-[#D8B74B]",
     CONFIRMED: "bg-[#7B9A6C]",
     COMPLETED: "bg-[#62736F]",
@@ -172,22 +223,40 @@ function getStatusDot(status: AppointmentStatus) {
 }
 
 export default function DoctorAgendaPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [appointments, setAppointments] =
+    useState<Appointment[]>([]);
 
-  const [selectedBranchId, setSelectedBranchId] = useState("all");
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [view, setView] = useState<CalendarView>("semana");
+  const [branches, setBranches] =
+    useState<Branch[]>([]);
 
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<Appointment | null>(null);
+  const [patients, setPatients] =
+    useState<PatientOption[]>([]);
 
-  const [search, setSearch] = useState("");
-  const [notes, setNotes] = useState("");
+  const [selectedBranchId, setSelectedBranchId] =
+    useState("all");
 
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [currentDate, setCurrentDate] =
+    useState(new Date());
+
+  const [view, setView] =
+    useState<CalendarView>("semana");
+
+  const [
+    selectedAppointment,
+    setSelectedAppointment,
+  ] = useState<Appointment | null>(null);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [notes, setNotes] =
+    useState("");
+
+  const [createModalOpen, setCreateModalOpen] =
+    useState(false);
+
+  const [creating, setCreating] =
+    useState(false);
 
   const [appointmentForm, setAppointmentForm] =
     useState<AppointmentForm>({
@@ -198,122 +267,249 @@ export default function DoctorAgendaPage() {
       notes: "",
     });
 
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] =
+    useState(true);
 
-  const loadAppointments = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
+  const [saving, setSaving] =
+    useState(false);
 
-      const response = await fetch("/api/doctor/appointments", {
-        cache: "no-store",
-      });
+  const [error, setError] =
+    useState("");
 
-      const data = await response.json();
+  /*
+   * Paciente recibido desde la ficha:
+   *
+   * /dashboard/doctor/agenda?patientId=XXXX
+   */
+  const [patientIdFromUrl, setPatientIdFromUrl] =
+    useState<string | null>(null);
 
-      if (!response.ok) {
-        throw new Error(
-          data.error || "No se pudo cargar la agenda."
-        );
-      }
-
-      const parsedData = data as ApiResponse;
-
-      setAppointments(
-        Array.isArray(parsedData.appointments)
-          ? parsedData.appointments
-          : []
+  useEffect(() => {
+    const searchParams =
+      new URLSearchParams(
+        window.location.search
       );
 
-      setBranches(
-        Array.isArray(parsedData.branches)
-          ? parsedData.branches
-          : []
-      );
-
-      setPatients(
-        Array.isArray(parsedData.patients)
-          ? parsedData.patients
-          : []
-      );
-    } catch (loadError) {
-      console.error(loadError);
-
-      setAppointments([]);
-      setBranches([]);
-      setPatients([]);
-
-      setError(
-        loadError instanceof Error
-          ? loadError.message
-          : "No se pudo cargar la agenda."
-      );
-    } finally {
-      setLoading(false);
-    }
+    setPatientIdFromUrl(
+      searchParams.get("patientId")
+    );
   }, []);
+
+  const loadAppointments =
+    useCallback(async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        const response = await fetch(
+          "/api/doctor/appointments",
+          {
+            cache: "no-store",
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.error ||
+              "No se pudo cargar la agenda."
+          );
+        }
+
+        const parsedData =
+          data as ApiResponse;
+
+        setAppointments(
+          Array.isArray(
+            parsedData.appointments
+          )
+            ? parsedData.appointments
+            : []
+        );
+
+        setBranches(
+          Array.isArray(
+            parsedData.branches
+          )
+            ? parsedData.branches
+            : []
+        );
+
+        setPatients(
+          Array.isArray(
+            parsedData.patients
+          )
+            ? parsedData.patients
+            : []
+        );
+      } catch (loadError) {
+        console.error(loadError);
+
+        setAppointments([]);
+        setBranches([]);
+        setPatients([]);
+
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "No se pudo cargar la agenda."
+        );
+      } finally {
+        setLoading(false);
+      }
+    }, []);
 
   useEffect(() => {
     loadAppointments();
   }, [loadAppointments]);
 
   useEffect(() => {
-    setNotes(selectedAppointment?.notes || "");
+    setNotes(
+      selectedAppointment?.notes || ""
+    );
   }, [selectedAppointment]);
 
-  const filteredAppointments = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
+  /*
+   * =====================================================
+   * FILTRADO
+   * =====================================================
+   *
+   * Agenda general:
+   * patientIdFromUrl === null
+   *
+   * Agenda desde ficha:
+   * patientIdFromUrl === paciente seleccionado
+   */
+  const filteredAppointments =
+    useMemo(() => {
+      const normalizedSearch =
+        search.trim().toLowerCase();
 
-    return appointments.filter((appointment) => {
-      const matchesBranch =
-        selectedBranchId === "all" ||
-        appointment.branch.id === selectedBranchId;
+      return appointments.filter(
+        (appointment) => {
+          const matchesBranch =
+            selectedBranchId === "all" ||
+            appointment.branch.id ===
+              selectedBranchId;
 
-      const patientName =
-        `${appointment.patient.firstName} ${appointment.patient.lastName}`.toLowerCase();
+          const matchesPatient =
+            !patientIdFromUrl ||
+            appointment.patient.id ===
+              patientIdFromUrl;
 
-      const invertedPatientName =
-        `${appointment.patient.lastName} ${appointment.patient.firstName}`.toLowerCase();
+          const patientName =
+            `${appointment.patient.firstName} ${appointment.patient.lastName}`.toLowerCase();
 
-      const matchesSearch =
-        !normalizedSearch ||
-        patientName.includes(normalizedSearch) ||
-        invertedPatientName.includes(normalizedSearch) ||
-        appointment.patient.dni
-          ?.toLowerCase()
-          .includes(normalizedSearch) ||
-        appointment.notes
-          ?.toLowerCase()
-          .includes(normalizedSearch);
+          const invertedPatientName =
+            `${appointment.patient.lastName} ${appointment.patient.firstName}`.toLowerCase();
 
-      return matchesBranch && matchesSearch;
-    });
-  }, [appointments, selectedBranchId, search]);
+          const matchesSearch =
+            !normalizedSearch ||
+            patientName.includes(
+              normalizedSearch
+            ) ||
+            invertedPatientName.includes(
+              normalizedSearch
+            ) ||
+            appointment.patient.dni
+              ?.toLowerCase()
+              .includes(normalizedSearch) ||
+            appointment.notes
+              ?.toLowerCase()
+              .includes(
+                normalizedSearch
+              );
+
+          return (
+            matchesBranch &&
+            matchesPatient &&
+            matchesSearch
+          );
+        }
+      );
+    }, [
+      appointments,
+      selectedBranchId,
+      search,
+      patientIdFromUrl,
+    ]);
+
+  /*
+   * Paciente seleccionado desde la URL.
+   */
+  const selectedPatientFromUrl =
+    useMemo(() => {
+      if (!patientIdFromUrl) {
+        return null;
+      }
+
+      return (
+        patients.find(
+          (patient) =>
+            patient.id ===
+            patientIdFromUrl
+        ) || null
+      );
+    }, [
+      patients,
+      patientIdFromUrl,
+    ]);
 
   const calendarDays = useMemo(() => {
-    const year = currentDate.getFullYear();
-    const month = currentDate.getMonth();
+    const year =
+      currentDate.getFullYear();
 
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
+    const month =
+      currentDate.getMonth();
 
-    const firstWeekDay = firstDay.getDay();
+    const firstDay = new Date(
+      year,
+      month,
+      1
+    );
+
+    const lastDay = new Date(
+      year,
+      month + 1,
+      0
+    );
+
+    const firstWeekDay =
+      firstDay.getDay();
+
     const startOffset =
-      firstWeekDay === 0 ? 6 : firstWeekDay - 1;
+      firstWeekDay === 0
+        ? 6
+        : firstWeekDay - 1;
 
     const days: (Date | null)[] = [];
 
-    for (let index = 0; index < startOffset; index++) {
+    for (
+      let index = 0;
+      index < startOffset;
+      index++
+    ) {
       days.push(null);
     }
 
-    for (let day = 1; day <= lastDay.getDate(); day++) {
-      days.push(new Date(year, month, day));
+    for (
+      let day = 1;
+      day <= lastDay.getDate();
+      day++
+    ) {
+      days.push(
+        new Date(
+          year,
+          month,
+          day
+        )
+      );
     }
 
-    while (days.length % 7 !== 0) {
+    while (
+      days.length % 7 !== 0
+    ) {
       days.push(null);
     }
 
@@ -321,46 +517,89 @@ export default function DoctorAgendaPage() {
   }, [currentDate]);
 
   const weekDays = useMemo(() => {
-    const firstDay = startOfWeek(currentDate);
+    const firstDay =
+      startOfWeek(currentDate);
 
-    return Array.from({ length: 7 }, (_, index) => {
-      const date = new Date(firstDay);
-      date.setDate(firstDay.getDate() + index);
-      return date;
-    });
+    return Array.from(
+      { length: 7 },
+      (_, index) => {
+        const date = new Date(
+          firstDay
+        );
+
+        date.setDate(
+          firstDay.getDate() +
+            index
+        );
+
+        return date;
+      }
+    );
   }, [currentDate]);
 
-  function getAppointmentsForDay(day: Date) {
+  function getAppointmentsForDay(
+    day: Date
+  ) {
     return filteredAppointments
       .filter((appointment) =>
-        isSameDay(new Date(appointment.date), day)
+        isSameDay(
+          new Date(
+            appointment.date
+          ),
+          day
+        )
       )
       .sort(
-        (firstAppointment, secondAppointment) =>
-          new Date(firstAppointment.date).getTime() -
-          new Date(secondAppointment.date).getTime()
+        (
+          firstAppointment,
+          secondAppointment
+        ) =>
+          new Date(
+            firstAppointment.date
+          ).getTime() -
+          new Date(
+            secondAppointment.date
+          ).getTime()
       );
   }
 
-  function navigate(direction: "previous" | "next") {
-    setCurrentDate((previousDate) => {
-      const result = new Date(previousDate);
-      const amount = direction === "next" ? 1 : -1;
+  function navigate(
+    direction: "previous" | "next"
+  ) {
+    setCurrentDate(
+      (previousDate) => {
+        const result =
+          new Date(previousDate);
 
-      if (view === "mes") {
-        result.setMonth(result.getMonth() + amount);
+        const amount =
+          direction === "next"
+            ? 1
+            : -1;
+
+        if (view === "mes") {
+          result.setMonth(
+            result.getMonth() +
+              amount
+          );
+        }
+
+        if (view === "semana") {
+          result.setDate(
+            result.getDate() +
+              amount * 7
+          );
+        }
+
+        if (view === "dia") {
+          result.setDate(
+            result.getDate() +
+              amount
+          );
+        }
+
+        return result;
       }
-
-      if (view === "semana") {
-        result.setDate(result.getDate() + amount * 7);
-      }
-
-      if (view === "dia") {
-        result.setDate(result.getDate() + amount);
-      }
-
-      return result;
-    });
+    );
   }
 
   function goToToday() {
@@ -369,38 +608,69 @@ export default function DoctorAgendaPage() {
 
   function getCurrentPeriodTitle() {
     if (view === "mes") {
-      return currentDate.toLocaleDateString("es-AR", {
-        month: "long",
-        year: "numeric",
-      });
+      return currentDate.toLocaleDateString(
+        "es-AR",
+        {
+          month: "long",
+          year: "numeric",
+        }
+      );
     }
 
     if (view === "dia") {
-      return formatFullDate(currentDate);
+      return formatFullDate(
+        currentDate
+      );
     }
 
     const start = weekDays[0];
     const end = weekDays[6];
 
-    return `${start.toLocaleDateString("es-AR", {
-      day: "numeric",
-      month: "short",
-    })} al ${end.toLocaleDateString("es-AR", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })}`;
+    return `${start.toLocaleDateString(
+      "es-AR",
+      {
+        day: "numeric",
+        month: "short",
+      }
+    )} al ${end.toLocaleDateString(
+      "es-AR",
+      {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      }
+    )}`;
   }
 
   function openCreateModal() {
     setAppointmentForm({
-      patientId: "",
+      /*
+       * Si venimos desde una ficha,
+       * el paciente queda automáticamente
+       * seleccionado.
+       */
+      patientId:
+        patientIdFromUrl || "",
+
       branchId:
-        selectedBranchId !== "all"
-          ? selectedBranchId
-          : branches[0]?.id || "",
-      date: getLocalDateInputValue(currentDate),
+        selectedPatientFromUrl?.branchId &&
+        branches.some(
+          (branch) =>
+            branch.id ===
+            selectedPatientFromUrl.branchId
+        )
+          ? selectedPatientFromUrl.branchId
+          : selectedBranchId !== "all"
+            ? selectedBranchId
+            : branches[0]?.id || "",
+
+      date:
+        getLocalDateInputValue(
+          currentDate
+        ),
+
       time: "",
+
       notes: "",
     });
 
@@ -425,7 +695,6 @@ export default function DoctorAgendaPage() {
       setError(
         "Completá paciente, sucursal, fecha, hora y concepto."
       );
-
       return;
     }
 
@@ -433,46 +702,75 @@ export default function DoctorAgendaPage() {
       setCreating(true);
       setError("");
 
-      const response = await fetch("/api/doctor/appointments", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(appointmentForm),
-      });
+      const response = await fetch(
+        "/api/doctor/appointments",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
 
-      const data = await response.json();
+          body: JSON.stringify(
+            appointmentForm
+          ),
+        }
+      );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudo crear el turno."
+          data.error ||
+            "No se pudo crear el turno."
         );
       }
 
       const createdAppointment =
         data.appointment as Appointment;
 
-      setAppointments((previousAppointments) =>
-        [...previousAppointments, createdAppointment].sort(
-          (firstAppointment, secondAppointment) =>
-            new Date(firstAppointment.date).getTime() -
-            new Date(secondAppointment.date).getTime()
+      setAppointments(
+        (previousAppointments) =>
+          [
+            ...previousAppointments,
+            createdAppointment,
+          ].sort(
+            (
+              firstAppointment,
+              secondAppointment
+            ) =>
+              new Date(
+                firstAppointment.date
+              ).getTime() -
+              new Date(
+                secondAppointment.date
+              ).getTime()
+          )
+      );
+
+      setCurrentDate(
+        new Date(
+          createdAppointment.date
         )
       );
 
-      setCurrentDate(new Date(createdAppointment.date));
       setView("dia");
+
       setCreateModalOpen(false);
 
       setAppointmentForm({
-        patientId: "",
+        patientId:
+          patientIdFromUrl || "",
         branchId: "",
         date: "",
         time: "",
         notes: "",
       });
     } catch (createError) {
-      console.error(createError);
+      console.error(
+        createError
+      );
 
       setError(
         createError instanceof Error
@@ -500,35 +798,52 @@ export default function DoctorAgendaPage() {
         {
           method: "PATCH",
           headers: {
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
           },
-          body: JSON.stringify(values),
+
+          body: JSON.stringify(
+            values
+          ),
         }
       );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.error || "No se pudo actualizar el turno."
+          data.error ||
+            "No se pudo actualizar el turno."
         );
       }
 
       const updatedAppointment =
         data.appointment as Appointment;
 
-      setAppointments((previousAppointments) =>
-        previousAppointments.map((appointment) =>
-          appointment.id === updatedAppointment.id
-            ? updatedAppointment
-            : appointment
-        )
+      setAppointments(
+        (previousAppointments) =>
+          previousAppointments.map(
+            (appointment) =>
+              appointment.id ===
+              updatedAppointment.id
+                ? updatedAppointment
+                : appointment
+          )
       );
 
-      setSelectedAppointment(updatedAppointment);
-      setNotes(updatedAppointment.notes || "");
+      setSelectedAppointment(
+        updatedAppointment
+      );
+
+      setNotes(
+        updatedAppointment.notes ||
+          ""
+      );
     } catch (updateError) {
-      console.error(updateError);
+      console.error(
+        updateError
+      );
 
       setError(
         updateError instanceof Error
@@ -541,11 +856,14 @@ export default function DoctorAgendaPage() {
   }
 
   const currentDayAppointments =
-    getAppointmentsForDay(currentDate);
+    getAppointmentsForDay(
+      currentDate
+    );
 
   return (
     <main className="min-h-screen bg-[#F7F5EF] px-4 py-6 text-[#263F3B] sm:px-6 md:px-10 md:py-8">
       <div className="mx-auto max-w-[1500px] space-y-6">
+
         <header className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.26em] text-[#8FA07F]">
@@ -584,17 +902,49 @@ export default function DoctorAgendaPage() {
           </div>
         </header>
 
+        {patientIdFromUrl && (
+          <section className="flex flex-col justify-between gap-3 border border-[#C8D2BE] bg-[#EEF2E9] px-5 py-4 sm:flex-row sm:items-center">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#6F855F]">
+                Agenda del paciente
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-[#263F3B]">
+                {selectedPatientFromUrl
+                  ? `${selectedPatientFromUrl.lastName}, ${selectedPatientFromUrl.firstName}`
+                  : "Paciente seleccionado"}
+              </p>
+            </div>
+
+            <Link
+              href={
+                patientIdFromUrl
+                  ? `/dashboard/doctor/pacientes/${patientIdFromUrl}`
+                  : "/dashboard/doctor/pacientes"
+              }
+              className="inline-flex items-center justify-center border border-[#6F855F] px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#5F7653] transition hover:bg-white"
+            >
+              Ver ficha del paciente
+            </Link>
+          </section>
+        )}
+
         <section className="border border-[#DED9CD] bg-white p-4 md:p-5">
           <div className="grid gap-4 xl:grid-cols-[minmax(280px,1fr)_310px_auto]">
+
             <label className="relative block">
-              <span className="sr-only">Buscar turnos</span>
+              <span className="sr-only">
+                Buscar turnos
+              </span>
 
               <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8FA07F]" />
 
               <input
                 value={search}
                 onChange={(event) =>
-                  setSearch(event.target.value)
+                  setSearch(
+                    event.target.value
+                  )
                 }
                 placeholder="Buscar por paciente, DNI u observación"
                 className="w-full border border-[#DED9CD] bg-[#FFFCF7] py-2 pl-11 pr-4 text-sm outline-none transition placeholder:text-[#9AA09E] focus:border-[#6F855F]"
@@ -604,7 +954,9 @@ export default function DoctorAgendaPage() {
             <select
               value={selectedBranchId}
               onChange={(event) =>
-                setSelectedBranchId(event.target.value)
+                setSelectedBranchId(
+                  event.target.value
+                )
               }
               className="w-full border border-[#DED9CD] bg-[#FFFCF7] px-4 py-2 text-sm outline-none transition focus:border-[#6F855F]"
             >
@@ -612,27 +964,45 @@ export default function DoctorAgendaPage() {
                 Todas mis sucursales
               </option>
 
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name} — {branch.address} - {branch.city}
-                </option>
-              ))}
+              {branches.map(
+                (branch) => (
+                  <option
+                    key={branch.id}
+                    value={branch.id}
+                  >
+                    {branch.name} —{" "}
+                    {branch.address} -{" "}
+                    {branch.city}
+                  </option>
+                )
+              )}
             </select>
 
             <div className="grid grid-cols-3 border border-[#DED9CD]">
-              {(["mes", "semana", "dia"] as const).map(
+              {(
+                [
+                  "mes",
+                  "semana",
+                  "dia",
+                ] as const
+              ).map(
                 (viewOption) => (
                   <button
                     key={viewOption}
                     type="button"
-                    onClick={() => setView(viewOption)}
+                    onClick={() =>
+                      setView(
+                        viewOption
+                      )
+                    }
                     className={`min-w-[82px] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition ${
                       view === viewOption
                         ? "bg-[#A2B38B] text-white"
                         : "bg-[#FFFCF7] text-[#5F6F6B] hover:bg-[#F0EDE6]"
                     }`}
                   >
-                    {viewOption === "dia"
+                    {viewOption ===
+                    "dia"
                       ? "Día"
                       : viewOption}
                   </button>
@@ -649,7 +1019,9 @@ export default function DoctorAgendaPage() {
 
               <button
                 type="button"
-                onClick={() => setError("")}
+                onClick={() =>
+                  setError("")
+                }
                 aria-label="Cerrar mensaje"
                 className="shrink-0"
               >
@@ -660,7 +1032,9 @@ export default function DoctorAgendaPage() {
         )}
 
         <section className="overflow-hidden border border-[#DED9CD] bg-white">
+
           <div className="flex flex-col justify-between gap-5 border-b border-[#DED9CD] px-5 py-5 md:flex-row md:items-center md:px-7">
+
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-[#8FA07F]">
                 {view === "mes"
@@ -678,7 +1052,9 @@ export default function DoctorAgendaPage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={goToToday}
+                onClick={
+                  goToToday
+                }
                 className="border border-[#DED9CD] bg-white px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#5F6F6B] transition hover:border-[#6F855F] hover:text-[#263F3B]"
               >
                 Hoy
@@ -687,7 +1063,11 @@ export default function DoctorAgendaPage() {
               <div className="flex border border-[#DED9CD]">
                 <button
                   type="button"
-                  onClick={() => navigate("previous")}
+                  onClick={() =>
+                    navigate(
+                      "previous"
+                    )
+                  }
                   aria-label="Periodo anterior"
                   className="flex h-11 w-10 items-center justify-center border-r border-[#DED9CD] transition hover:bg-[#F0EDE6]"
                 >
@@ -696,7 +1076,9 @@ export default function DoctorAgendaPage() {
 
                 <button
                   type="button"
-                  onClick={() => navigate("next")}
+                  onClick={() =>
+                    navigate("next")
+                  }
                   aria-label="Periodo siguiente"
                   className="flex h-11 w-10 items-center justify-center transition hover:bg-[#F0EDE6]"
                 >
@@ -716,31 +1098,48 @@ export default function DoctorAgendaPage() {
             </div>
           ) : (
             <>
-              {view === "mes" && (
+              {view ===
+                "mes" && (
                 <MonthView
-                  days={calendarDays}
+                  days={
+                    calendarDays
+                  }
                   appointmentsForDay={
                     getAppointmentsForDay
                   }
-                  onSelect={setSelectedAppointment}
+                  onSelect={
+                    setSelectedAppointment
+                  }
                 />
               )}
 
-              {view === "semana" && (
+              {view ===
+                "semana" && (
                 <WeekView
-                  days={weekDays}
+                  days={
+                    weekDays
+                  }
                   appointmentsForDay={
                     getAppointmentsForDay
                   }
-                  onSelect={setSelectedAppointment}
+                  onSelect={
+                    setSelectedAppointment
+                  }
                 />
               )}
 
-              {view === "dia" && (
+              {view ===
+                "dia" && (
                 <DayView
-                  appointments={currentDayAppointments}
-                  onSelect={setSelectedAppointment}
-                  onCreate={openCreateModal}
+                  appointments={
+                    currentDayAppointments
+                  }
+                  onSelect={
+                    setSelectedAppointment
+                  }
+                  onCreate={
+                    openCreateModal
+                  }
                 />
               )}
             </>
@@ -750,14 +1149,22 @@ export default function DoctorAgendaPage() {
 
       {selectedAppointment && (
         <AppointmentDrawer
-          appointment={selectedAppointment}
+          appointment={
+            selectedAppointment
+          }
           notes={notes}
           saving={saving}
-          onNotesChange={setNotes}
-          onClose={() =>
-            setSelectedAppointment(null)
+          onNotesChange={
+            setNotes
           }
-          onUpdateStatus={(status) =>
+          onClose={() =>
+            setSelectedAppointment(
+              null
+            )
+          }
+          onUpdateStatus={(
+            status
+          ) =>
             updateAppointment(
               selectedAppointment.id,
               {
@@ -782,9 +1189,18 @@ export default function DoctorAgendaPage() {
           branches={branches}
           form={appointmentForm}
           creating={creating}
-          onChange={setAppointmentForm}
-          onClose={closeCreateModal}
-          onCreate={createAppointment}
+          onChange={
+            setAppointmentForm
+          }
+          onClose={
+            closeCreateModal
+          }
+          onCreate={
+            createAppointment
+          }
+          lockedPatientId={
+            patientIdFromUrl
+          }
         />
       )}
     </main>
@@ -800,11 +1216,14 @@ function MonthView({
   appointmentsForDay: (
     day: Date
   ) => Appointment[];
-  onSelect: (appointment: Appointment) => void;
+  onSelect: (
+    appointment: Appointment
+  ) => void;
 }) {
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[980px]">
+
         <div className="grid grid-cols-7 border-b border-[#DED9CD] bg-[#FAF9F5]">
           {[
             "Lun",
@@ -825,72 +1244,104 @@ function MonthView({
         </div>
 
         <div className="grid grid-cols-7">
-          {days.map((day, index) => {
-            const dayAppointments = day
-              ? appointmentsForDay(day)
-              : [];
+          {days.map(
+            (day, index) => {
+              const dayAppointments =
+                day
+                  ? appointmentsForDay(
+                      day
+                    )
+                  : [];
 
-            const isToday =
-              day && isSameDay(day, new Date());
+              const isToday =
+                day &&
+                isSameDay(
+                  day,
+                  new Date()
+                );
 
-            return (
-              <div
-                key={`${day?.toISOString() || "empty"}-${index}`}
-                className={`min-h-[175px] border-b border-r border-[#DED9CD] p-3 [&:nth-child(7n)]:border-r-0 ${
-                  !day
-                    ? "bg-[#FAF9F5]"
-                    : "bg-white"
-                }`}
-              >
-                {day && (
-                  <>
-                    <div className="mb-4 flex items-center justify-between">
-                      <span
-                        className={`flex h-8 w-8 items-center justify-center text-sm font-semibold ${
-                          isToday
-                            ? "rounded-full bg-[#6F855F] text-white"
-                            : "text-[#263F3B]"
-                        }`}
-                      >
-                        {day.getDate()}
-                      </span>
+              return (
+                <div
+                  key={`${
+                    day?.toISOString() ||
+                    "empty"
+                  }-${index}`}
+                  className={`min-h-[175px] border-b border-r border-[#DED9CD] p-3 [&:nth-child(7n)]:border-r-0 ${
+                    !day
+                      ? "bg-[#FAF9F5]"
+                      : "bg-white"
+                  }`}
+                >
+                  {day && (
+                    <>
+                      <div className="mb-4 flex items-center justify-between">
 
-                      {dayAppointments.length > 0 && (
-                        <span className="text-[10px] font-medium text-[#8FA07F]">
-                          {dayAppointments.length}{" "}
-                          {dayAppointments.length === 1
-                            ? "turno"
-                            : "turnos"}
+                        <span
+                          className={`flex h-8 w-8 items-center justify-center text-sm font-semibold ${
+                            isToday
+                              ? "rounded-full bg-[#6F855F] text-white"
+                              : "text-[#263F3B]"
+                          }`}
+                        >
+                          {day.getDate()}
                         </span>
-                      )}
-                    </div>
 
-                    <div className="space-y-2">
-                      {dayAppointments
-                        .slice(0, 3)
-                        .map((appointment) => (
-                          <CompactAppointment
-                            key={appointment.id}
-                            appointment={appointment}
-                            onClick={() =>
-                              onSelect(appointment)
-                            }
-                          />
-                        ))}
+                        {dayAppointments.length >
+                          0 && (
+                          <span className="text-[10px] font-medium text-[#8FA07F]">
+                            {
+                              dayAppointments.length
+                            }{" "}
+                            {dayAppointments.length ===
+                            1
+                              ? "turno"
+                              : "turnos"}
+                          </span>
+                        )}
+                      </div>
 
-                      {dayAppointments.length > 3 && (
-                        <p className="px-1 text-xs font-medium text-[#6F855F]">
-                          +
-                          {dayAppointments.length - 3}{" "}
-                          más
-                        </p>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })}
+                      <div className="space-y-2">
+                        {dayAppointments
+                          .slice(
+                            0,
+                            3
+                          )
+                          .map(
+                            (
+                              appointment
+                            ) => (
+                              <CompactAppointment
+                                key={
+                                  appointment.id
+                                }
+                                appointment={
+                                  appointment
+                                }
+                                onClick={() =>
+                                  onSelect(
+                                    appointment
+                                  )
+                                }
+                              />
+                            )
+                          )}
+
+                        {dayAppointments.length >
+                          3 && (
+                          <p className="px-1 text-xs font-medium text-[#6F855F]">
+                            +
+                            {dayAppointments.length -
+                              3}{" "}
+                            más
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            }
+          )}
         </div>
       </div>
     </div>
@@ -906,19 +1357,25 @@ function WeekView({
   appointmentsForDay: (
     day: Date
   ) => Appointment[];
-  onSelect: (appointment: Appointment) => void;
+  onSelect: (
+    appointment: Appointment
+  ) => void;
 }) {
   return (
     <div className="w-full overflow-hidden">
       <div className="grid w-full grid-cols-7">
+
         {days.map((day) => {
           const appointments =
-            appointmentsForDay(day);
+            appointmentsForDay(
+              day
+            );
 
-          const isToday = isSameDay(
-            day,
-            new Date()
-          );
+          const isToday =
+            isSameDay(
+              day,
+              new Date()
+            );
 
           return (
             <div
@@ -946,7 +1403,8 @@ function WeekView({
                   {day.toLocaleDateString(
                     "es-AR",
                     {
-                      weekday: "short",
+                      weekday:
+                        "short",
                     }
                   )}
                 </p>
@@ -966,16 +1424,23 @@ function WeekView({
                 {appointments.map(
                   (appointment) => (
                     <WeekAppointment
-                      key={appointment.id}
-                      appointment={appointment}
+                      key={
+                        appointment.id
+                      }
+                      appointment={
+                        appointment
+                      }
                       onClick={() =>
-                        onSelect(appointment)
+                        onSelect(
+                          appointment
+                        )
                       }
                     />
                   )
                 )}
 
-                {appointments.length === 0 && (
+                {appointments.length ===
+                  0 && (
                   <div className="flex min-h-[110px] flex-col items-center justify-center text-center">
                     <Clock3 className="h-4 w-4 text-[#C0C5C2]" />
 
@@ -999,70 +1464,96 @@ function DayView({
   onCreate,
 }: {
   appointments: Appointment[];
-  onSelect: (appointment: Appointment) => void;
+  onSelect: (
+    appointment: Appointment
+  ) => void;
   onCreate: () => void;
 }) {
   return (
     <div className="p-5 md:p-7">
+
       <div className="flex items-center justify-between gap-4 border-b border-[#EEEAE1] pb-5">
+
         <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
           Atenciones programadas
         </p>
 
         <p className="text-sm text-[#6B7774]">
           {appointments.length}{" "}
-          {appointments.length === 1
+          {appointments.length ===
+          1
             ? "turno"
             : "turnos"}
         </p>
       </div>
 
       <div className="mt-6 space-y-3">
-        {appointments.map((appointment) => (
-          <button
-            key={appointment.id}
-            type="button"
-            onClick={() =>
-              onSelect(appointment)
-            }
-            className={`grid w-full gap-4 border border-l-4 border-[#DED9CD] bg-[#FFFCF7] p-5 text-left transition hover:border-[#A2B38B] md:grid-cols-[100px_1fr_auto] md:items-center ${getStatusBorder(
-              appointment.status
-            )}`}
-          >
-            <div>
-              <p className="text-2xl font-semibold tracking-tight">
-                {formatTime(appointment.date)}
-              </p>
 
-              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A2B38B]">
-                Horario
-              </p>
-            </div>
+        {appointments.map(
+          (appointment) => (
+            <button
+              key={appointment.id}
+              type="button"
+              onClick={() =>
+                onSelect(
+                  appointment
+                )
+              }
+              className={`grid w-full gap-4 border border-l-4 border-[#DED9CD] bg-[#FFFCF7] p-5 text-left transition hover:border-[#A2B38B] md:grid-cols-[100px_1fr_auto] md:items-center ${getStatusBorder(
+                appointment.status
+              )}`}
+            >
+              <div>
+                <p className="text-2xl font-semibold tracking-tight">
+                  {formatTime(
+                    appointment.date
+                  )}
+                </p>
 
-            <div>
-              <p className="font-semibold">
-                {appointment.patient.lastName},{" "}
-                {appointment.patient.firstName}
-              </p>
+                <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#A2B38B]">
+                  Horario
+                </p>
+              </div>
 
-              <p className="mt-1 text-sm leading-6 text-[#6B7774]">
-                {appointment.notes ||
-                  "Consulta sin especificar"}
-              </p>
+              <div>
+                <p className="font-semibold">
+                  {
+                    appointment.patient
+                      .lastName
+                  }
+                  ,{" "}
+                  {
+                    appointment.patient
+                      .firstName
+                  }
+                </p>
 
-              <p className="mt-1 text-xs text-[#8B9491]">
-                {appointment.branch.name}
-              </p>
-            </div>
+                <p className="mt-1 text-sm leading-6 text-[#6B7774]">
+                  {appointment.notes ||
+                    "Consulta sin especificar"}
+                </p>
 
-            <StatusBadge
-              status={appointment.status}
-            />
-          </button>
-        ))}
+                <p className="mt-1 text-xs text-[#8B9491]">
+                  {
+                    appointment.branch
+                      .name
+                  }
+                </p>
+              </div>
 
-        {appointments.length === 0 && (
+              <StatusBadge
+                status={
+                  appointment.status
+                }
+              />
+            </button>
+          )
+        )}
+
+        {appointments.length ===
+          0 && (
           <div className="flex min-h-[280px] flex-col items-center justify-center border border-dashed border-[#DED9CD] px-5 py-14 text-center">
+
             <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#F0EDE6] text-[#6F855F]">
               <CalendarDays className="h-6 w-6" />
             </div>
@@ -1107,8 +1598,11 @@ function CompactAppointment({
       )}`}
     >
       <div className="flex items-center justify-between gap-2">
+
         <p className="text-xs font-semibold text-[#263F3B]">
-          {formatTime(appointment.date)}
+          {formatTime(
+            appointment.date
+          )}
         </p>
 
         <span
@@ -1119,8 +1613,15 @@ function CompactAppointment({
       </div>
 
       <p className="mt-1 truncate text-xs font-medium text-[#5F6F6B]">
-        {appointment.patient.lastName},{" "}
-        {appointment.patient.firstName}
+        {
+          appointment.patient
+            .lastName
+        }
+        ,{" "}
+        {
+          appointment.patient
+            .firstName
+        }
       </p>
     </button>
   );
@@ -1142,8 +1643,11 @@ function WeekAppointment({
       )}`}
     >
       <div className="flex items-center justify-between gap-2">
+
         <p className="min-w-0 text-sm font-semibold leading-5 tracking-tight">
-          {formatTime(appointment.date)}
+          {formatTime(
+            appointment.date
+          )}
         </p>
 
         <span
@@ -1154,8 +1658,15 @@ function WeekAppointment({
       </div>
 
       <p className="mt-2 truncate text-xs font-semibold">
-        {appointment.patient.lastName},{" "}
-        {appointment.patient.firstName}
+        {
+          appointment.patient
+            .lastName
+        }
+        ,{" "}
+        {
+          appointment.patient
+            .firstName
+        }
       </p>
 
       <p className="mt-1 line-clamp-2 break-words text-[10px] leading-4 text-[#6B7774]">
@@ -1164,7 +1675,9 @@ function WeekAppointment({
       </p>
 
       <p className="mt-2 truncate text-[8px] font-semibold uppercase tracking-[0.12em] text-[#8FA07F]">
-        {getStatusLabel(appointment.status)}
+        {getStatusLabel(
+          appointment.status
+        )}
       </p>
     </button>
   );
@@ -1198,16 +1711,21 @@ function AppointmentDrawer({
   appointment: Appointment;
   notes: string;
   saving: boolean;
-  onNotesChange: (value: string) => void;
+  onNotesChange: (
+    value: string
+  ) => void;
   onClose: () => void;
   onUpdateStatus: (
     status: AppointmentStatus
   ) => void;
   onSaveNotes: () => void;
 }) {
-  const confirmDialog = useConfirm();
+  const confirmDialog =
+    useConfirm();
+
   return (
     <div className="fixed inset-0 z-50">
+
       <button
         type="button"
         aria-label="Cerrar detalle"
@@ -1216,31 +1734,49 @@ function AppointmentDrawer({
       />
 
       <aside className="absolute right-0 top-0 flex h-full w-full max-w-[470px] flex-col bg-[#F7F5EF] shadow-2xl">
+
         <header className="border-b border-[#DED9CD] bg-white p-6">
+
           <div className="flex items-start justify-between gap-5">
+
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
                 Detalle del turno
               </p>
 
               <h2 className="mt-3 text-3xl font-semibold tracking-tight">
-                {appointment.patient.firstName}{" "}
-                {appointment.patient.lastName}
+                {
+                  appointment
+                    .patient
+                    .firstName
+                }{" "}
+                {
+                  appointment
+                    .patient
+                    .lastName
+                }
               </h2>
 
               <p className="mt-2 text-sm capitalize leading-6 text-[#6B7774]">
                 {new Date(
                   appointment.date
-                ).toLocaleDateString("es-AR", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
+                ).toLocaleDateString(
+                  "es-AR",
+                  {
+                    weekday:
+                      "long",
+                    day: "numeric",
+                    month:
+                      "long",
+                    year: "numeric",
+                  }
+                )}
               </p>
 
               <p className="mt-1 text-2xl font-semibold tracking-tight text-[#263F3B]">
-                {formatTime(appointment.date)}
+                {formatTime(
+                  appointment.date
+                )}
               </p>
             </div>
 
@@ -1256,24 +1792,33 @@ function AppointmentDrawer({
 
           <div className="mt-5">
             <StatusBadge
-              status={appointment.status}
+              status={
+                appointment.status
+              }
             />
           </div>
         </header>
 
         <div className="flex-1 space-y-6 overflow-y-auto p-6">
+
           <section className="border border-[#DED9CD] bg-white">
             <InfoRow
-              icon={<MapPin className="h-4 w-4" />}
+              icon={
+                <MapPin className="h-4 w-4" />
+              }
               label="Sucursal"
               value={`${appointment.branch.name} · ${appointment.branch.address}`}
             />
 
             <InfoRow
-              icon={<Phone className="h-4 w-4" />}
+              icon={
+                <Phone className="h-4 w-4" />
+              }
               label="Teléfono"
               value={
-                appointment.patient.phone ||
+                appointment
+                  .patient
+                  .phone ||
                 "Sin teléfono"
               }
             />
@@ -1284,13 +1829,17 @@ function AppointmentDrawer({
               }
               label="DNI"
               value={
-                appointment.patient.dni ||
+                appointment
+                  .patient
+                  .dni ||
                 "Sin DNI"
               }
             />
 
             <InfoRow
-              icon={<Clock3 className="h-4 w-4" />}
+              icon={
+                <Clock3 className="h-4 w-4" />
+              }
               label="Horario"
               value={formatTime(
                 appointment.date
@@ -1326,7 +1875,9 @@ function AppointmentDrawer({
             <button
               type="button"
               disabled={saving}
-              onClick={onSaveNotes}
+              onClick={
+                onSaveNotes
+              }
               className="mt-3 w-full border border-[#6F855F] bg-white px-5 py-3 text-sm font-semibold text-[#5F7653] transition hover:bg-[#EEF2E9] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving
@@ -1341,6 +1892,7 @@ function AppointmentDrawer({
             </p>
 
             <div className="mt-4 grid gap-3">
+
               {appointment.status ===
                 "PENDING" && (
                 <ActionButton
@@ -1387,16 +1939,27 @@ function AppointmentDrawer({
                     danger
                     disabled={saving}
                     onClick={async () => {
-                      const confirmed = await confirmDialog({
-                        title: "Cancelar turno",
-                        description:
-                          "¿Seguro que querés cancelar este turno?",
-                        confirmText: "Cancelar turno",
-                      });
+                      const confirmed =
+                        await confirmDialog(
+                          {
+                            title:
+                              "Cancelar turno",
 
-                      if (!confirmed) return;
+                            description:
+                              "¿Seguro que querés cancelar este turno?",
 
-                      onUpdateStatus("CANCELED");
+                            confirmText:
+                              "Cancelar turno",
+                          }
+                        );
+
+                      if (!confirmed) {
+                        return;
+                      }
+
+                      onUpdateStatus(
+                        "CANCELED"
+                      );
                     }}
                   />
                 )}
@@ -1408,6 +1971,7 @@ function AppointmentDrawer({
             className="flex items-center justify-between border border-[#263F3B] bg-[#263F3B] px-5 py-4 text-sm font-semibold text-white transition hover:bg-[#1D302D]"
           >
             Ver ficha del paciente
+
             <ChevronRight className="h-4 w-4" />
           </Link>
         </div>
@@ -1424,6 +1988,7 @@ function CreateAppointmentModal({
   onChange,
   onClose,
   onCreate,
+  lockedPatientId,
 }: {
   patients: PatientOption[];
   branches: Branch[];
@@ -1434,11 +1999,16 @@ function CreateAppointmentModal({
   >;
   onClose: () => void;
   onCreate: () => void;
+  lockedPatientId:
+    | string
+    | null;
 }) {
-  const selectedPatient = patients.find(
-    (patient) =>
-      patient.id === form.patientId
-  );
+  const selectedPatient =
+    patients.find(
+      (patient) =>
+        patient.id ===
+        form.patientId
+    );
 
   const availableBranches =
     selectedPatient?.branchId
@@ -1452,18 +2022,24 @@ function CreateAppointmentModal({
   function handlePatientChange(
     patientId: string
   ) {
-    const patient = patients.find(
-      (item) => item.id === patientId
-    );
+    const patient =
+      patients.find(
+        (item) =>
+          item.id ===
+          patientId
+      );
 
     onChange((current) => ({
       ...current,
+
       patientId,
+
       branchId:
         patient?.branchId &&
         branches.some(
           (branch) =>
-            branch.id === patient.branchId
+            branch.id ===
+            patient.branchId
         )
           ? patient.branchId
           : current.branchId,
@@ -1472,6 +2048,7 @@ function CreateAppointmentModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+
       <button
         type="button"
         aria-label="Cerrar formulario"
@@ -1480,7 +2057,9 @@ function CreateAppointmentModal({
       />
 
       <section className="relative z-10 max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto border border-[#DED9CD] bg-[#F7F5EF] shadow-2xl">
+
         <header className="flex items-start justify-between gap-5 border-b border-[#DED9CD] bg-white px-6 py-5">
+
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8FA07F]">
               Agenda profesional
@@ -1508,6 +2087,7 @@ function CreateAppointmentModal({
         </header>
 
         <div className="space-y-5 p-6">
+
           <div>
             <label
               htmlFor="new-appointment-patient"
@@ -1519,32 +2099,60 @@ function CreateAppointmentModal({
             <select
               id="new-appointment-patient"
               value={form.patientId}
+              disabled={
+                Boolean(
+                  lockedPatientId
+                )
+              }
               onChange={(event) =>
                 handlePatientChange(
                   event.target.value
                 )
               }
-              className="mt-2 w-full border border-[#DED9CD] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6F855F]"
+              className={`mt-2 w-full border border-[#DED9CD] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6F855F] ${
+                lockedPatientId
+                  ? "cursor-not-allowed bg-[#F7F5EF] text-[#6B7774]"
+                  : ""
+              }`}
             >
               <option value="">
                 Seleccionar paciente
               </option>
 
-              {patients.map((patient) => (
-                <option
-                  key={patient.id}
-                  value={patient.id}
-                >
-                  {patient.lastName},{" "}
-                  {patient.firstName}
-                  {patient.dni
-                    ? ` — DNI ${patient.dni}`
-                    : ""}
-                </option>
-              ))}
+              {patients.map(
+                (patient) => (
+                  <option
+                    key={
+                      patient.id
+                    }
+                    value={
+                      patient.id
+                    }
+                  >
+                    {
+                      patient.lastName
+                    }
+                    ,{" "}
+                    {
+                      patient.firstName
+                    }
+
+                    {patient.dni
+                      ? ` — DNI ${patient.dni}`
+                      : ""}
+                  </option>
+                )
+              )}
             </select>
 
-            {patients.length === 0 && (
+            {lockedPatientId && (
+              <p className="mt-2 text-xs text-[#6B7774]">
+                El paciente está seleccionado desde su ficha.
+              </p>
+            )}
+
+            {patients.length ===
+              0 && (
               <p className="mt-2 text-xs text-[#A45858]">
                 No tenés pacientes asociados
                 disponibles.
@@ -1562,13 +2170,18 @@ function CreateAppointmentModal({
 
             <select
               id="new-appointment-branch"
-              value={form.branchId}
+              value={
+                form.branchId
+              }
               onChange={(event) =>
-                onChange((current) => ({
-                  ...current,
-                  branchId:
-                    event.target.value,
-                }))
+                onChange(
+                  (current) => ({
+                    ...current,
+                    branchId:
+                      event.target
+                        .value,
+                  })
+                )
               }
               className="mt-2 w-full border border-[#DED9CD] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#6F855F]"
             >
@@ -1579,11 +2192,18 @@ function CreateAppointmentModal({
               {availableBranches.map(
                 (branch) => (
                   <option
-                    key={branch.id}
-                    value={branch.id}
+                    key={
+                      branch.id
+                    }
+                    value={
+                      branch.id
+                    }
                   >
                     {branch.name} —{" "}
-                    {branch.address},{" "}
+                    {
+                      branch.address
+                    }
+                    ,{" "}
                     {branch.city}
                   </option>
                 )
@@ -1592,6 +2212,7 @@ function CreateAppointmentModal({
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
+
             <div>
               <label
                 htmlFor="new-appointment-date"
@@ -1607,10 +2228,14 @@ function CreateAppointmentModal({
                   min={getLocalDateInputValue()}
                   value={form.date}
                   onChange={(event) =>
-                    onChange((current) => ({
-                      ...current,
-                      date: event.target.value,
-                    }))
+                    onChange(
+                      (current) => ({
+                        ...current,
+                        date:
+                          event.target
+                            .value,
+                      })
+                    )
                   }
                   className="block w-full min-w-0 border-0 bg-transparent p-0 text-sm outline-none"
                 />
@@ -1631,10 +2256,14 @@ function CreateAppointmentModal({
                   type="time"
                   value={form.time}
                   onChange={(event) =>
-                    onChange((current) => ({
-                      ...current,
-                      time: event.target.value,
-                    }))
+                    onChange(
+                      (current) => ({
+                        ...current,
+                        time:
+                          event.target
+                            .value,
+                      })
+                    )
                   }
                   className="block w-full min-w-0 border-0 bg-transparent p-0 text-sm outline-none"
                 />
@@ -1654,10 +2283,14 @@ function CreateAppointmentModal({
               id="new-appointment-notes"
               value={form.notes}
               onChange={(event) =>
-                onChange((current) => ({
-                  ...current,
-                  notes: event.target.value,
-                }))
+                onChange(
+                  (current) => ({
+                    ...current,
+                    notes:
+                      event.target
+                        .value,
+                  })
+                )
               }
               rows={4}
               placeholder="Ejemplo: consulta, control, limpieza o tratamiento..."
@@ -1667,6 +2300,7 @@ function CreateAppointmentModal({
         </div>
 
         <footer className="flex flex-col-reverse gap-3 border-t border-[#DED9CD] bg-white px-6 py-5 sm:flex-row sm:justify-end">
+
           <button
             type="button"
             onClick={onClose}
@@ -1681,7 +2315,8 @@ function CreateAppointmentModal({
             onClick={onCreate}
             disabled={
               creating ||
-              patients.length === 0 ||
+              patients.length ===
+                0 ||
               !form.patientId ||
               !form.branchId ||
               !form.date ||

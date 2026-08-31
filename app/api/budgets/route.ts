@@ -717,34 +717,40 @@ export async function POST(
     const primaryDoctorId =
       budget.doctors[0]?.doctorId;
 
-    if (primaryDoctorId) {
-      await prisma.notification.create({
-        data: {
-          patientId:
-            budget.patientId,
+    /*
+    * La notificación siempre se envía al paciente.
+    *
+    * Si el presupuesto lo crea ADMIN:
+    * también se informa al especialista asignado.
+    *
+    * Si lo crea DOCTOR:
+    * no se envía una notificación al mismo doctor
+    * que acaba de crear el presupuesto.
+    */
+    const notificationDoctorId =
+      session.user.role === "ADMIN"
+        ? primaryDoctorId
+        : null;
 
-          doctorId:
-            primaryDoctorId,
+    await prisma.notification.create({
+      data: {
+        patientId: budget.patientId,
+        doctorId: notificationDoctorId,
+        budgetId: budget.id,
 
-          budgetId:
-            budget.id,
+        title: "Nuevo presupuesto",
 
-          title:
-            "Nuevo presupuesto",
+        message:
+          `${doctorNames} creó un nuevo presupuesto. Más detalles en "Presupuestos".`,
 
-          message: `${doctorNames} creó un nuevo presupuesto. Más detalles en "Presupuestos".`,
+        type: "BUDGET",
 
-          type:
-            "BUDGET",
+        actor: "DOCTOR",
 
-          actor:
-            "DOCTOR",
-
-          actionUrl:
-            "/dashboard/patient/presupuestos",
-        },
-      });
-    }
+        actionUrl:
+          "/dashboard/patient/presupuestos",
+      },
+    });
 
     return NextResponse.json(
       {

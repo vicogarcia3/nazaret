@@ -159,10 +159,6 @@ export async function PATCH(
 /**
  * Edita la ficha pública del especialista
  * en la sección Equipo.
- *
- * Si el especialista tiene una cuenta de usuario
- * asociada, también sincroniza el email utilizado
- * para iniciar sesión.
  */
 export async function PUT(
   request: Request,
@@ -221,6 +217,13 @@ export async function PUT(
         body.email
       )?.toLowerCase() ?? null;
 
+    const userId =
+      body.userId === null
+        ? null
+        : typeof body.userId === "string" && body.userId.trim()
+        ? body.userId.trim()
+        : undefined;
+
     if (!name) {
       return NextResponse.json(
         {
@@ -234,8 +237,8 @@ export async function PUT(
     }
 
     /*
-     * Validamos que otro Doctor
-     * no tenga ya ese email.
+     * Validamos únicamente que otro Doctor
+     * no tenga ya registrado ese email de contacto.
      */
     if (email) {
       const doctorWithSameEmail =
@@ -244,13 +247,11 @@ export async function PUT(
             id: {
               not: id,
             },
-
             email: {
               equals: email,
               mode: "insensitive",
             },
           },
-
           select: {
             id: true,
           },
@@ -267,39 +268,31 @@ export async function PUT(
           }
         );
       }
+    }
 
-      /*
-       * También validamos User.email,
-       * porque es el correo utilizado
-       * para iniciar sesión.
-       */
-      const userWithSameEmail =
-        await prisma.user.findFirst({
+    /*
+     * Si se envía un nuevo userId, verificamos
+     * que no pertenezca ya a otro Doctor.
+     */
+    if (userId && userId !== existingDoctor.userId) {
+      const doctorWithUserId =
+        await prisma.doctor.findFirst({
           where: {
-            email: {
-              equals: email,
-              mode: "insensitive",
+            userId,
+            id: {
+              not: id,
             },
-
-            ...(existingDoctor.userId
-              ? {
-                  id: {
-                    not: existingDoctor.userId,
-                  },
-                }
-              : {}),
           },
-
           select: {
             id: true,
           },
         });
 
-      if (userWithSameEmail) {
+      if (doctorWithUserId) {
         return NextResponse.json(
           {
             error:
-              "Ya existe una cuenta registrada con ese email.",
+              "El usuario seleccionado ya está vinculado a otro especialista.",
           },
           {
             status: 409,
@@ -376,26 +369,8 @@ export async function PUT(
           }
 
           /*
-           * Si el especialista tiene una cuenta
-           * asociada y hay email, sincronizamos
-           * también el email de User.
-           */
-          if (
-            existingDoctor.userId &&
-            email
-          ) {
-            await transaction.user.update({
-              where: {
-                id: existingDoctor.userId,
-              },
-              data: {
-                email,
-              },
-            });
-          }
-
-          /*
-           * Actualizamos la ficha Doctor.
+           * Actualizamos la ficha Doctor en la base de datos
+           * sin tocar la tabla User.
            */
           return transaction.doctor.update({
             where: {
@@ -405,6 +380,10 @@ export async function PUT(
             data: {
               name,
               email,
+
+              ...(userId !== undefined && {
+                userId,
+              }),
 
               specialty:
                 normalizeNullableText(

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 
@@ -9,8 +8,7 @@ export async function GET() {
 
     if (
       !session?.user ||
-      (session.user.role !== "DOCTOR" &&
-        session.user.role !== "ADMIN")
+      session.user.role !== "DOCTOR"
     ) {
       return NextResponse.json(
         { error: "No autorizado" },
@@ -34,15 +32,15 @@ export async function GET() {
       );
     }
 
-    const notifications =
-      await prisma.notification.findMany({
-        where: {
-          doctorId: doctor.id,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+    const notifications = await prisma.notification.findMany({
+      where: {
+        doctorId: doctor.id,
+        patientId: null, // 👈 AGREGAR ESTA LÍNEA
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
 
     return NextResponse.json(notifications);
   } catch (error) {

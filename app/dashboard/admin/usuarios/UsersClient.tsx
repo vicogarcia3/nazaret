@@ -623,7 +623,6 @@ export default function UsersClient({
             </div>
 
             <div className="space-y-6 p-7">
-
               <div>
                 <label className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#A2B38B]">
                   Tipo de usuario

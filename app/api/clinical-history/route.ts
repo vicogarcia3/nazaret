@@ -29,7 +29,7 @@ async function canAccessPatient({
     return Boolean(patient);
   }
 
-  // Solamente ADMIN y DOCTOR pueden acceder
+  // Solamente DOCTOR puede acceder como especialista
   if (role !== "DOCTOR") {
     return false;
   }
@@ -41,6 +41,7 @@ async function canAccessPatient({
     },
     select: {
       id: true,
+      name: true,
     },
   });
 
@@ -48,19 +49,22 @@ async function canAccessPatient({
     return false;
   }
 
-  // El odontólogo solamente puede acceder a pacientes
-  // que estén directamente asociados a él mediante patient.doctorId
-  const patient = await prisma.patient.findFirst({
+  // El odontólogo puede acceder al paciente si figura como
+  // odontólogo en su Historia Clínica.
+  const history = await prisma.clinicalHistory.findFirst({
     where: {
-      id: patientId,
-      doctorId: doctor.id,
+      patientId,
+      data: {
+        path: ["odontologo"],
+        equals: doctor.name,
+      },
     },
     select: {
       id: true,
     },
   });
 
-  return Boolean(patient);
+  return Boolean(history);
 }
 
 export async function GET(req: Request) {

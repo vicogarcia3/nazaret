@@ -36,7 +36,8 @@ export async function GET() {
 
     if (
       !session?.user?.id ||
-      session.user.role !== "ADMIN"
+      (session.user.role !== "ADMIN" &&
+        session.user.role !== "DOCTOR")
     ) {
       return NextResponse.json(
         {
@@ -117,6 +118,11 @@ export async function POST(request: Request) {
     const email = 
       normalizeOptionalText(body.email)?.toLowerCase() ?? null;
 
+    const userId =
+      typeof body.userId === "string" && body.userId.trim()
+        ? body.userId.trim()
+        : null;
+
     const specialty =
       typeof body.specialty === "string" && body.specialty.trim()
         ? body.specialty.trim()
@@ -192,19 +198,36 @@ export async function POST(request: Request) {
       );
     }
 
+    // Si viene userId, verificar que no esté asociado a otro especialista
+    if (userId) {
+      const existingDoctorForUser = await prisma.doctor.findUnique({
+        where: { userId },
+        select: { id: true },
+      });
+
+      if (existingDoctorForUser) {
+        return NextResponse.json(
+          {
+            error: "El usuario ya tiene una ficha de especialista vinculada.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Verificar duplica de email solo contra otros especialistas
     if (email) {
-      const existingDoctorWithEmail =
-        await prisma.doctor.findFirst({
-          where: {
-            email: {
-              equals: email,
-              mode: "insensitive",
-            },
+      const existingDoctorWithEmail = await prisma.doctor.findFirst({
+        where: {
+          email: {
+            equals: email,
+            mode: "insensitive",
           },
-          select: {
-            id: true,
-          },
-        });
+        },
+        select: {
+          id: true,
+        },
+      });
 
       if (existingDoctorWithEmail) {
         return NextResponse.json(
@@ -223,7 +246,7 @@ export async function POST(request: Request) {
       data: {
         name,
         email,
-        userId: null,
+        userId,
         specialty,
         professionalLicense,
         description,

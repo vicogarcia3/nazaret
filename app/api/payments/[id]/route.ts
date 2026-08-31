@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
+
 import { Prisma } from "@prisma/client";
+
 import { auth } from "@/lib/auth";
+
 import { prisma } from "@/lib/prisma";
 
 type RouteContext = {
@@ -14,9 +17,11 @@ function createReceiptNumber(
   issuedAt: Date
 ) {
   const year = issuedAt.getFullYear();
+
   const month = String(
     issuedAt.getMonth() + 1
   ).padStart(2, "0");
+
   const day = String(
     issuedAt.getDate()
   ).padStart(2, "0");
@@ -28,6 +33,141 @@ function createReceiptNumber(
   return `REC-${year}${month}${day}-${paymentReference}`;
 }
 
+/**
+ * Devuelve el Doctor asociado al usuario autenticado.
+ */
+async function getAuthenticatedDoctor(
+  email: string
+) {
+  return prisma.doctor.findFirst({
+    where: {
+      user: {
+        email: email.trim().toLowerCase(),
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+}
+
+/**
+ * Verifica si el usuario autenticado puede administrar
+ * el pago indicado.
+ *
+ * ADMIN:
+ * Puede administrar cualquier pago.
+ *
+ * DOCTOR:
+ * Puede administrar únicamente pagos de sus pacientes.
+ */
+async function canManagePayment(
+  paymentId: string,
+  session: any
+) {
+  if (!session?.user) {
+    return {
+      allowed: false,
+      status: 401,
+      error: "No autorizado",
+    };
+  }
+
+  /**
+   * ADMIN puede administrar cualquier pago.
+   */
+  if (session.user.role === "ADMIN") {
+    return {
+      allowed: true,
+      status: 200,
+    };
+  }
+
+  /**
+   * Solamente ADMIN y DOCTOR pueden administrar pagos.
+   */
+  if (session.user.role !== "DOCTOR") {
+    return {
+      allowed: false,
+      status: 403,
+      error:
+        "No tenés permisos para administrar este pago.",
+    };
+  }
+
+  /**
+   * Buscamos al Doctor asociado al usuario autenticado.
+   */
+  if (!session.user.email) {
+    return {
+      allowed: false,
+      status: 403,
+      error:
+        "No se pudo identificar al especialista.",
+    };
+  }
+
+  const doctor = await getAuthenticatedDoctor(
+    session.user.email
+  );
+
+  if (!doctor) {
+    return {
+      allowed: false,
+      status: 403,
+      error:
+        "No se encontró el especialista asociado.",
+    };
+  }
+
+  /**
+   * Buscamos el pago y el especialista asignado
+   * al paciente.
+   */
+  const payment =
+    await prisma.payment.findUnique({
+      where: {
+        id: paymentId,
+      },
+      select: {
+        id: true,
+        patient: {
+          select: {
+            doctorId: true,
+          },
+        },
+      },
+    });
+
+  if (!payment) {
+    return {
+      allowed: false,
+      status: 404,
+      error: "El pago no existe.",
+    };
+  }
+
+  /**
+   * El Doctor solamente puede administrar pagos
+   * de pacientes que le pertenecen.
+   */
+  if (
+    payment.patient.doctorId !== doctor.id
+  ) {
+    return {
+      allowed: false,
+      status: 403,
+      error:
+        "No tenés permisos para administrar pagos de este paciente.",
+    };
+  }
+
+  return {
+    allowed: true,
+    status: 200,
+  };
+}
+
 export async function DELETE(
   _request: Request,
   context: RouteContext
@@ -35,21 +175,24 @@ export async function DELETE(
   try {
     const session = await auth();
 
-    if (
-      !session?.user ||
-      session.user.role !== "ADMIN"
-    ) {
+    const { id } = await context.params;
+
+    const permission =
+      await canManagePayment(
+        id,
+        session
+      );
+
+    if (!permission.allowed) {
       return NextResponse.json(
         {
-          error: "No autorizado",
+          error: permission.error,
         },
         {
-          status: 401,
+          status: permission.status,
         }
       );
     }
-
-    const { id } = await context.params;
 
     const payment =
       await prisma.payment.findUnique({
@@ -58,7 +201,6 @@ export async function DELETE(
         },
         select: {
           id: true,
-          receiptNumber: true,
         },
       });
 
@@ -69,22 +211,6 @@ export async function DELETE(
         },
         {
           status: 404,
-        }
-      );
-    }
-
-    /*
-     * Conviene impedir la eliminación de pagos que ya tienen
-     * un comprobante emitido, para no perder el registro.
-     */
-    if (payment.receiptNumber) {
-      return NextResponse.json(
-        {
-          error:
-            "Este pago ya tiene un comprobante emitido y no puede eliminarse.",
-        },
-        {
-          status: 409,
         }
       );
     }
@@ -122,21 +248,25 @@ export async function PUT(
   try {
     const session = await auth();
 
-    if (
-      !session?.user ||
-      session.user.role !== "ADMIN"
-    ) {
+    const { id } = await context.params;
+
+    const permission =
+      await canManagePayment(
+        id,
+        session
+      );
+
+    if (!permission.allowed) {
       return NextResponse.json(
         {
-          error: "No autorizado",
+          error: permission.error,
         },
         {
-          status: 401,
+          status: permission.status,
         }
       );
     }
 
-    const { id } = await context.params;
     const body = await request.json();
 
     const existingPayment =
@@ -189,7 +319,8 @@ export async function PUT(
     }
 
     const nextStatus =
-      body.status ?? existingPayment.status;
+      body.status ??
+      existingPayment.status;
 
     const nextAmount =
       body.amount !== undefined &&
@@ -213,9 +344,9 @@ export async function PUT(
       );
     }
 
-    /*
-     * El comprobante se genera solamente la primera vez que
-     * el pago pasa a PAID.
+    /**
+     * El comprobante se genera solamente la primera vez
+     * que el pago pasa a PAID.
      */
     const shouldIssueReceipt =
       nextStatus === "PAID" &&
@@ -241,10 +372,11 @@ export async function PUT(
       | undefined;
 
     if (shouldIssueReceipt) {
-      receiptNumber = createReceiptNumber(
-        existingPayment.id,
-        now
-      );
+      receiptNumber =
+        createReceiptNumber(
+          existingPayment.id,
+          now
+        );
 
       receiptIssuedAt = now;
 
@@ -260,7 +392,9 @@ export async function PUT(
 
       const budgetTotal =
         existingPayment.budget
-          ? Number(existingPayment.budget.total)
+          ? Number(
+              existingPayment.budget.total
+            )
           : null;
 
       const remainingBalance =
@@ -280,54 +414,95 @@ export async function PUT(
               doctor.user?.name ||
               "Profesional"
           )
-          .join(", ") || "Profesional no informado";
+          .join(", ") ||
+        "Profesional no informado";
 
       receiptData = {
         receiptNumber,
-        issuedAt: now.toISOString(),
-        paidAt: paidAt?.toISOString() ?? null,
+
+        issuedAt:
+          now.toISOString(),
+
+        paidAt:
+          paidAt?.toISOString() ??
+          null,
 
         patient: {
-          id: existingPayment.patient.id,
-          name: `${existingPayment.patient.firstName} ${existingPayment.patient.lastName}`,
-          dni: existingPayment.patient.dni ?? null,
-          email: existingPayment.patient.email ?? null,
-          phone: existingPayment.patient.phone,
+          id:
+            existingPayment.patient.id,
+
+          name:
+            `${existingPayment.patient.firstName} ${existingPayment.patient.lastName}`,
+
+          dni:
+            existingPayment.patient.dni ??
+            null,
+
+          email:
+            existingPayment.patient.email ??
+            null,
+
+          phone:
+            existingPayment.patient.phone,
         },
 
         branch: {
-          id: existingPayment.patient.branch.id,
-          name: existingPayment.patient.branch.name,
-          address: existingPayment.patient.branch.address,
-          city: existingPayment.patient.branch.city,
-          phone: existingPayment.patient.branch.phone ?? null,
+          id:
+            existingPayment.patient.branch.id,
+
+          name:
+            existingPayment.patient.branch.name,
+
+          address:
+            existingPayment.patient.branch.address,
+
+          city:
+            existingPayment.patient.branch.city,
+
+          phone:
+            existingPayment.patient.branch.phone ??
+            null,
         },
 
         professional: {
           name: doctorNames,
+
           license:
             existingPayment.budget?.doctors
-              .map(({ doctor }) => doctor.professionalLicense)
+              .map(
+                ({ doctor }) =>
+                  doctor.professionalLicense
+              )
               .filter(Boolean)
               .join(", ") || null,
         },
 
-        budget: existingPayment.budget
-          ? {
-              id: existingPayment.budget.id,
-              description:
-                existingPayment.budget.description ?? null,
-              total: budgetTotal,
-            }
-          : null,
+        budget:
+          existingPayment.budget
+            ? {
+                id:
+                  existingPayment.budget.id,
+
+                description:
+                  existingPayment.budget
+                    .description ??
+                  null,
+
+                total: budgetTotal,
+              }
+            : null,
 
         payment: {
-          id: existingPayment.id,
+          id:
+            existingPayment.id,
+
           concept:
             body.concept ??
             existingPayment.concept ??
             "Entrega de pago",
+
           amount: nextAmount,
+
           paymentMethod:
             body.paymentMethod ??
             existingPayment.paymentMethod ??
@@ -336,8 +511,11 @@ export async function PUT(
 
         amounts: {
           previousPaidAmount,
+
           paymentAmount: nextAmount,
+
           paidAmountAfterPayment,
+
           remainingBalance,
         },
 
@@ -351,6 +529,7 @@ export async function PUT(
         where: {
           id,
         },
+
         data: {
           amount:
             body.amount !== undefined &&
@@ -387,8 +566,10 @@ export async function PUT(
 
     return NextResponse.json({
       payment,
+
       receiptCreated:
         shouldIssueReceipt,
+
       receiptNumber:
         payment.receiptNumber,
     });
