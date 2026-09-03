@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
 import ClinicalHistoryEditor from "@/app/components/clinical-history/ClinicalHistoryEditor";
 
 type Props = {
@@ -52,13 +51,10 @@ type Props = {
 export default function ExternalClinicalHistoryViewer({
   patient,
   history,
-  doctor,
-  entries,
 }: Props) {
   return (
     <main className="min-h-screen bg-[#F7F5EF] px-5 py-8 text-[#263F3B]">
       <div className="mx-auto w-full max-w-[1320px]">
-
         <div className="mx-auto w-full max-w-[1180px]">
           <Link
             href="/historias-clinicas"
@@ -100,33 +96,6 @@ export default function ExternalClinicalHistoryViewer({
             readOnly
           />
         </div>
-
-        <section className="mt-6">
-          <div className="mx-auto mb-2 w-full max-w-[1180px]">
-            <h2 className="font-serif text-3xl text-[#263F3B]">
-              Anexo
-            </h2>
-
-            <p className="mt-2 text-sm text-[#6B7774]">
-              Podés agregar prestaciones y modificar únicamente los registros creados por vos.
-            </p>
-          </div>
-
-          <div className="mx-auto w-full max-w-[1180px]">
-            <ClinicalHistoryAnnex
-              patientName={`${patient.lastName}, ${patient.firstName}`}
-              affiliationNumber={
-                typeof history.data.numeroAfiliado === "string"
-                ? history.data.numeroAfiliado
-                : ""
-              }
-              folioNumber=""
-              clinicalHistoryId={history.id}
-              entries={entries}
-              allowCreate
-            />
-          </div>
-        </section>
       </div>
     </main>
   );

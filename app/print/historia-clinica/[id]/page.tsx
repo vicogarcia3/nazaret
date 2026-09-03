@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { notFound, redirect } from "next/navigation";
 import PrintButton from "./PrintButton";
 import ClinicalHistoryAnnex from "@/app/components/clinical-history/ClinicalHistoryAnnex";
+import {
+  getClinicalExternalSession,
+  canExternalDoctorAccessPatient,
+} from "@/lib/clinical-external-auth";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -11,22 +15,20 @@ type Props = {
 export default async function HistoriaClinicaPrintPage({ params }: Props) {
   const session = await auth();
 
-  if (!session?.user?.id) {
-    redirect("/login");
-  }
-
-  if (
-    session.user.role !== "ADMIN" &&
-    session.user.role !== "DOCTOR"
-  ) {
-    notFound();
-  }
-
   const { id } = await params;
 
   let patient;
 
-  if (session.user.role === "ADMIN") {
+  /*
+   * true = el que está mirando es un doctor
+   * externo (portal de acceso clínico), no
+   * un admin/doctor logueado con NextAuth.
+   * En ese caso solo mostramos la Historia
+   * general, sin el Anexo.
+   */
+  let isExternalViewer = false;
+
+  if (session?.user?.id && session.user.role === "ADMIN") {
     patient = await prisma.patient.findUnique({
       where: {
         id,
@@ -41,7 +43,10 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
         },
       },
     });
-  } else {
+  } else if (
+    session?.user?.id &&
+    session.user.role === "DOCTOR"
+  ) {
     const doctor = await prisma.doctor.findUnique({
       where: {
         userId: session.user.id,
@@ -56,53 +61,99 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
       },
     });
 
-    if (!doctor) {
-      notFound();
-    }
+    if (doctor) {
+      const doctorBranchIds = doctor.branches.map(
+        (doctorBranch) => doctorBranch.branchId
+      );
 
-    const doctorBranchIds = doctor.branches.map(
-      (doctorBranch) => doctorBranch.branchId
-    );
-
-    patient = await prisma.patient.findFirst({
-      where: {
-        id,
-        OR: [
-          {
-            branchId: {
-              in: doctorBranchIds,
-            },
-          },
-          {
-            appointments: {
-              some: {
-                doctorId: doctor.id,
+      patient = await prisma.patient.findFirst({
+        where: {
+          id,
+          OR: [
+            {
+              branchId: {
+                in: doctorBranchIds,
               },
             },
-          },
-          {
-            budgets: {
-              some: {
-                doctors: {
-                  some: {
-                    doctorId: doctor.id,
+            {
+              appointments: {
+                some: {
+                  doctorId: doctor.id,
+                },
+              },
+            },
+            {
+              budgets: {
+                some: {
+                  doctors: {
+                    some: {
+                      doctorId: doctor.id,
+                    },
                   },
                 },
               },
             },
-          },
-        ],
-      },
-      include: {
-        branch: true,
-        histories: {
-          orderBy: {
-            updatedAt: "desc",
-          },
-          take: 1,
+          ],
         },
-      },
-    });
+        include: {
+          branch: true,
+          histories: {
+            orderBy: {
+              updatedAt: "desc",
+            },
+            take: 1,
+          },
+        },
+      });
+    }
+  }
+
+  if (!patient) {
+    /*
+     * Ya sea porque no había sesión de NextAuth,
+     * o porque la había pero no dio acceso a este
+     * paciente puntual (puede pasar si en el mismo
+     * navegador también hay una sesión externa
+     * activa). Probamos esa antes de rendirnos.
+     */
+    const externalSession =
+      await getClinicalExternalSession();
+
+    if (externalSession) {
+      const hasAccess =
+        await canExternalDoctorAccessPatient(
+          externalSession.doctor.id,
+          externalSession.clinicalAccess,
+          id
+        );
+
+      if (hasAccess) {
+        isExternalViewer = true;
+
+        patient = await prisma.patient.findUnique({
+          where: {
+            id,
+          },
+          include: {
+            branch: true,
+            histories: {
+              orderBy: {
+                updatedAt: "desc",
+              },
+              take: 1,
+            },
+          },
+        });
+      }
+    }
+  }
+
+  if (!patient) {
+    if (session?.user?.id) {
+      notFound();
+    }
+
+    redirect("/acceso-clinico");
   }
 
   if (!patient) {
@@ -382,17 +433,19 @@ export default async function HistoriaClinicaPrintPage({ params }: Props) {
         </div>
       </section>
 
-    <div className="print:break-before-page">
-      <ClinicalHistoryAnnex
-        patientName={`${patient.lastName}, ${patient.firstName}`}
-        affiliationNumber={
-          data.tipoCobertura === "OBRA_SOCIAL"
-            ? data.numeroAfiliado || ""
-            : ""
-        }
-        folioNumber=""
-      />
-    </div>
+    {!isExternalViewer && (
+      <div className="print:break-before-page">
+        <ClinicalHistoryAnnex
+          patientName={`${patient.lastName}, ${patient.firstName}`}
+          affiliationNumber={
+            data.tipoCobertura === "OBRA_SOCIAL"
+              ? data.numeroAfiliado || ""
+              : ""
+          }
+          folioNumber=""
+        />
+      </div>
+    )}
 
     </main>
   );

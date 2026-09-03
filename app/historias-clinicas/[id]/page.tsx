@@ -1,7 +1,10 @@
 import { notFound, redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
-import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
+import {
+  getClinicalExternalSession,
+  canExternalDoctorAccessPatient,
+} from "@/lib/clinical-external-auth";
 
 import ExternalClinicalHistoryViewer from "./ExternalClinicalHistoryViewer";
 
@@ -23,33 +26,25 @@ export default async function ExternalClinicalHistoryPage({
 
   const { id } = await params;
 
-  const doctor = await prisma.doctor.findUnique({
+  /*
+   * Si tiene "compartir todas", debe pertenecer
+   * a una sucursal del doctor. Si tiene selección
+   * puntual, alcanza con estar en esa lista
+   * (sin importar la sucursal).
+   */
+  const hasAccess = await canExternalDoctorAccessPatient(
+    clinicalSession.doctor.id,
+    clinicalSession.clinicalAccess,
+    id
+  );
+
+  if (!hasAccess) {
+    redirect("/historias-clinicas");
+  }
+
+  const patient = await prisma.patient.findUnique({
     where: {
-        id: clinicalSession.doctor.id,
-    },
-    select: {
-        branches: {
-        select: {
-            branchId: true,
-        },
-        },
-    },
-    });
-
-    if (!doctor) {
-    redirect("/acceso-clinico");
-    }
-
-    const branchIds = doctor.branches.map(
-    (branch) => branch.branchId
-    );
-
-    const patient = await prisma.patient.findFirst({
-    where: {
-        id,
-        branchId: {
-        in: branchIds,
-        },
+      id,
     },
 
     include: {
@@ -90,18 +85,15 @@ export default async function ExternalClinicalHistoryPage({
       ? history.data
       : {};
 
-  const serializedEntries =
-    history.annexEntries.map((entry) => ({
+  const serializedEntries = history.annexEntries.map(
+    (entry) => ({
       id: entry.id,
 
-      professionalName:
-        entry.professionalName,
+      professionalName: entry.professionalName,
 
-      treatment:
-        entry.treatment,
+      treatment: entry.treatment,
 
-      indications:
-        entry.indications,
+      indications: entry.indications,
 
       debit:
         entry.debit !== null
@@ -120,24 +112,21 @@ export default async function ExternalClinicalHistoryPage({
 
       performedAt: entry.performedAt.toISOString(),
 
-      nextAppointment:
-        entry.nextAppointment
-          ? entry.nextAppointment.toISOString()
-          : null,
+      nextAppointment: entry.nextAppointment
+        ? entry.nextAppointment.toISOString()
+        : null,
 
-      patientSignature:
-        entry.patientSignature,
+      patientSignature: entry.patientSignature,
 
-      createdAt:
-        entry.createdAt.toISOString(),
+      createdAt: entry.createdAt.toISOString(),
 
-      updatedAt:
-        entry.updatedAt.toISOString(),
+      updatedAt: entry.updatedAt.toISOString(),
 
       isOwn:
         entry.createdByDoctorId ===
         clinicalSession.doctor.id,
-    }));
+    })
+  );
 
   return (
     <ExternalClinicalHistoryViewer
@@ -151,21 +140,17 @@ export default async function ExternalClinicalHistoryPage({
         branchName: patient.branch.name,
         branchCity: patient.branch.city,
       }}
-
       history={{
         id: history.id,
         diagnosis: history.diagnosis,
         treatment: history.treatment,
         data: historyData,
-        updatedAt:
-          history.updatedAt.toISOString(),
+        updatedAt: history.updatedAt.toISOString(),
       }}
-
       doctor={{
         id: clinicalSession.doctor.id,
         name: clinicalSession.doctor.name,
       }}
-
       entries={serializedEntries}
     />
   );

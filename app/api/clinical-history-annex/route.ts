@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
+import {
+  getClinicalExternalSession,
+  canExternalDoctorAccessPatient,
+} from "@/lib/clinical-external-auth";
 
 function optionalText(value: unknown) {
   if (typeof value !== "string") {
@@ -59,29 +62,7 @@ function optionalDate(value: unknown) {
 
 export async function POST(request: Request) {
   try {
-    /*
-     * Puede ingresar:
-     * - ADMIN desde el panel
-     * - Especialista mediante acceso clínico externo
-     */
     const session = await auth();
-
-    const clinicalSession =
-      await getClinicalExternalSession();
-
-    const isAdmin =
-      session?.user?.role === "ADMIN";
-
-    if (!isAdmin && !clinicalSession) {
-      return NextResponse.json(
-        {
-          error: "No autorizado.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
 
     const body = await request.json();
 
@@ -102,130 +83,126 @@ export async function POST(request: Request) {
       );
     }
 
+    const clinicalHistory =
+      await prisma.clinicalHistory.findUnique({
+        where: {
+          id: clinicalHistoryId,
+        },
+        select: {
+          id: true,
+          patientId: true,
+          data: true,
+        },
+      });
+
+    if (!clinicalHistory) {
+      return NextResponse.json(
+        {
+          error:
+            "La historia clínica no existe.",
+        },
+        {
+          status: 404,
+        }
+      );
+    }
+
     /*
      * ID del especialista que crea el registro.
-     *
      * Si lo crea ADMIN queda null.
-     * Si lo crea un especialista externo,
-     * guardamos su doctorId.
      */
-    let createdByDoctorId: string | null =
-      null;
+    let createdByDoctorId: string | null = null;
+    let authorized = false;
 
     /*
      * =====================================================
      * ADMIN
      * =====================================================
      */
+    if (
+      session?.user?.id &&
+      session.user.role === "ADMIN"
+    ) {
+      authorized = true;
+    }
 
-    if (isAdmin) {
-      const clinicalHistory =
-        await prisma.clinicalHistory.findUnique({
-          where: {
-            id: clinicalHistoryId,
-          },
+    /*
+     * =====================================================
+     * DOCTOR INTERNO (panel propio, NextAuth)
+     * =====================================================
+     */
+    if (
+      !authorized &&
+      session?.user?.id &&
+      session.user.role === "DOCTOR"
+    ) {
+      const doctor = await prisma.doctor.findUnique({
+        where: {
+          userId: session.user.id,
+        },
+        select: {
+          id: true,
+          name: true,
+        },
+      });
 
-          select: {
-            id: true,
-          },
-        });
+      if (doctor) {
+        const historyData =
+          clinicalHistory.data &&
+          typeof clinicalHistory.data === "object" &&
+          !Array.isArray(clinicalHistory.data)
+            ? (clinicalHistory.data as Record<
+                string,
+                unknown
+              >)
+            : {};
 
-      if (!clinicalHistory) {
-        return NextResponse.json(
-          {
-            error:
-              "La historia clínica no existe.",
-          },
-          {
-            status: 404,
-          }
-        );
+        if (historyData.odontologo === doctor.name) {
+          authorized = true;
+          createdByDoctorId = doctor.id;
+        }
       }
     }
 
     /*
      * =====================================================
-     * ESPECIALISTA EXTERNO
+     * ESPECIALISTA EXTERNO (cookie /acceso-clinico)
+     * Solo se prueba si ninguno de los caminos
+     * anteriores dio acceso (puede haber, en el
+     * mismo navegador, sesión de NextAuth Y sesión
+     * externa al mismo tiempo).
      * =====================================================
      */
+    if (!authorized) {
+      const clinicalSession =
+        await getClinicalExternalSession();
 
-    else {
-      /*
-       * Acá sabemos que clinicalSession existe,
-       * porque arriba ya validamos:
-       *
-       * if (!isAdmin && !clinicalSession)
-       */
-      const doctorId =
-        clinicalSession!.doctor.id;
+      if (clinicalSession) {
+        const hasAccess =
+          await canExternalDoctorAccessPatient(
+            clinicalSession.doctor.id,
+            clinicalSession.clinicalAccess,
+            clinicalHistory.patientId
+          );
 
-      const doctor =
-        await prisma.doctor.findUnique({
-          where: {
-            id: doctorId,
-          },
-
-          select: {
-            branches: {
-              select: {
-                branchId: true,
-              },
-            },
-          },
-        });
-
-      if (!doctor) {
-        return NextResponse.json(
-          {
-            error:
-              "No se encontró el especialista.",
-          },
-          {
-            status: 404,
-          }
-        );
+        if (hasAccess) {
+          authorized = true;
+          createdByDoctorId =
+            clinicalSession.doctor.id;
+        }
       }
+    }
 
-      const branchIds =
-        doctor.branches.map(
-          (branch) => branch.branchId
-        );
-
-      /*
-       * La historia clínica debe pertenecer
-       * a un paciente de una sucursal a la
-       * que tenga acceso el especialista.
-       */
-      const clinicalHistory =
-        await prisma.clinicalHistory.findFirst({
-          where: {
-            id: clinicalHistoryId,
-
-            patient: {
-              branchId: {
-                in: branchIds,
-              },
-            },
-          },
-
-          select: {
-            id: true,
-          },
-        });
-
-      if (!clinicalHistory) {
-        return NextResponse.json(
-          {
-            error:
-              "No tenés acceso a esta historia clínica.",
-          },
-          {
-            status: 403,
-          }
-        );
-      }
-
-      createdByDoctorId = doctorId;
+    if (!authorized) {
+      return NextResponse.json(
+        {
+          error:
+            "No tenés acceso a esta historia clínica.",
+        },
+        {
+          status: 403,
+        }
+      );
     }
 
     /*

@@ -3,6 +3,10 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 import { auth } from "@/lib/auth";
+import {
+  getClinicalExternalSession,
+  canExternalDoctorAccessPatient,
+} from "@/lib/clinical-external-auth";
 
 type UserRole = "ADMIN" | "DOCTOR" | "PATIENT";
 
@@ -69,25 +73,6 @@ async function canAccessPatient({
 
 export async function GET(req: Request) {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id || !session.user.role) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 401 }
-      );
-    }
-
-    if (
-      session.user.role !== "ADMIN" &&
-      session.user.role !== "DOCTOR"
-    ) {
-      return NextResponse.json(
-        { error: "No autorizado" },
-        { status: 403 }
-      );
-    }
-
     const { searchParams } = new URL(req.url);
     const patientId = searchParams.get("patientId");
 
@@ -98,13 +83,50 @@ export async function GET(req: Request) {
       );
     }
 
-    const hasAccess = await canAccessPatient({
-      userId: session.user.id,
-      role: session.user.role as UserRole,
-      patientId,
-    });
+    let authorized = false;
 
-    if (!hasAccess) {
+    const session = await auth();
+
+    if (session?.user?.id && session.user.role) {
+      /*
+       * Camino normal: admin o doctor con
+       * sesión de NextAuth (portal interno).
+       */
+      if (
+        session.user.role === "ADMIN" ||
+        session.user.role === "DOCTOR"
+      ) {
+        authorized = await canAccessPatient({
+          userId: session.user.id,
+          role: session.user.role as UserRole,
+          patientId,
+        });
+      }
+    }
+
+    if (!authorized) {
+      /*
+       * O no había sesión de NextAuth, o la había
+       * pero no daba acceso a este paciente puntual
+       * (puede pasar si en el mismo navegador hay
+       * también una sesión externa por cookie del
+       * acceso clínico). Probamos esa también antes
+       * de rechazar.
+       */
+      const externalSession =
+        await getClinicalExternalSession();
+
+      if (externalSession) {
+        authorized =
+          await canExternalDoctorAccessPatient(
+            externalSession.doctor.id,
+            externalSession.clinicalAccess,
+            patientId
+          );
+      }
+    }
+
+    if (!authorized) {
       return NextResponse.json(
         { error: "No tenés acceso a este paciente" },
         { status: 403 }

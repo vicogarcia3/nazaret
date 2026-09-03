@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 model Payment {
@@ -138,13 +139,31 @@ model ClinicalAccess {
 
   doctorId String  @unique
   active   Boolean @default(true)
+  shareAll Boolean @default(true)
 
   grantedAt    DateTime  @default(now())
   lastAccessAt DateTime?
 
   doctor Doctor @relation(fields: [doctorId], references: [id])
+  sharedPatients  ClinicalAccessPatient[]
 
   @@index([active])
+}
+
+model ClinicalAccessPatient {
+  id String @id @default(cuid())
+
+  doctorId  String
+  patientId String
+
+  createdAt DateTime @default(now())
+
+  clinicalAccess ClinicalAccess @relation(fields: [doctorId], references: [doctorId])
+  patient        Patient        @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, patientId])
+  @@index([doctorId])
+  @@index([patientId])
 }
 
 model ClinicalAccessCode {
@@ -240,6 +259,7 @@ model Patient {
   budgets       Budget[]
   histories     ClinicalHistory[]
   notifications Notification[]
+  clinicalAccessShares  ClinicalAccessPatient[]
   odontogram    Odontogram?
   branch        Branch            @relation(fields: [branchId], references: [id])
   doctor        Doctor?           @relation(fields: [doctorId], references: [id])

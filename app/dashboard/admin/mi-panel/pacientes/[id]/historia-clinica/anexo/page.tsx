@@ -57,15 +57,22 @@ export default async function AnexoHistoriaClinicaPage({
       ? (history.data as Record<string, unknown>)
       : {};
 
+  /*
+   * Si "consentimientoNombre" existe pero está
+   * vacío (arranca así por defecto en el
+   * formulario), igual caemos al nombre real
+   * del paciente.
+   */
   const patientName =
     typeof historyData.consentimientoNombre ===
-    "string"
+      "string" &&
+    historyData.consentimientoNombre.trim()
       ? historyData.consentimientoNombre
       : `${patient.firstName} ${patient.lastName}`;
 
   const affiliationNumber =
-    typeof historyData.numeroAfiliado ===
-    "string"
+    typeof historyData.numeroAfiliado === "string" &&
+    historyData.numeroAfiliado.trim()
       ? historyData.numeroAfiliado
       : "";
 

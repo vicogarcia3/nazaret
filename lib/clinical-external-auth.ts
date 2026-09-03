@@ -34,7 +34,15 @@ export async function getClinicalExternalSession() {
       include: {
         doctor: {
           include: {
-            clinicalAccess: true,
+            clinicalAccess: {
+              include: {
+                sharedPatients: {
+                  select: {
+                    patientId: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -88,6 +96,70 @@ export async function getClinicalExternalSession() {
         session.doctor.professionalLicense,
     },
 
+    /*
+     * Alcance de historias clínicas habilitado
+     * para este especialista: todas, o solo
+     * las de los pacientes puntuales listados.
+     */
+    clinicalAccess: {
+      shareAll: session.doctor.clinicalAccess.shareAll,
+      patientIds:
+        session.doctor.clinicalAccess.sharedPatients.map(
+          (shared) => shared.patientId
+        ),
+    },
+
     expiresAt: session.expiresAt,
   };
+}
+
+/*
+ * Valida si un doctor con sesión externa puede
+ * ver la historia clínica de un paciente puntual:
+ * - Si tiene "compartir todas", debe pertenecer
+ *   a una de sus sucursales.
+ * - Si tiene selección puntual, debe estar en
+ *   la lista de pacientes compartidos.
+ */
+export async function canExternalDoctorAccessPatient(
+  doctorId: string,
+  clinicalAccessScope: {
+    shareAll: boolean;
+    patientIds: string[];
+  },
+  patientId: string
+) {
+  if (!clinicalAccessScope.shareAll) {
+    return clinicalAccessScope.patientIds.includes(
+      patientId
+    );
+  }
+
+  const doctorBranches =
+    await prisma.doctorBranch.findMany({
+      where: {
+        doctorId,
+      },
+      select: {
+        branchId: true,
+      },
+    });
+
+  const branchIds = doctorBranches.map(
+    (branch) => branch.branchId
+  );
+
+  const patient = await prisma.patient.findFirst({
+    where: {
+      id: patientId,
+      branchId: {
+        in: branchIds,
+      },
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  return Boolean(patient);
 }

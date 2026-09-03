@@ -49,7 +49,15 @@ export default async function ClinicalHistoriesPage() {
     },
 
     include: {
-      clinicalAccess: true,
+      clinicalAccess: {
+        include: {
+          sharedPatients: {
+            select: {
+              patientId: true,
+            },
+          },
+        },
+      },
     },
 
     orderBy: {
@@ -89,6 +97,14 @@ export default async function ClinicalHistoriesPage() {
 
     hasClinicalAccess:
       doctor.clinicalAccess?.active === true,
+
+    shareAll:
+      doctor.clinicalAccess?.shareAll !== false,
+
+    sharedPatientIds:
+      doctor.clinicalAccess?.sharedPatients.map(
+        (shared) => shared.patientId
+      ) ?? [],
   }));
 
   return (

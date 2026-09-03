@@ -2,13 +2,20 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
+import {
+  getClinicalExternalSession,
+  canExternalDoctorAccessPatient,
+} from "@/lib/clinical-external-auth";
 
 type RouteContext = {
   params: Promise<{
     id: string;
   }>;
 };
+
+type ExternalSession = Awaited<
+  ReturnType<typeof getClinicalExternalSession>
+>;
 
 function optionalText(value: unknown) {
   if (typeof value !== "string") {
@@ -70,11 +77,13 @@ function optionalDate(value: unknown) {
 async function getAuthorizedEntry({
   entryId,
   isAdmin,
-  doctorId,
+  internalDoctorId,
+  externalSession,
 }: {
   entryId: string;
   isAdmin: boolean;
-  doctorId?: string;
+  internalDoctorId?: string;
+  externalSession?: ExternalSession;
 }) {
   /*
    * ADMIN puede administrar cualquier entrada.
@@ -88,53 +97,97 @@ async function getAuthorizedEntry({
   }
 
   /*
-   * Especialista externo:
+   * Doctor interno (panel propio, NextAuth):
    * solamente puede modificar/eliminar
    * sus propias prestaciones.
    */
-  if (!doctorId) {
-    return null;
+  if (internalDoctorId) {
+    const entry =
+      await prisma.clinicalHistoryAnnexEntry.findFirst({
+        where: {
+          id: entryId,
+          createdByDoctorId: internalDoctorId,
+        },
+      });
+
+    if (entry) {
+      return entry;
+    }
   }
 
-  const doctor =
-    await prisma.doctor.findUnique({
-      where: {
-        id: doctorId,
-      },
-
-      select: {
-        branches: {
-          select: {
-            branchId: true,
+  /*
+   * Especialista externo (cookie /acceso-clinico):
+   * solamente puede modificar/eliminar sus propias
+   * prestaciones, y solo si sigue teniendo acceso
+   * a esa historia clínica (todas, o selección
+   * puntual).
+   */
+  if (externalSession) {
+    const entry =
+      await prisma.clinicalHistoryAnnexEntry.findFirst({
+        where: {
+          id: entryId,
+          createdByDoctorId: externalSession.doctor.id,
+        },
+        include: {
+          clinicalHistory: {
+            select: {
+              patientId: true,
+            },
           },
         },
+      });
+
+    if (!entry) {
+      return null;
+    }
+
+    const hasAccess =
+      await canExternalDoctorAccessPatient(
+        externalSession.doctor.id,
+        externalSession.clinicalAccess,
+        entry.clinicalHistory.patientId
+      );
+
+    return hasAccess ? entry : null;
+  }
+
+  return null;
+}
+
+async function resolveAuthContext() {
+  const session = await auth();
+
+  const isAdmin =
+    session?.user?.role === "ADMIN";
+
+  let internalDoctorId: string | undefined;
+
+  if (
+    !isAdmin &&
+    session?.user?.id &&
+    session.user.role === "DOCTOR"
+  ) {
+    const doctor = await prisma.doctor.findUnique({
+      where: {
+        userId: session.user.id,
+      },
+      select: {
+        id: true,
       },
     });
 
-  if (!doctor) {
-    return null;
+    internalDoctorId = doctor?.id;
   }
 
-  const branchIds =
-    doctor.branches.map(
-      (branch) => branch.branchId
-    );
+  const externalSession =
+    await getClinicalExternalSession();
 
-  return prisma.clinicalHistoryAnnexEntry.findFirst({
-    where: {
-      id: entryId,
-
-      createdByDoctorId: doctorId,
-
-      clinicalHistory: {
-        patient: {
-          branchId: {
-            in: branchIds,
-          },
-        },
-      },
-    },
-  });
+  return {
+    isAdmin,
+    internalDoctorId,
+    externalSession: externalSession ?? undefined,
+  };
 }
 
 /* =========================================================
@@ -146,23 +199,20 @@ export async function PUT(
   context: RouteContext
 ) {
   try {
-    const session =
-      await auth();
-
-    const clinicalSession =
-      await getClinicalExternalSession();
-
-    const isAdmin =
-      session?.user?.role === "ADMIN";
+    const {
+      isAdmin,
+      internalDoctorId,
+      externalSession,
+    } = await resolveAuthContext();
 
     if (
       !isAdmin &&
-      !clinicalSession
+      !internalDoctorId &&
+      !externalSession
     ) {
       return NextResponse.json(
         {
-          error:
-            "No autorizado.",
+          error: "No autorizado.",
         },
         {
           status: 401,
@@ -170,16 +220,14 @@ export async function PUT(
       );
     }
 
-    const { id } =
-      await context.params;
+    const { id } = await context.params;
 
-    const existingEntry =
-      await getAuthorizedEntry({
-        entryId: id,
-        isAdmin,
-        doctorId:
-          clinicalSession?.doctor.id,
-      });
+    const existingEntry = await getAuthorizedEntry({
+      entryId: id,
+      isAdmin,
+      internalDoctorId,
+      externalSession,
+    });
 
     if (!existingEntry) {
       return NextResponse.json(
@@ -193,8 +241,7 @@ export async function PUT(
       );
     }
 
-    const body =
-      await request.json();
+    const body = await request.json();
 
     const professionalName =
       typeof body.professionalName === "string"
@@ -230,14 +277,9 @@ export async function PUT(
       );
     }
 
-    const debit =
-      optionalDecimal(body.debit);
-
-    const credit =
-      optionalDecimal(body.credit);
-
-    const balance =
-      optionalDecimal(body.balance);
+    const debit = optionalDecimal(body.debit);
+    const credit = optionalDecimal(body.credit);
+    const balance = optionalDecimal(body.balance);
 
     if (
       debit === undefined ||
@@ -255,14 +297,11 @@ export async function PUT(
       );
     }
 
-    const nextAppointment =
-      optionalDate(
-        body.nextAppointment
-      );
+    const nextAppointment = optionalDate(
+      body.nextAppointment
+    );
 
-    if (
-      nextAppointment === undefined
-    ) {
+    if (nextAppointment === undefined) {
       return NextResponse.json(
         {
           error:
@@ -274,14 +313,11 @@ export async function PUT(
       );
     }
 
-    const performedAt =
-      optionalDate(
-        body.performedAt
-      );
+    const performedAt = optionalDate(
+      body.performedAt
+    );
 
-    if (
-      performedAt === undefined
-    ) {
+    if (performedAt === undefined) {
       return NextResponse.json(
         {
           error:
@@ -296,8 +332,7 @@ export async function PUT(
     const updatedEntry =
       await prisma.clinicalHistoryAnnexEntry.update({
         where: {
-          id:
-            existingEntry.id,
+          id: existingEntry.id,
         },
 
         data: {
@@ -305,10 +340,9 @@ export async function PUT(
 
           treatment,
 
-          indications:
-            optionalText(
-              body.indications
-            ),
+          indications: optionalText(
+            body.indications
+          ),
 
           debit,
           credit,
@@ -324,10 +358,9 @@ export async function PUT(
 
           nextAppointment,
 
-          patientSignature:
-            optionalText(
-              body.patientSignature
-            ),
+          patientSignature: optionalText(
+            body.patientSignature
+          ),
         },
       });
 
@@ -343,8 +376,7 @@ export async function PUT(
 
     return NextResponse.json(
       {
-        error:
-          "No se pudo modificar la entrada.",
+        error: "No se pudo modificar la entrada.",
       },
       {
         status: 500,
@@ -362,23 +394,20 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
-    const session =
-      await auth();
-
-    const clinicalSession =
-      await getClinicalExternalSession();
-
-    const isAdmin =
-      session?.user?.role === "ADMIN";
+    const {
+      isAdmin,
+      internalDoctorId,
+      externalSession,
+    } = await resolveAuthContext();
 
     if (
       !isAdmin &&
-      !clinicalSession
+      !internalDoctorId &&
+      !externalSession
     ) {
       return NextResponse.json(
         {
-          error:
-            "No autorizado.",
+          error: "No autorizado.",
         },
         {
           status: 401,
@@ -386,16 +415,14 @@ export async function DELETE(
       );
     }
 
-    const { id } =
-      await context.params;
+    const { id } = await context.params;
 
-    const existingEntry =
-      await getAuthorizedEntry({
-        entryId: id,
-        isAdmin,
-        doctorId:
-          clinicalSession?.doctor.id,
-      });
+    const existingEntry = await getAuthorizedEntry({
+      entryId: id,
+      isAdmin,
+      internalDoctorId,
+      externalSession,
+    });
 
     if (!existingEntry) {
       return NextResponse.json(
@@ -411,16 +438,14 @@ export async function DELETE(
 
     await prisma.clinicalHistoryAnnexEntry.delete({
       where: {
-        id:
-          existingEntry.id,
+        id: existingEntry.id,
       },
     });
 
     return NextResponse.json({
       success: true,
 
-      message:
-        "Registro eliminado correctamente.",
+      message: "Registro eliminado correctamente.",
     });
   } catch (error) {
     console.error(
@@ -430,8 +455,7 @@ export async function DELETE(
 
     return NextResponse.json(
       {
-        error:
-          "No se pudo eliminar la entrada.",
+        error: "No se pudo eliminar la entrada.",
       },
       {
         status: 500,

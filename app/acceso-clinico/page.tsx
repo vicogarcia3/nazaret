@@ -1,6 +1,24 @@
+import { redirect } from "next/navigation";
+
+import { getClinicalExternalSession } from "@/lib/clinical-external-auth";
+
 import ClinicalAccessForm from "./ClinicalAccessForm";
 
-export default function ClinicalAccessPage() {
+export default async function ClinicalAccessPage() {
+  /*
+   * Si ya tiene una sesión externa válida
+   * (cookie vigente, doctor activo, acceso
+   * habilitado), lo mandamos derecho al
+   * listado en vez de pedirle el código
+   * de nuevo.
+   */
+  const existingSession =
+    await getClinicalExternalSession();
+
+  if (existingSession) {
+    redirect("/historias-clinicas");
+  }
+
   return (
     <main className="min-h-screen bg-[#F7F5EF] px-6 py-12 text-[#263F3B]">
       <div className="mx-auto max-w-xl">
