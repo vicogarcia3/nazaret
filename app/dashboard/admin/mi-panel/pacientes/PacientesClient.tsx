@@ -125,7 +125,7 @@ export default function PacientesClient({
 
     if (!res.ok) {
       const data = await res.json();
-      toast.error("No se pudo guardar el paciente.");
+      toast.error(data.error || "No se pudo guardar el paciente.");
       return;
     }
 
