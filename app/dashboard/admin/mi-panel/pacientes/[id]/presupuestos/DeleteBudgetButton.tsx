@@ -3,6 +3,7 @@
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/components/ui/ConfirmProvider";
+import { toast } from "sonner";
 
 type Props = {
   budgetId: string;
@@ -26,6 +27,7 @@ export default function DeleteBudgetButton({ budgetId }: Props) {
       method: "DELETE",
     });
 
+    toast.success("Presupuesto eliminado correctamente.");
     router.refresh();
   }
 

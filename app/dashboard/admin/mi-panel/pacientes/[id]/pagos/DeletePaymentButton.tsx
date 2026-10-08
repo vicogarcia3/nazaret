@@ -34,6 +34,7 @@ export default function DeletePaymentButton({ paymentId }: Props) {
       return;
     }
 
+    toast.success("Pago eliminado correctamente");
     router.refresh();
   }
 
