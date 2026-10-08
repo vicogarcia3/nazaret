@@ -7,6 +7,12 @@ export async function GET() {
   try {
     const session = await auth();
 
+    console.log("[BUDGETS DIAG] Solicitud recibida", {
+      authenticated: !!session,
+      roleIsPatient: session?.user?.role === "PATIENT",
+      hasUserId: !!session?.user?.id,
+    });
+
     if (
       !session ||
       session.user.role !== "PATIENT"
@@ -30,6 +36,10 @@ export async function GET() {
           id: true,
         },
       });
+
+    console.log("[BUDGETS DIAG] Paciente", {
+      found: !!patient,
+    });
 
     if (!patient) {
       return NextResponse.json(
@@ -81,6 +91,18 @@ export async function GET() {
           createdAt: "desc",
         },
       });
+
+    console.log("[BUDGETS DIAG] Consulta completada", {
+      count: budgets.length,
+      doctorsCount: budgets.reduce(
+        (sum, budget) => sum + budget.doctors.length,
+        0
+      ),
+      itemsCount: budgets.reduce(
+        (sum, budget) => sum + budget.items.length,
+        0
+      ),
+    });
 
     const serializedBudgets =
       budgets.map((budget) => {
@@ -186,6 +208,10 @@ export async function GET() {
             ),
         };
       });
+
+    console.log("[BUDGETS DIAG] Respuesta preparada", {
+      count: serializedBudgets.length,
+    });
 
     return NextResponse.json(
       serializedBudgets
